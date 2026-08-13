@@ -4,15 +4,46 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Drogaria Mais Barato - Medicamentos com os melhores preços em São Bernardo do Campo">
-  <title>Drogaria Mais Barato 💊</title>
+  <title>Drogaria Mais Barato</title>
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Drogaria Mais Barato">
+  <meta property="og:description" content="Medicamentos, perfumaria e higiene com os melhores preços em São Bernardo do Campo. Retire na loja ou receba em casa.">
+  <meta property="og:image" content="logo.png">
+  <meta name="theme-color" content="#26247B">
+
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,600&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="preload" as="image" href="https://drogariasmaisbarato.com.br/wp-content/uploads/2026/03/cropped-Design-sem-nome-56.png">
+  <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,600&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="preload" as="image" href="logo.png">
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
+
+<!-- 🎨 SPRITE DE ÍCONES (não aparece na tela; os cards usam via <use>) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="ic-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></symbol>
+    <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></symbol>
+    <symbol id="ic-cart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h2l1.4 9.2A2 2 0 0 0 9.4 17h7.2a2 2 0 0 0 2-1.7L20 8H7"/><circle cx="10" cy="21" r="1"/><circle cx="17" cy="21" r="1"/></symbol>
+    <symbol id="ic-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-7.58 7-12a7 7 0 1 0-14 0c0 4.42 7 12 7 12z"/><circle cx="12" cy="9" r="2.4"/></symbol>
+    <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 9.5 18 20 6"/></symbol>
+    <symbol id="ic-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><line x1="9.5" y1="11" x2="9.5" y2="17"/><line x1="14.5" y1="11" x2="14.5" y2="17"/><path d="M9 7V4h6v3"/></symbol>
+    <symbol id="ic-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 15 12 8 19 15"/></symbol>
+    <symbol id="ic-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></symbol>
+    <symbol id="ic-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12.5 12.5 20 4 11.5V4h7.5z"/><circle cx="8.2" cy="7.8" r="1.3" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="ic-trending" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></symbol>
+    <symbol id="ic-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="12" height="9"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="6.5" cy="18.5" r="1.6"/><circle cx="17.5" cy="18.5" r="1.6"/></symbol>
+    <symbol id="ic-store" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M3 9l1.6-5h14.8L21 9"/><path d="M9.5 21v-6h5v6"/></symbol>
+    <symbol id="ic-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v8l9 5 9-5V8"/><line x1="12" y1="13" x2="12" y2="21"/></symbol>
+    <symbol id="ic-receita" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><line x1="8.5" y1="13" x2="15.5" y2="13"/><line x1="8.5" y1="17" x2="13" y2="17"/></symbol>
+    <symbol id="ic-whats" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12.04 2c-5.5 0-9.96 4.46-9.96 9.96 0 1.76.46 3.45 1.34 4.95L2 22l5.22-1.37a9.9 9.9 0 0 0 4.82 1.24h.01c5.5 0 9.96-4.46 9.96-9.96S17.54 2 12.04 2zm5.8 14.06c-.24.68-1.42 1.31-1.96 1.36-.5.05-.98.24-3.3-.69-2.78-1.1-4.54-3.95-4.68-4.13-.13-.18-1.11-1.48-1.11-2.82s.7-2 .95-2.28c.25-.27.54-.34.72-.34l.52.01c.17.01.39-.06.61.47.23.55.77 1.9.84 2.04.07.14.11.3.02.48-.09.18-.14.29-.27.45l-.4.47c-.14.13-.28.28-.12.55.16.27.71 1.17 1.52 1.9 1.04.93 1.92 1.21 2.19 1.35.27.14.43.11.59-.07.16-.18.68-.79.86-1.07.18-.27.36-.22.61-.13.25.09 1.58.75 1.85.88.27.14.45.2.52.32.07.11.07.64-.17 1.32z"/></symbol>
+  </defs>
+</svg>
 
 <!-- 🟡 FAIXA DE MARCA -->
 <div class="faixa-topo">Pensando <strong>SEMPRE</strong> em você</div>
@@ -21,19 +52,20 @@
 <header class="header" role="banner">
   <div class="header-left">
     <img
-      src="https://drogariasmaisbarato.com.br/wp-content/uploads/2026/03/cropped-Design-sem-nome-56.png"
+      src="logo.png"
       class="logo"
       alt="Logo Drogaria Mais Barato"
-      width="40" height="40"
+      width="98" height="40"
     >
     <div class="titulo">
       <h1>Drogaria Mais Barato</h1>
-      <span id="status" class="status-aberto">🟢 Aberto</span>
+      <span id="status" class="status-aberto"><i class="status-dot" aria-hidden="true"></i>Aberto</span>
     </div>
   </div>
 
-  <button class="header-carrinho" onclick="toggleCarrinho()" aria-label="Abrir carrinho">
-    🛒 <span id="qtdTop">(0)</span>
+  <button class="header-carrinho" onclick="toggleCarrinho()" aria-label="Abrir carrinho de compras">
+    <svg class="ic" width="16" height="16" aria-hidden="true"><use href="#ic-cart"></use></svg>
+    <span id="qtdTop" class="header-carrinho-qtd">0</span>
     <span id="totalTop">R$ 0,00</span>
   </button>
 </header>
@@ -41,11 +73,11 @@
 <!-- 🔍 BUSCA -->
 <section class="busca-container" role="search">
   <div class="busca-wrapper">
-    <span class="busca-icon" aria-hidden="true">🔍</span>
+    <svg class="busca-icon" width="15" height="15" aria-hidden="true"><use href="#ic-search"></use></svg>
     <input
       type="search"
       id="busca"
-      placeholder="Buscar medicamentos..."
+      placeholder="Buscar por nome, marca ou laboratório"
       autocomplete="off"
       aria-label="Buscar produtos"
       onkeydown="if(event.key==='Enter') buscar()"
@@ -55,98 +87,152 @@
 </section>
 
 <!-- 🎯 FILTROS -->
-<nav id="filtros" class="filtros" aria-label="Categorias"></nav>
+<div class="filtros-wrap">
+  <nav id="filtros" class="filtros" aria-label="Categorias"></nav>
+  <!-- barra de rolagem própria: a nativa é "overlay" e só aparece durante o
+       arrasto na maioria dos celulares, então o cliente não descobre que
+       existem mais categorias para o lado -->
+  <div id="filtrosBarra" class="filtros-barra" aria-hidden="true">
+    <span id="filtrosThumb" class="filtros-thumb"></span>
+  </div>
+</div>
 
 <!-- 🎠 BANNER -->
 <section class="banner" aria-label="Promoções">
   <div class="banner-container">
-    <div class="banner-slide ativo">🔥 ATÉ 50% OFF EM MEDICAMENTOS</div>
-    <div class="banner-slide">💊 FRETE GRÁTIS ACIMA DE R$ 50</div>
-    <div class="banner-slide">⚡ COMPRE PELO SITE E RETIRE NA LOJA</div>
-    <div class="banner-slide">🚀 NÃO ENCONTROU? ENCOMENDAMOS PARA VOCÊ!</div>
+    <div class="banner-slide ativo">
+      <svg class="ic" width="20" height="20" aria-hidden="true"><use href="#ic-store"></use></svg>
+      COMPRE PELO SITE E RETIRE NA LOJA
+    </div>
+    <div class="banner-slide">
+      <svg class="ic" width="20" height="20" aria-hidden="true"><use href="#ic-truck"></use></svg>
+      ENTREGAMOS EM ATÉ 8 KM DA LOJA
+    </div>
+    <div class="banner-slide">
+      <svg class="ic" width="20" height="20" aria-hidden="true"><use href="#ic-box"></use></svg>
+      NÃO ENCONTROU? ENCOMENDAMOS PARA VOCÊ
+    </div>
   </div>
 </section>
 
-<!-- 🔥 MAIS VENDIDOS -->
-<section class="mais-vendidos" aria-label="Mais vendidos">
-  <h2>🔥 Mais Vendidos</h2>
+<!-- 🔥 DESTAQUES -->
+<section class="mais-vendidos" aria-label="Destaques da semana">
+  <h2>
+    <svg class="ic" width="17" height="17" aria-hidden="true"><use href="#ic-trending"></use></svg>
+    Destaques da semana
+  </h2>
   <div id="listaMaisVendidos" class="scroll-horizontal"></div>
 </section>
 
-<!-- 🗂️ CATEGORIAS SEPARADAS (home) -->
+<!-- 🗂️ SEÇÕES POR FAMÍLIA (home) -->
 <section id="categoriasHome" aria-label="Produtos por categoria"></section>
 
+<!-- 📊 BARRA DE RESULTADO (busca / categoria / ofertas) -->
+<div id="barraResultado" class="barra-resultado" style="display:none;">
+  <div class="barra-resultado-info">
+    <strong id="resultadoTitulo"></strong>
+    <span id="resultadoContagem" class="barra-resultado-contagem"></span>
+  </div>
+  <label class="ordenacao-wrap">
+    <span class="ordenacao-label">Ordenar</span>
+    <select id="ordenacao" aria-label="Ordenar produtos">
+      <option value="relevancia">Relevância</option>
+      <option value="menor-preco">Menor preço</option>
+      <option value="maior-preco">Maior preço</option>
+      <option value="desconto">Maior desconto</option>
+      <option value="nome">Nome (A–Z)</option>
+    </select>
+  </label>
+</div>
+
 <!-- 📦 PRODUTOS (grid — busca e filtro por categoria) -->
-<main id="produtos" aria-label="Lista de produtos" aria-live="polite"></main>
+<main id="produtos" aria-label="Lista de produtos"></main>
 
 <!-- ⏳ LOADER -->
 <div id="loader" class="loader" aria-hidden="true">
   <div class="loader-spinner"></div>
+  <p>Carregando o catálogo…</p>
 </div>
 
 <!-- 🛒 CARRINHO -->
 <aside id="carrinho" class="carrinho" role="complementary" aria-label="Carrinho de compras">
-  <button class="carrinho-header" onclick="toggleCarrinho()" aria-expanded="false">
-    <span>🛒 Carrinho</span>
-    <span><span id="qtd">(0)</span> · <span id="total">R$ 0,00</span></span>
+  <button class="carrinho-header" onclick="toggleCarrinho()" aria-expanded="false" aria-controls="carrinhoBody">
+    <span>
+      <svg class="ic" width="15" height="15" aria-hidden="true"><use href="#ic-cart"></use></svg>
+      Carrinho
+    </span>
+    <span><span id="qtd">0</span> · <span id="total">R$ 0,00</span></span>
   </button>
 
-  <div class="carrinho-body">
+  <div class="carrinho-body" id="carrinhoBody">
     <div id="itens"></div>
 
     <div class="carrinho-form">
 
-      <select id="tipoEntrega" onchange="toggleEndereco()">
-        <option value="Retirada">🏪 Retirada na loja</option>
-        <option value="Entrega">🚚 Entrega em casa</option>
+      <select id="tipoEntrega" onchange="toggleEndereco()" aria-label="Tipo de entrega">
+        <option value="Retirada">Retirada na loja</option>
+        <option value="Entrega">Entrega em casa</option>
       </select>
 
-      <input type="text" id="nome" placeholder="Seu nome *">
-      <input type="tel" id="telefone" placeholder="Telefone *">
+      <input type="text" id="nome" placeholder="Seu nome *" autocomplete="name">
+      <input type="tel" id="telefone" placeholder="Telefone *" autocomplete="tel">
 
       <div id="boxEndereco" style="display:none;">
 
         <input type="text" id="cep" placeholder="CEP *"
-          maxlength="9"
+          maxlength="9" inputmode="numeric" autocomplete="postal-code"
           oninput="mascaraCEP(this); resetarFrete();"
           onblur="buscarCEP()">
 
         <input type="text" id="endereco" placeholder="Rua" readonly>
-        <input type="text" id="numero" placeholder="Número *" oninput="resetarFrete()">
+        <input type="text" id="numero" placeholder="Número *" inputmode="numeric" oninput="resetarFrete()">
         <input type="text" id="bairro" placeholder="Bairro" readonly>
         <input type="text" id="cidade" placeholder="Cidade" readonly>
 
         <button type="button" id="btnCalcularFrete" class="btn-calcular-frete" onclick="calcularFrete()">
-          📍 Calcular taxa de entrega
+          <svg class="ic" width="14" height="14" aria-hidden="true"><use href="#ic-pin"></use></svg>
+          Calcular taxa de entrega
         </button>
 
         <div id="resultadoFrete" class="resultado-frete" style="display:none;"></div>
 
       </div>
 
-      <select id="pagamento" onchange="trocarPagamento()">
-        <option value="">💳 Forma de pagamento</option>
+      <select id="pagamento" onchange="trocarPagamento()" aria-label="Forma de pagamento">
+        <option value="">Forma de pagamento</option>
         <option value="Pix">Pix</option>
         <option value="Dinheiro">Dinheiro</option>
         <option value="Cartão Crédito">Cartão Crédito</option>
         <option value="Cartão Débito">Cartão Débito</option>
       </select>
 
-    <div id="boxTroco" style="display:none;">
-  <input
-    type="text"
-    id="trocoInput"
-    placeholder="R$ 0,00"
-    inputmode="numeric"
-    oninput="formatarTroco(this)"
-  >
-</div>
+      <div id="boxTroco" style="display:none;">
+        <input
+          type="text"
+          id="trocoInput"
+          placeholder="Troco para R$ 0,00"
+          inputmode="numeric"
+          aria-label="Troco para"
+          oninput="formatarTroco(this)"
+        >
+      </div>
 
     </div>
 
+    <p class="aviso-privacidade">
+      Usamos seu nome, telefone e endereço apenas para preparar e entregar este pedido.
+      Não compartilhamos com terceiros.
+    </p>
+
     <div class="carrinho-acoes">
-      <button class="btn-finalizar" onclick="finalizar()">✅ Finalizar Pedido</button>
-      <button class="btn-limpar" onclick="limparCarrinho()">🗑️ Limpar</button>
+      <button class="btn-finalizar" onclick="finalizar()">
+        <svg class="ic" width="15" height="15" aria-hidden="true"><use href="#ic-check"></use></svg>
+        Finalizar Pedido
+      </button>
+      <button class="btn-limpar" onclick="limparCarrinho()">
+        <svg class="ic" width="15" height="15" aria-hidden="true"><use href="#ic-trash"></use></svg>
+        Limpar
+      </button>
     </div>
   </div>
 </aside>
@@ -154,32 +240,38 @@
 <!-- 🔝 VOLTAR AO TOPO -->
 <button id="voltarTopo" class="voltar-topo" aria-label="Voltar ao topo">
   <span></span>
-  <p>Voltar ao topo ▲</p>
+  <p>
+    <svg class="ic" width="13" height="13" aria-hidden="true"><use href="#ic-chevron-up"></use></svg>
+    Voltar ao topo
+  </p>
   <span></span>
 </button>
 
 <!-- 🔔 TOAST -->
-<div id="toast" class="toast" role="alert" aria-live="assertive"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <!-- 📄 RODAPÉ -->
 <footer class="rodape" role="contentinfo">
   <div class="rodape-container">
-    <p><strong>Copyright © Drogaria Mais Barato | CNPJ: 37.925.108/0001-03</strong></p>
-    <p>São Bernardo do Campo - SP: Rua Almeida Leme 07-Loja 1,
-Parque Sao Bernardo,São Bernardo do Campo-SP CEP:09761-170<br>
-      DRA LAIS CARVALHO DA SILVA CRF 122886 | Autorização: Processo 25351.507967/2022-82 | MS: 7.89888-2</p>
+    <p><strong>Drogaria Mais Barato · CNPJ 37.925.108/0001-03</strong></p>
+    <p>Rua Almeida Leme 07 – Loja 1, Parque São Bernardo, São Bernardo do Campo – SP, CEP 09761-170</p>
+    <p>Farmacêutica responsável: Dra. Laís Carvalho da Silva – CRF 122886<br>
+       Autorização: Processo 25351.507967/2022-82 · MS 7.89888-2</p>
     <p>As informações deste site não substituem orientação médica e não devem ser usadas para automedicação.</p>
-    <p>Fotos meramente ilustrativas. Preços sujeitos a alterações sem aviso prévio.</p>
-    <p>⚕️ Antibióticos somente com receita. Portaria nº 344 — Ministério da Saúde.</p>
+    <p>Fotos meramente ilustrativas. Preços sujeitos a alteração sem aviso prévio.</p>
+    <p>Antibióticos e medicamentos controlados somente com receita — Portaria nº 344, Ministério da Saúde.</p>
+  </div>
 </footer>
+
 <footer class="rodape-agencia">
   <p>
-    Site desenvolvido por 
-    <a href="https://wa.me/5511940266948?text=Olá!%20Vi%20o%20crédito%20da%20FarmaTech%20Systems%20no%20site%20e%20gostaria%20de%20saber%20sobre%20criação%20de%20loja%20virtual%20e%20sistemas." target="_blank">
-  <strong>FarmaTech Systems</strong> 🚀
-</a>
+    Site desenvolvido por
+    <a href="https://wa.me/5511940266948?text=Ol%C3%A1!%20Vi%20o%20cr%C3%A9dito%20da%20FarmaTech%20Systems%20no%20site%20e%20gostaria%20de%20saber%20sobre%20cria%C3%A7%C3%A3o%20de%20loja%20virtual%20e%20sistemas." target="_blank" rel="noopener">
+      <strong>FarmaTech Systems</strong>
+    </a>
   </p>
 </footer>
+
 <script src="script.js" defer></script>
 </body>
 </html>

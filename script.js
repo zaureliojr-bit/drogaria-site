@@ -8,7 +8,189 @@ const API_PEDIDOS =
 "https://script.google.com/macros/s/AKfycbxkYaQekyFpkptlBPxz5CoyR50sJU_gzLC8tVuW6rWTSJejk0_BRQGaSRkapnMUhWszLw/exec";
 const WHATS_LOJA = "5511925190101";
 const POR_PAGINA = 12;
-const PLACEHOLDER = "https://placehold.co/100x100/ececff/5c5c94?text=💊";
+
+/* Produtos de categorias que exigem receita não entram no carrinho:
+   em vez de "Adicionar", o cliente é levado ao WhatsApp para falar com
+   a farmacêutica. Se a Dra. Laís definir outro fluxo, mude para false. */
+const BLOQUEAR_CONTROLADOS = true;
+
+/* Tabela de tarja da CMED (ANVISA), por EAN. A categoria do FarmaxPDV não
+   diz se o medicamento exige receita: cruzando o catálogo com a Lista de
+   Conformidade, 1.008 produtos que exigem receita entravam no carrinho —
+   34 deles de tarja preta (Portaria 344). Quem manda agora é a tarja.
+
+   Se o arquivo não carregar, o site continua de pé usando só a regra por
+   categoria: a tarja SOMA bloqueios, nunca libera nenhum. Para atualizar,
+   baixe a lista nova em gov.br/anvisa/pt-br/assuntos/medicamentos/cmed/precos
+   e gere o arquivo de novo. */
+const API_TARJAS = "tarjas.json";
+
+/* Frete grátis a partir de: use 0 para desativar.
+   Enquanto for 0, o banner NÃO deve prometer frete grátis. */
+const FRETE_GRATIS_ACIMA_DE = 0;
+
+/* Quantas seções de categoria já vêm montadas na home. As demais
+   são montadas conforme o cliente rola (IntersectionObserver). */
+const SECOES_INICIAIS = 4;
+
+/* Validade do catálogo guardado no navegador (evita rebaixar 3 MB
+   ao navegar entre a home e a página de produto). */
+/* v5: o produto passou a guardar a tarja da CMED — um cache antigo
+   deixaria medicamento de receita voltar para o carrinho. */
+const CACHE_CHAVE = "catalogo_v5";
+const CACHE_MINUTOS = 30;
+
+/* =========================
+🖼️ IMAGEM DE "PRODUTO SEM FOTO"
+Arte da própria loja (caixa genérica, com o aviso da RDC 71/2009).
+Fica hospedada junto do site, e não num serviço externo: hoje todo o
+catálogo cai neste arquivo, então se o host sair do ar a vitrine
+inteira vai junto.
+========================= */
+const IMAGEM_SEM_FOTO = "sem-imagem.webp";              // com o selo "Medicamento Genérico"
+const IMAGEM_SEM_FOTO_NEUTRA = "sem-imagem-neutra.webp"; // mesma caixa, sem o selo
+
+/* Só estas classes podem exibir a caixa com o selo "Medicamento Genérico".
+   Um ETICO é medicamento de referência, não genérico — para ele e para os
+   demais medicamentos entra a caixa neutra, que mantém a marca e o aviso
+   de prescrição, mas sem o selo. */
+const CATS_COM_SELO_GENERICO = ["GENERICO", "SIMILAR", "GENER/SIMILAR S/GT"];
+
+/* As duas caixas dizem "VENDA SOB PRESCRIÇÃO MÉDICA", então nenhuma delas
+   entra fora de medicamento: perfume, shampoo e mamadeira seguem com a
+   ilustração neutra em SVG. Mude para true para usar em todo o catálogo. */
+const IMAGEM_SEM_FOTO_EM_TUDO = false;
+
+/* =========================
+🛡️ ESCAPE
+Descrições do FarmaxPDV contêm aspas e & — ex.: AGULHA DESC. ... ( 22G1 1/4" ).
+Sem escapar, elas quebram o atributo e o navegador inventa tags.
+========================= */
+function esc(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/* texto sem acento e em minúsculas, para busca */
+function normalizar(v) {
+  return String(v == null ? "" : v)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/* =========================
+🖼️ IMAGENS FICTÍCIAS (fallback)
+Quando o produto não tem foto real, usamos uma ilustração genérica que
+varia pelo tipo do produto, pra não ficar tudo com a mesma imagem vazia.
+========================= */
+function _svgDataUri(miolo, escala = 1.35) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" rx="14" fill="#ECEBF5"/>
+    <g transform="translate(50 50) scale(${escala}) translate(-50 -50)">
+      ${miolo}
+    </g>
+  </svg>`;
+  return "data:image/svg+xml," + encodeURIComponent(svg);
+}
+
+const PLACEHOLDERS = {
+  comprimido: _svgDataUri(`
+    <rect x="26" y="24" width="48" height="52" rx="8" fill="none" stroke="#5c5c94" stroke-width="3"/>
+    <circle cx="38" cy="38" r="5" fill="#5c5c94"/>
+    <circle cx="62" cy="38" r="5" fill="#5c5c94"/>
+    <circle cx="38" cy="56" r="5" fill="#FFD400"/>
+    <circle cx="62" cy="56" r="5" fill="#5c5c94"/>
+    <circle cx="38" cy="68" r="5" fill="#5c5c94"/>
+    <circle cx="62" cy="68" r="5" fill="#5c5c94"/>
+  `),
+  xarope: _svgDataUri(`
+    <rect x="40" y="20" width="20" height="10" rx="2" fill="#5c5c94"/>
+    <path d="M38 30 h24 v10 l6 8 v28 a4 4 0 0 1 -4 4 H36 a4 4 0 0 1 -4 -4 V48 l6 -8 Z"
+      fill="none" stroke="#5c5c94" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M34 58 h32 v14 a4 4 0 0 1 -4 4 H38 a4 4 0 0 1 -4 -4 Z" fill="#FFD400" opacity="0.55"/>
+    <line x1="40" y1="46" x2="60" y2="46" stroke="#5c5c94" stroke-width="2"/>
+  `),
+  pomada: _svgDataUri(`
+    <path d="M42 22 h16 v10 l6 6 v30 a10 10 0 0 1 -10 10 h-8 a10 10 0 0 1 -10 -10 V38 l6 -6 Z"
+      fill="none" stroke="#5c5c94" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="42" y="20" width="16" height="6" rx="1.5" fill="#5c5c94"/>
+    <line x1="38" y1="50" x2="62" y2="50" stroke="#FFD400" stroke-width="4"/>
+    <line x1="38" y1="60" x2="62" y2="60" stroke="#5c5c94" stroke-width="2" opacity="0.5"/>
+  `),
+  spray: _svgDataUri(`
+    <rect x="40" y="42" width="20" height="34" rx="5" fill="none" stroke="#5c5c94" stroke-width="3"/>
+    <rect x="45" y="30" width="10" height="12" fill="#5c5c94"/>
+    <path d="M55 26 h10 v6 h-10 Z" fill="#FFD400"/>
+    <line x1="65" y1="24" x2="72" y2="20" stroke="#5c5c94" stroke-width="3" stroke-linecap="round"/>
+    <line x1="44" y1="54" x2="56" y2="54" stroke="#5c5c94" stroke-width="2" opacity="0.5"/>
+    <line x1="44" y1="62" x2="56" y2="62" stroke="#5c5c94" stroke-width="2" opacity="0.5"/>
+  `),
+  cosmetico: _svgDataUri(`
+    <rect x="43" y="22" width="14" height="8" rx="2" fill="#5c5c94"/>
+    <path d="M38 30 h24 a4 4 0 0 1 4 4 v34 a8 8 0 0 1 -8 8 H42 a8 8 0 0 1 -8 -8 V34 a4 4 0 0 1 4 -4 Z"
+      fill="none" stroke="#5c5c94" stroke-width="3"/>
+    <circle cx="50" cy="54" r="9" fill="#FFD400" opacity="0.6"/>
+  `),
+  cabelo: _svgDataUri(`
+    <rect x="41" y="18" width="18" height="8" rx="2" fill="#5c5c94"/>
+    <path d="M38 26 h24 a5 5 0 0 1 5 5 v39 a6 6 0 0 1 -6 6 H39 a6 6 0 0 1 -6 -6 V31 a5 5 0 0 1 5 -5 Z"
+      fill="none" stroke="#5c5c94" stroke-width="3"/>
+    <rect x="38" y="44" width="24" height="14" rx="3" fill="#FFD400" opacity="0.55"/>
+  `),
+  generico: _svgDataUri(`
+    <rect x="28" y="30" width="44" height="40" rx="6" fill="none" stroke="#5c5c94" stroke-width="3"/>
+    <rect x="26" y="24" width="48" height="10" rx="3" fill="#5c5c94"/>
+    <line x1="50" y1="42" x2="50" y2="58" stroke="#FFD400" stroke-width="5" stroke-linecap="round"/>
+    <line x1="42" y1="50" x2="58" y2="50" stroke="#FFD400" stroke-width="5" stroke-linecap="round"/>
+  `)
+};
+
+/* detecta o "tipo" do produto pelo nome (abreviações do FarmaxPDV) e pela categoria */
+function tipoImagemProduto(nome, categoria) {
+  const n = (nome || "").toUpperCase();
+  const c = (categoria || "").toUpperCase();
+
+  if (/\b(XPE|XAROPE|SUSP|SOLUC?AO|GTS|GOTAS?)\b/.test(n)) return "xarope";
+  if (/\b(CREM|POMADA|GEL|LOCAO|LOÇÃO)\b/.test(n)) return "pomada";
+  if (/\b(SPRAY|AEROSOL|NASAL|SPR)\b/.test(n)) return "spray";
+  if (/\b(COMP|CAPS|DRG|CPR|COM\.)\b/.test(n)) return "comprimido";
+
+  if (/SHAMPOO|CONDICIONADOR|TINT|CABELO|CACHO/.test(c + " " + n)) return "cabelo";
+  if (c.includes("PERFUM") || c.includes("COSMET") || c.includes("HIGIENE")) return "cosmetico";
+
+  return "generico";
+}
+
+function placeholderProduto(nome, categoria) {
+  return PLACEHOLDERS[tipoImagemProduto(nome, categoria)] || PLACEHOLDERS.generico;
+}
+
+/* O produto guarda só o TIPO do ícone ("comprimido", "xarope"...), não a
+   imagem inteira: cada data-URI tem ~700 bytes e, multiplicado por 5 mil
+   produtos, estourava o cache do navegador sozinho. */
+function svgDe(p) {
+  return PLACEHOLDERS[p.tipoImg] || PLACEHOLDERS.generico;
+}
+
+/* O que aparece quando o produto não tem foto própria:
+   genérico/similar -> caixa com o selo · demais medicamentos -> caixa neutra
+   · resto do catálogo -> ilustração em SVG. */
+function fallbackDe(p) {
+  if (IMAGEM_SEM_FOTO_EM_TUDO || p.ehMedicamento) {
+    return p.temSeloGenerico ? IMAGEM_SEM_FOTO : IMAGEM_SEM_FOTO_NEUTRA;
+  }
+  return svgDe(p);
+}
+
+function imagemDe(p) {
+  return p.imagem || fallbackDe(p);
+}
 
 /* FRETE — faixas fixas por distância */
 const LOJA_LAT = -23.7092450;
@@ -16,49 +198,75 @@ const LOJA_LNG = -46.5251954;
 const RAIO_MAX_KM = 8;
 
 /* =========================
-🏷️ NOMES DE CATEGORIA
-Mapeia o nome cru que vem do FarmaxPDV para um nome bonito de exibir.
-Adicione aqui os casos estranhos que você for encontrando na planilha
-(ex: abreviações, tudo em maiúsculo, etc). A chave deve estar em MAIÚSCULO.
+🏷️ FAMÍLIAS DE CATEGORIA
+O FarmaxPDV exporta 51 categorias internas ("ETICO", "GENER/SIMILAR S/GT",
+"PRESTOBARBA"...). Elas viram um punhado de famílias com nome de gente,
+que é o que aparece nos filtros e nas seções da home.
+Categoria nova que não estiver aqui cai em "Outros" — é só acrescentar.
 ========================= */
-const NOMES_CATEGORIAS = {
-  "FR INFANTIL": "Fraldas Infantil",
-  "FR GERIATRICA": "Fraldas Geriátricas",
-  "HIG BUCAL": "Higiene Bucal",
-  "HIG PESSOAL": "Higiene Pessoal",
-  "PERF": "Perfumaria",
-  "DERMOCOSM": "Dermocosméticos",
-  "MED GENERICO": "Medicamentos Genéricos",
-  "MED REFERENCIA": "Medicamentos de Referência",
-  "MED SIMILAR": "Medicamentos Similares",
-  "MAT MED HOSP": "Materiais Médico-Hospitalares",
-  "SUPLEM": "Suplementos",
-  "VETERINARIA": "Veterinária"
-};
-
-// Ordem de prioridade das categorias na home. As listadas aqui aparecem
-// primeiro, nessa ordem. As demais entram depois, da maior pra menor
-// quantidade de produtos. Deixe vazio ([]) pra usar só a ordenação automática.
-// Use o nome em MAIÚSCULO e sem espaços duplicados, ex: "FR INFANTIL".
-const ORDEM_CATEGORIAS = [];
-
 function chaveCategoria(cat) {
   return (cat || "").trim().toUpperCase().replace(/\s+/g, " ");
 }
 
-function formatarCategoria(cat) {
-  if (!cat) return "";
+/* "medicamento: true" faz a família usar a caixa genérica da loja quando o
+   produto não tem foto. "receita: true" tira o produto do carrinho e manda
+   o cliente falar com a farmacêutica. */
+const FAMILIAS = [
+  { id: "medicamentos", nome: "Medicamentos", medicamento: true,
+    cats: ["ETICO", "GENERICO", "SIMILAR", "GENER/SIMILAR S/GT", "CARTELADOS"] },
 
-  const chave = chaveCategoria(cat);
-  if (NOMES_CATEGORIAS[chave]) return NOMES_CATEGORIAS[chave];
+  { id: "receita", nome: "Exigem receita", receita: true, medicamento: true,
+    cats: ["ETICO CONTROLADO"] },
 
-  // fallback: Título Case simples pra categorias sem entrada no dicionário
-  return cat
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  { id: "anticoncepcional", nome: "Anticoncepcionais", medicamento: true,
+    cats: ["ANTICONCEPCIONAL"] },
+
+  { id: "vitaminas", nome: "Vitaminas e Suplementos",
+    cats: ["VITAMINAS", "SUPLEMENTO"] },
+
+  { id: "cabelo", nome: "Cabelo",
+    cats: ["SHAMPOO", "CONDICIONADOR", "CREME PENTEAR", "CREME TRATAMENTO", "OLEO CAPILAR",
+           "GEL FIXADOR CABELO", "TINTURA", "CR ALIS E MATIZADOR", "KIT SHAMPO/COND",
+           "ESCOVA DE CABELO", "PENTE E ESCOVA"] },
+
+  { id: "pele", nome: "Cuidados com a Pele",
+    cats: ["DERMOCOSMETICO", "HIDRATANTE", "PROTETOR SOLAR", "OLEO CORPORAL",
+           "LOÇAO FACIAL", "LOCAO FACIAL", "SABONETE LIQUIDO", "SABONETE BARRA"] },
+
+  { id: "perfumaria", nome: "Perfumaria",
+    cats: ["PERFUME", "DESODORANTE", "TALCO"] },
+
+  { id: "higiene", nome: "Higiene Pessoal",
+    cats: ["HIGIENE BUCAL", "HIGIENE PESSOAL", "ABSORVENTE", "PRESERVATIVO",
+           "PRESTOBARBA", "DEPILATORIO"] },
+
+  { id: "beleza", nome: "Beleza e Maquiagem",
+    cats: ["ESMALTES", "MAQUIAGEM"] },
+
+  { id: "infantil", nome: "Infantil",
+    cats: ["LINHA INFANTIL", "FR INFANTIL", "FORMULA LEITE"] },
+
+  { id: "saude", nome: "Saúde e Bem-estar",
+    cats: ["FR GERIATRICA", "ORTOPED", "LUVAS", "PERF/APLIC/AFERICAO", "REPELENTE",
+           "TESOURA", "OFICINAL HOSPITALAR"] },
+
+  { id: "conveniencia", nome: "Conveniência",
+    cats: ["CONVENIENCIA", "DIVERSOS", "VAREJO", "PREMIUM 10", "HAVAIANA"] }
+];
+
+const FAMILIA_OUTROS = { id: "outros", nome: "Outros", cats: [] };
+
+const _indiceFamilia = new Map();
+FAMILIAS.forEach(f => f.cats.forEach(c => _indiceFamilia.set(chaveCategoria(c), f)));
+
+function familiaDe(categoria) {
+  return _indiceFamilia.get(chaveCategoria(categoria)) || FAMILIA_OUTROS;
+}
+
+function nomeFamilia(id) {
+  if (id === "ofertas") return "Ofertas";
+  const f = FAMILIAS.find(x => x.id === id);
+  return f ? f.nome : FAMILIA_OUTROS.nome;
 }
 
 const FAIXAS_FRETE = [
@@ -81,14 +289,30 @@ function calcularValorFrete(dist) {
 let produtos = [];
 let produtosFiltrados = [];
 let maisVendidos = [];
-let carrinho = JSON.parse(localStorage.getItem("carrinho")) || [];
+let carrinho = carregarCarrinho();
 let categoriaAtual = "todas";
 let termoBusca = "";
+let modoOfertas = false;
+let ordenacao = "relevancia";
 let pagina = 0;
 let carregando = false;
 let freteCalculado = null;
 let timeoutBusca;
 let toastTimer;
+
+/* localStorage inválido não pode derrubar o site inteiro: antes, um
+   JSON.parse solto aqui em cima impedia TODO o resto de rodar. */
+function carregarCarrinho() {
+  try {
+    const bruto = localStorage.getItem("carrinho");
+    const lista = bruto ? JSON.parse(bruto) : [];
+    return Array.isArray(lista) ? lista.filter(i => i && i.codigo) : [];
+  } catch (e) {
+    console.warn("Carrinho salvo estava inválido, começando vazio.", e);
+    try { localStorage.removeItem("carrinho"); } catch (_) {}
+    return [];
+  }
+}
 
 /* =========================
 🛠️ HELPERS
@@ -96,13 +320,29 @@ let toastTimer;
 const el = id => document.getElementById(id);
 
 const fmt = v =>
-  Number(v || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
+  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+// preço com tipografia em duas escalas: R$ + parte inteira grande + centavos pequenos
+function precoGrandeHTML(v) {
+  const partes = Number(v || 0)
+    .toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .split(",");
+  return `<span class="preco-cifra">R$</span><span class="preco-reais">${partes[0]}</span><span class="preco-centavos">,${partes[1] || "00"}</span>`;
+}
+
+function descontoPercent(original, promo) {
+  const o = Number(original || 0);
+  const p = Number(promo || 0);
+  if (!o || !p || p >= o) return 0;
+  return Math.round((1 - p / o) * 100);
+}
 
 function telValido(tel) {
   return tel.replace(/\D/g, "").length >= 10;
+}
+
+function icone(id, tam = 14) {
+  return `<svg class="ic" width="${tam}" height="${tam}" aria-hidden="true"><use href="#ic-${id}"></use></svg>`;
 }
 
 function toast(msg) {
@@ -111,7 +351,14 @@ function toast(msg) {
   clearTimeout(toastTimer);
   t.textContent = msg;
   t.className = "toast ativo";
-  toastTimer = setTimeout(() => (t.className = "toast"), 2800);
+  toastTimer = setTimeout(() => (t.className = "toast"), 3200);
+}
+
+function mostrarLoader(ligado) {
+  const l = el("loader");
+  if (!l) return;
+  l.classList.toggle("ativo", !!ligado);
+  l.setAttribute("aria-hidden", ligado ? "false" : "true");
 }
 
 /* =========================
@@ -131,7 +378,7 @@ function atualizarStatusLoja() {
 
   const aberto = minutos >= abre && minutos < fecha;
 
-  statusEl.textContent = aberto ? "🟢 Aberto" : "🔴 Fechado";
+  statusEl.innerHTML = `<i class="status-dot" aria-hidden="true"></i>${aberto ? "Aberto" : "Fechado"}`;
   statusEl.className = aberto ? "status-aberto" : "status-fechado";
 }
 
@@ -146,10 +393,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   el("busca")?.addEventListener("input", e => {
     clearTimeout(timeoutBusca);
+    const valor = e.target.value;
     timeoutBusca = setTimeout(() => {
-      termoBusca = e.target.value.toLowerCase().trim();
+      termoBusca = normalizar(valor);
+      modoOfertas = false;
       aplicarFiltro();
     }, 300);
+  });
+
+  el("ordenacao")?.addEventListener("change", e => {
+    ordenacao = e.target.value;
+    aplicarFiltro();
   });
 
   el("voltarTopo")?.addEventListener("click", () => {
@@ -157,199 +411,459 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   window.addEventListener("scroll", () => {
-    if (carregando) return;
+    // Na home o grid está escondido (quem aparece são as seções por família).
+    // Sem esta guarda, o scroll ficava montando cards dentro de um container
+    // com display:none — trabalho jogado fora a cada rolagem.
+    if (carregando || estaNaHome()) return;
 
     const dist =
-      document.documentElement.scrollHeight -
-      window.scrollY -
-      window.innerHeight;
+      document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
 
     if (dist < 400) renderMais();
   });
 
+  ligarDelegacaoDeCliques();
+  _atualizarBarraFiltros = ligarBarraFiltros();
   toggleEndereco();
   iniciarBanner();
+
+  // quem volta da página de produto pelo botão do carrinho já chega com ele aberto
+  if (new URLSearchParams(location.search).get("carrinho") === "1") {
+    toggleCarrinho();
+    history.replaceState(null, "", location.pathname);
+  }
 });
+
+function estaNaHome() {
+  return categoriaAtual === "todas" && !termoBusca && !modoOfertas;
+}
+
+/* =========================
+🖱️ DELEGAÇÃO DE CLIQUES
+Um listener só, no documento, em vez de onclick escrito dentro de cada card.
+Some o risco de nome de produto com aspas quebrar o HTML.
+========================= */
+function ligarDelegacaoDeCliques() {
+  document.addEventListener("click", ev => {
+    const alvo = ev.target.closest("[data-acao]");
+    if (!alvo) return;
+
+    const acao = alvo.dataset.acao;
+    const codigo = alvo.dataset.codigo;
+
+    if (acao === "mais")            { ev.preventDefault(); mais(codigo); }
+    else if (acao === "menos")      { ev.preventDefault(); menos(codigo); }
+    else if (acao === "filtrar")    { ev.preventDefault(); filtrarCategoria(alvo.dataset.familia); }
+    else if (acao === "ofertas")    { ev.preventDefault(); verOfertas(); }
+    else if (acao === "receita")    { ev.preventDefault(); falarSobreReceita(codigo); }
+    else if (acao === "banner")     { ev.preventDefault(); adicionarDoBanner(codigo); }
+    else if (acao === "recarregar") { ev.preventDefault(); carregar(); }
+  });
+}
 
 /* =========================
 📡 CARREGAR PRODUTOS
 ========================= */
+/* =========================
+💊 TARJA (CMED / ANVISA)
+========================= */
+/* P = preta (Portaria 344)  R = vermelha sob restrição
+   V = vermelha              L = livre, isento de prescrição (MIP) */
+const TARJA_EXIGE_RECEITA = new Set(["P", "R", "V"]);
+let _tarjas = null;   // Map<eanNumerico, "P"|"R"|"V"|"L">
+
+const TARJA_ROTULO = {
+  P: "Tarja preta — retenção de receita",
+  R: "Tarja vermelha sob restrição",
+  V: "Tarja vermelha — venda sob prescrição",
+  L: "Isento de prescrição"
+};
+
+async function carregarTarjas() {
+  try {
+    const resposta = await fetch(API_TARJAS);
+    if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+
+    const { tarjas } = await resposta.json();
+    const mapa = new Map();
+
+    // o gerador já entrega cada EAN uma vez só, na tarja mais restritiva.
+    // A ordem aqui garante isso de novo: se um EAN repetir, fica a pior,
+    // e não a que aparecer por último no arquivo.
+    const peso = { P: 4, R: 3, V: 2, L: 1 };
+    Object.keys(tarjas || {}).forEach(codigo => {
+      (tarjas[codigo] || []).forEach(ean => {
+        if (peso[codigo] > (peso[mapa.get(ean)] || 0)) mapa.set(ean, codigo);
+      });
+    });
+
+    _tarjas = mapa;
+  } catch (e) {
+    // Sem a tabela o site não para: cai na regra por categoria, que é
+    // mais frouxa. O aviso fica no console para aparecer em teste.
+    console.error("Tabela de tarjas não carregou; usando só a categoria.", e);
+    _tarjas = null;
+  }
+}
+
+function tarjaDe(ean) {
+  if (!_tarjas) return "";
+  const n = Number(String(ean || "").replace(/\D/g, ""));
+  return n ? (_tarjas.get(n) || "") : "";
+}
+
+function mapearProduto(p) {
+  const venda = Number(String(p.precoVenda || 0).replace(",", "."));
+  const promo = Number(String(p.precoPromocao || 0).replace(",", "."));
+  const emOferta = promo > 0 && promo < venda;
+  const familia = familiaDe(p.categoria);
+  // O padronizador passou a gravar a tarja no próprio produtos.json. Quando
+  // ela vem de lá, o tarjas.json não é consultado — e assim que todo o
+  // catálogo estiver exportado com o campo, aquele arquivo pode ser apagado.
+  const tarja = p.tarja || tarjaDe(p.ean);
+
+  return {
+    tarja,
+    tarjaNome: TARJA_ROTULO[tarja] || "",
+    codigo: p.codigo,
+    ean: p.ean,
+    nome: p.descricao,
+    marca: p.marca || "",
+    laboratorio: p.laboratorio || "",
+    categoria: p.categoria || "",
+
+    familia: familia.id,
+    familiaNome: familia.nome,
+    // a tarja SOMA à regra por categoria: nada que já era bloqueado
+    // volta a ser vendido porque a CMED não conhece aquele EAN.
+    exigeReceita: !!familia.receita ||
+      p.exigeReceita === true ||
+      TARJA_EXIGE_RECEITA.has(tarja),
+    ehMedicamento: !!familia.medicamento,
+    temSeloGenerico: CATS_COM_SELO_GENERICO.includes(chaveCategoria(p.categoria)),
+
+    preco: emOferta ? promo : venda,
+    precoOriginal: venda,
+    emOferta,
+    desconto: emOferta ? descontoPercent(venda, promo) : 0,
+
+    estoque: p.estoque,
+
+    imagem: p.imagem || "",
+    tipoImg: tipoImagemProduto(p.descricao, p.categoria),
+
+    // índice de busca: nome + marca + laboratório + EAN, sem acento
+    busca: normalizar([p.descricao, p.marca, p.laboratorio, p.ean].filter(Boolean).join(" "))
+  };
+}
+
+/* guarda o catálogo já mapeado, para não rebaixar 3 MB ao ir e voltar
+   da página de produto. Falha em silêncio se não couber. */
+function lerCache() {
+  try {
+    const bruto = sessionStorage.getItem(CACHE_CHAVE);
+    if (!bruto) return null;
+    const { quando, lista } = JSON.parse(bruto);
+    if (!Array.isArray(lista) || !lista.length) return null;
+    if (Date.now() - quando > CACHE_MINUTOS * 60000) return null;
+    return lista;
+  } catch (e) {
+    return null;
+  }
+}
+
+function gravarCache(lista) {
+  try {
+    sessionStorage.setItem(CACHE_CHAVE, JSON.stringify({ quando: Date.now(), lista }));
+  } catch (e) {
+    console.info("Catálogo não coube no cache do navegador; seguindo sem ele.");
+  }
+}
+
 async function carregar() {
   const container = el("produtos");
+  mostrarLoader(true);
 
   try {
-    const resposta = await fetch(API_PRODUTOS);
+    let lista = lerCache();
 
-const dados = await resposta.json();
+    if (!lista) {
+      // as duas descidas em paralelo: a tarja precisa estar na mão antes
+      // de mapear os produtos, senão o bloqueio sai errado.
+      const [resposta] = await Promise.all([fetch(API_PRODUTOS), carregarTarjas()]);
+      if (!resposta.ok) throw new Error("HTTP " + resposta.status);
 
-produtos = dados.produtos.map(produto => ({
+      const dados = await resposta.json();
 
-    codigo: produto.codigo,
+      lista = (dados.produtos || [])
+        .filter(p => p && p.ean && p.descricao)
+        .map(mapearProduto);
 
-    ean: produto.ean,
-
-    descricao: produto.descricao,
-
-    marca: produto.marca,
-
-    laboratorio: produto.laboratorio,
-
-    categoria: produto.categoria,
-
-    classe: produto.classe,
-
-    precoVenda: produto.precoVenda,
-
-    precoPromocao: produto.precoPromocao,
-
-    precoCusto: produto.precoCusto,
-
-    estoque: produto.estoque,
-
-    reajuste: produto.reajuste,
-
-    imagem: produto.imagem,
-
-    statusImagem: produto.statusImagem
-
-}));
-
-    produtos = dados.produtos
-    .filter(p => p.ean && p.descricao)
-    .map(p => ({
-
-        codigo: p.codigo,
-
-        ean: p.ean,
-
-        nome: p.descricao,
-
-        descricao: p.descricao,
-
-        marca: p.marca || "",
-
-        laboratorio: p.laboratorio || "",
-
-        categoria: p.categoria || "",
-
-        classe: p.classe || "",
-
-        preco: (() => {
-            const venda = Number(String(p.precoVenda || 0).replace(",", "."));
-            const promo = Number(String(p.precoPromocao || 0).replace(",", "."));
-            return (promo > 0 && promo < venda) ? promo : venda;
-        })(),
-
-        precoOriginal: Number(String(p.precoVenda || 0).replace(",", ".")),
-
-        emOferta: (() => {
-            const venda = Number(String(p.precoVenda || 0).replace(",", "."));
-            const promo = Number(String(p.precoPromocao || 0).replace(",", "."));
-            return promo > 0 && promo < venda;
-        })(),
-
-        precoVenda: p.precoVenda,
-
-        precoPromocao: p.precoPromocao,
-
-        precoCusto: p.precoCusto,
-
-        estoque: p.estoque,
-
-        reajuste: p.reajuste,
-
-        imagem: p.imagem || PLACEHOLDER,
-
-        statusImagem: p.statusImagem
-
-    }));
-
-    if (!Array.isArray(produtos) || !produtos.length) {
-      throw new Error("Lista de produtos vazia");
+      gravarCache(lista);
     }
 
-    maisVendidos = [...produtos]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 12);
+    produtos = lista;
+    if (!produtos.length) throw new Error("Lista de produtos vazia");
+
+    reconciliarCarrinho();
+
+    // "Mais vendidos" hoje é uma amostra — o export não traz dado de venda.
+    // Sorteio estável por dia, para a vitrine não trocar a cada F5.
+    maisVendidos = amostraDoDia(produtos.filter(p => !p.exigeReceita), 12);
 
     gerarFiltros();
     renderCategoriasHome();
     aplicarFiltro();
     renderMaisVendidos();
+    renderBannerOfertas();
     renderCarrinho();
     atualizarTotais();
+
+    document.dispatchEvent(new CustomEvent("produtosProntos", { detail: { ok: true } }));
   } catch (e) {
     console.error("Erro ao carregar produtos", e);
     if (container) {
+      container.style.display = "grid";
       container.innerHTML = `
-        <div style="grid-column:1/-1; text-align:center; padding:30px 14px;">
-          <p style="margin-bottom:10px;">😕 Não foi possível carregar os produtos.</p>
-          <button class="btn-buscar" onclick="carregar()">Tentar novamente</button>
+        <div class="aviso-vazio">
+          <p>Não foi possível carregar os produtos.</p>
+          <p class="aviso-vazio-sub">Confira sua conexão e tente de novo.</p>
+          <button class="btn-buscar" data-acao="recarregar">Tentar novamente</button>
         </div>
       `;
     }
+    document.dispatchEvent(new CustomEvent("produtosProntos", { detail: { ok: false } }));
+  } finally {
+    mostrarLoader(false);
+  }
+}
+
+/* sorteio determinístico: muda por dia, não a cada carregamento */
+function amostraDoDia(lista, quantos) {
+  const hoje = new Date();
+  let semente = hoje.getFullYear() * 10000 + (hoje.getMonth() + 1) * 100 + hoje.getDate();
+  const rnd = () => {
+    semente = (semente * 1103515245 + 12345) % 2147483648;
+    return semente / 2147483648;
+  };
+  const copia = [...lista];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia.slice(0, quantos);
+}
+
+/* O catálogo é reimportado do FarmaxPDV; o carrinho fica no navegador.
+   Sem isto, quem volta depois de um reajuste vê (e pede) o preço antigo. */
+function reconciliarCarrinho() {
+  if (!carrinho.length) return;
+
+  const antes = carrinho.length;
+  let mudouPreco = 0;
+
+  carrinho = carrinho.reduce((acc, item) => {
+    const p = produtos.find(x => String(x.codigo) === String(item.codigo));
+    if (!p) return acc;                                     // saiu do catálogo
+    if (BLOQUEAR_CONTROLADOS && p.exigeReceita) return acc;  // passou a exigir receita
+
+    if (Number(item.preco) !== Number(p.preco)) mudouPreco++;
+
+    acc.push({ codigo: p.codigo, nome: p.nome, preco: p.preco, imagem: p.imagem, qtd: item.qtd });
+    return acc;
+  }, []);
+
+  const removidos = antes - carrinho.length;
+  if (removidos || mudouPreco) {
+    salvar();
+    const partes = [];
+    if (mudouPreco) partes.push(`${mudouPreco} ${mudouPreco > 1 ? "preços atualizados" : "preço atualizado"}`);
+    if (removidos) partes.push(`${removidos} ${removidos > 1 ? "itens saíram" : "item saiu"} do carrinho`);
+    toast(partes.join(" · "));
   }
 }
 
 /* =========================
-🏷️ FILTROS POR CATEGORIA
+🏷️ FILTROS POR FAMÍLIA
 ========================= */
+function familiasComProdutos() {
+  const contagem = new Map();
+  produtos.forEach(p => contagem.set(p.familia, (contagem.get(p.familia) || 0) + 1));
+
+  return [...FAMILIAS, FAMILIA_OUTROS]
+    .filter(f => contagem.has(f.id))
+    .map(f => ({ ...f, total: contagem.get(f.id) }));
+}
+
 function gerarFiltros() {
   const container = el("filtros");
   if (!container) return;
 
-  // mapa: chave normalizada -> nome cru representativo (usado só pra exibir)
-  const mapa = new Map();
-  produtos.forEach(p => {
-    if (!p.categoria) return;
-    const chave = chaveCategoria(p.categoria);
-    if (!mapa.has(chave)) mapa.set(chave, p.categoria.trim());
-  });
+  const temOferta = produtos.some(p => p.emOferta);
 
-  const chaves = ["todas", ...mapa.keys()];
+  container.innerHTML = [
+    `<button data-acao="filtrar" data-familia="todas" data-categoria="todas" class="ativo">
+       ${icone("home", 13)}Todos
+     </button>`,
+    temOferta
+      ? `<button data-acao="ofertas" data-categoria="ofertas" class="chip-ofertas">
+           ${icone("tag", 13)}Ofertas
+         </button>`
+      : "",
+    ...familiasComProdutos().map(f => `
+      <button data-acao="filtrar" data-familia="${esc(f.id)}" data-categoria="${esc(f.id)}">
+        ${esc(f.nome)}
+      </button>`)
+  ].join("");
 
-  container.innerHTML = chaves.map(chave => `
-    <button
-      data-categoria="${chave}"
-      class="${chave === "todas" ? "ativo" : ""}"
-      onclick="filtrarCategoria('${chave.replace(/'/g, "\\'")}')"
-    >${chave === "todas" ? "🏠 Todos" : formatarCategoria(mapa.get(chave))}</button>
-  `).join("");
+  // os chips acabaram de nascer: recalcula o tamanho do polegar da barra
+  if (_atualizarBarraFiltros) _atualizarBarraFiltros();
 }
 
-function filtrarCategoria(cat) {
-  categoriaAtual = cat;
+/* =========================
+↔️ BARRA DE ROLAGEM DOS FILTROS
+A barra nativa dos navegadores é "overlay": no celular ela só aparece
+enquanto o dedo arrasta e some logo em seguida, então o cliente não
+descobre que existem mais categorias fora da tela. Esta aqui fica
+sempre visível quando há transbordo, acompanha a rolagem e pode ser
+arrastada com o mouse.
+========================= */
+function ligarBarraFiltros() {
+  const trilho = el("filtros");
+  const barra = el("filtrosBarra");
+  const polegar = el("filtrosThumb");
+  if (!trilho || !barra || !polegar) return;
 
-  document.querySelectorAll("#filtros button").forEach(btn => {
-    btn.classList.toggle("ativo", btn.dataset.categoria === cat);
+  function atualizar() {
+    const transbordo = trilho.scrollWidth - trilho.clientWidth;
+
+    // sem categoria escondida não há o que rolar: esconde a barra
+    if (transbordo <= 1) {
+      barra.classList.remove("ativa");
+      return;
+    }
+    barra.classList.add("ativa");
+
+    const larguraTrilho = barra.clientWidth;
+    const proporcao = trilho.clientWidth / trilho.scrollWidth;
+    const larguraPolegar = Math.max(26, Math.round(larguraTrilho * proporcao));
+    const avanco = trilho.scrollLeft / transbordo;              // 0 → 1
+    const deslocamento = Math.round((larguraTrilho - larguraPolegar) * avanco);
+
+    polegar.style.width = larguraPolegar + "px";
+    polegar.style.transform = `translateX(${deslocamento}px)`;
+  }
+
+  trilho.addEventListener("scroll", atualizar, { passive: true });
+  window.addEventListener("resize", atualizar);
+
+  // arrastar a barra rola os filtros junto
+  let arrastando = false;
+
+  function moverPara(clienteX) {
+    const caixa = barra.getBoundingClientRect();
+    const larguraPolegar = polegar.offsetWidth;
+    const util = caixa.width - larguraPolegar;
+    if (util <= 0) return;
+
+    const pos = clienteX - caixa.left - larguraPolegar / 2;
+    const avanco = Math.min(1, Math.max(0, pos / util));
+    trilho.scrollLeft = avanco * (trilho.scrollWidth - trilho.clientWidth);
+  }
+
+  barra.addEventListener("pointerdown", ev => {
+    arrastando = true;
+    barra.classList.add("arrastando");
+    barra.setPointerCapture(ev.pointerId);
+    moverPara(ev.clientX);
   });
 
+  barra.addEventListener("pointermove", ev => {
+    if (arrastando) moverPara(ev.clientX);
+  });
+
+  const soltar = ev => {
+    if (!arrastando) return;
+    arrastando = false;
+    barra.classList.remove("arrastando");
+    if (ev.pointerId != null && barra.hasPointerCapture(ev.pointerId)) {
+      barra.releasePointerCapture(ev.pointerId);
+    }
+  };
+
+  barra.addEventListener("pointerup", soltar);
+  barra.addEventListener("pointercancel", soltar);
+
+  atualizar();
+  return atualizar;
+}
+
+let _atualizarBarraFiltros = null;
+
+function marcarChipAtivo(chave) {
+  document.querySelectorAll("#filtros button").forEach(btn => {
+    btn.classList.toggle("ativo", btn.dataset.categoria === chave);
+  });
+}
+
+function filtrarCategoria(familiaId) {
+  categoriaAtual = familiaId || "todas";
+  modoOfertas = false;
+  termoBusca = "";
+  const campoBusca = el("busca");
+  if (campoBusca) campoBusca.value = "";
+
+  marcarChipAtivo(categoriaAtual);
   aplicarFiltro();
 
-  if (cat !== "todas") {
+  if (categoriaAtual !== "todas") {
     el("produtos")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 
-/* =========================
-🔎 BUSCA
-========================= */
-function buscar() {
-  clearTimeout(timeoutBusca);
-  termoBusca = (el("busca")?.value || "").toLowerCase().trim();
+/* mostra só os produtos em oferta no grid principal */
+function verOfertas() {
+  modoOfertas = true;
+  categoriaAtual = "todas";
+  termoBusca = "";
+
+  const campoBusca = el("busca");
+  if (campoBusca) campoBusca.value = "";
+
+  marcarChipAtivo("ofertas");
   aplicarFiltro();
   el("produtos")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function aplicarFiltro() {
-  produtosFiltrados = produtos.filter(p =>
-    (categoriaAtual === "todas" || chaveCategoria(p.categoria) === categoriaAtual) &&
-    (!termoBusca || p.nome.toLowerCase().includes(termoBusca))
-  );
+/* =========================
+🔎 BUSCA E ORDENAÇÃO
+========================= */
+function buscar() {
+  clearTimeout(timeoutBusca);
+  modoOfertas = false;
+  termoBusca = normalizar(el("busca")?.value || "");
+  aplicarFiltro();
+  el("produtos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
-  // Home (sem busca e sem filtro): mostra categorias separadas e esconde o grid.
-  // Busca ou categoria específica: esconde as categorias separadas e mostra o grid filtrado.
-  const modoHome = categoriaAtual === "todas" && !termoBusca;
+function ordenar(lista) {
+  const copia = [...lista];
+  if (ordenacao === "menor-preco") return copia.sort((a, b) => a.preco - b.preco);
+  if (ordenacao === "maior-preco") return copia.sort((a, b) => b.preco - a.preco);
+  if (ordenacao === "desconto")    return copia.sort((a, b) => b.desconto - a.desconto);
+  if (ordenacao === "nome")        return copia.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  return copia;
+}
+
+function aplicarFiltro() {
+  produtosFiltrados = ordenar(produtos.filter(p => {
+    if (modoOfertas && !p.emOferta) return false;
+    if (!modoOfertas && categoriaAtual !== "todas" && p.familia !== categoriaAtual) return false;
+    if (termoBusca && !p.busca.includes(termoBusca)) return false;
+    return true;
+  }));
+
+  const modoHome = estaNaHome();
 
   const boxCategorias = el("categoriasHome");
   const boxProdutos = el("produtos");
@@ -357,10 +871,75 @@ function aplicarFiltro() {
   if (boxCategorias) boxCategorias.style.display = modoHome ? "block" : "none";
   if (boxProdutos) boxProdutos.style.display = modoHome ? "none" : "grid";
 
+  const barra = el("barraResultado");
+  if (barra) {
+    if (modoHome) {
+      barra.style.display = "none";
+    } else {
+      barra.style.display = "flex";
+      const rotulo = modoOfertas
+        ? "Ofertas"
+        : termoBusca
+          ? `Resultados para "${(el("busca")?.value || "").trim()}"`
+          : nomeFamilia(categoriaAtual);
+      el("resultadoTitulo").textContent = rotulo;
+      el("resultadoContagem").textContent =
+        `${produtosFiltrados.length} ${produtosFiltrados.length === 1 ? "produto" : "produtos"}`;
+    }
+  }
+
   pagina = 0;
-  el("produtos").innerHTML = "";
+  if (boxProdutos) boxProdutos.innerHTML = "";
   if (!modoHome) renderMais();
 }
+
+/* =========================
+🧾 CARD (grid e versão compacta dos carrosséis)
+========================= */
+function cardHTML(p, mini = false) {
+  const qtd = carrinho.find(i => String(i.codigo) === String(p.codigo))?.qtd || 0;
+  const nome = esc(p.nome);
+  const codigo = esc(p.codigo);
+  const href = `produto.html?codigo=${encodeURIComponent(p.codigo)}`;
+
+  const selo = p.exigeReceita
+    ? `<span class="badge-receita">${icone("receita", 11)}Receita</span>`
+    : p.emOferta
+      ? `<span class="badge-oferta">${icone("tag", 11)}-${p.desconto}%</span>`
+      : "";
+
+  const bloco = p.emOferta
+    ? `<div class="preco-linha-de"><span class="preco-de">${fmt(p.precoOriginal)}</span></div>
+       <span class="preco preco-por">${precoGrandeHTML(p.preco)}</span>`
+    : `<span class="preco">${precoGrandeHTML(p.preco)}</span>`;
+
+  // Produto que exige receita não entra no carrinho: vai para o WhatsApp.
+  const acoes = (BLOQUEAR_CONTROLADOS && p.exigeReceita)
+    ? `<button class="btn-receita" data-acao="receita" data-codigo="${codigo}">
+         ${icone("whats", 13)}Falar com a farmacêutica
+       </button>`
+    : `<div class="${mini ? "controle-mini" : "controle"}">
+         <button data-acao="menos" data-codigo="${codigo}" aria-label="Remover uma unidade de ${nome}">−</button>
+         <span aria-live="polite">${qtd}</span>
+         <button data-acao="mais" data-codigo="${codigo}" aria-label="Adicionar uma unidade de ${nome}">+</button>
+       </div>`;
+
+  return `
+    <div class="${mini ? "card-mini" : "card"}${p.emOferta ? " card-oferta" : ""}" data-codigo="${codigo}">
+      <a class="produto-foto" href="${href}" tabindex="-1" aria-hidden="true">
+        ${selo}
+        <img src="${esc(imagemDe(p))}"
+             onerror="this.onerror=null;this.src='${esc(svgDe(p))}'"
+             alt="" loading="lazy">
+      </a>
+      <div class="produto-nome-wrap"><a class="produto-nome-link" href="${href}">${nome}</a></div>
+      ${bloco}
+      ${acoes}
+    </div>
+  `;
+}
+
+const cardMiniHTML = p => cardHTML(p, true);
 
 /* =========================
 📦 RENDER PRODUTOS (grid principal)
@@ -375,70 +954,21 @@ function renderMais() {
   const slice = produtosFiltrados.slice(inicio, inicio + POR_PAGINA);
 
   if (slice.length === 0 && pagina === 0) {
-    container.innerHTML = "<p style='grid-column:1/-1; text-align:center'>Nenhum produto encontrado</p>";
+    container.innerHTML = `
+      <div class="aviso-vazio">
+        <p>Nenhum produto encontrado.</p>
+        <p class="aviso-vazio-sub">Tente outro termo — dá para buscar pela marca, pelo laboratório ou pelo código de barras.</p>
+      </div>`;
     carregando = false;
     return;
   }
 
-  const frag = document.createDocumentFragment();
+  const molde = document.createElement("div");
+  molde.innerHTML = slice.map(p => cardHTML(p, false)).join("");
+  while (molde.firstElementChild) container.appendChild(molde.firstElementChild);
 
-  slice.forEach(p => {
-    const qtd = carrinho.find(i => i.codigo == p.codigo)?.qtd || 0;
-
-    const div = document.createElement("div");
-    div.className = "card" + (p.emOferta ? " card-oferta" : "");
-    div.dataset.codigo = p.codigo;
-
-    div.innerHTML = `
-      ${p.emOferta ? `<span class="badge-oferta">🏷️ OFERTA</span>` : ""}
-      <img src="${p.imagem || PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'" alt="${p.nome}" loading="lazy">
-      <b>${p.nome}</b>
-      ${p.emOferta ? `
-        <span class="preco-de">De ${fmt(p.precoOriginal)}</span>
-        <span class="preco preco-por">${fmt(p.preco)} <small>cada</small></span>
-      ` : `
-        <span class="preco">${fmt(p.preco)}</span>
-      `}
-
-      <div class="controle">
-        <button onclick="menos('${p.codigo}')" aria-label="Remover">−</button>
-        <span>${qtd}</span>
-        <button onclick="mais('${p.codigo}')" aria-label="Adicionar">+</button>
-      </div>
-    `;
-
-    frag.appendChild(div);
-  });
-
-  container.appendChild(frag);
   pagina++;
   carregando = false;
-}
-
-/* =========================
-🧾 CARD MINI (reutilizado em Mais Vendidos e Categorias)
-========================= */
-function cardMiniHTML(p) {
-  const qtd = carrinho.find(i => i.codigo == p.codigo)?.qtd || 0;
-
-  return `
-    <div class="card-mini${p.emOferta ? " card-oferta" : ""}" data-codigo="${p.codigo}">
-      ${p.emOferta ? `<span class="badge-oferta">🏷️ OFERTA</span>` : ""}
-      <img src="${p.imagem || PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'" alt="${p.nome}" loading="lazy">
-      <b>${p.nome}</b>
-      ${p.emOferta ? `
-        <span class="preco-de">De ${fmt(p.precoOriginal)}</span>
-        <span class="preco preco-por">${fmt(p.preco)} <small>cada</small></span>
-      ` : `
-        <span class="preco">${fmt(p.preco)}</span>
-      `}
-      <div class="controle-mini">
-        <button onclick="menos('${p.codigo}')" aria-label="Remover">−</button>
-        <span>${qtd}</span>
-        <button onclick="mais('${p.codigo}')" aria-label="Adicionar">+</button>
-      </div>
-    </div>
-  `;
 }
 
 /* =========================
@@ -447,72 +977,75 @@ function cardMiniHTML(p) {
 function renderMaisVendidos() {
   const container = el("listaMaisVendidos");
   if (!container) return;
-
   container.innerHTML = maisVendidos.map(cardMiniHTML).join("");
 }
 
 /* =========================
-🗂️ CATEGORIAS SEPARADAS (home)
+🗂️ SEÇÕES POR FAMÍLIA (home)
+Só as primeiras já vêm montadas; as demais entram conforme o cliente rola.
 ========================= */
 function renderCategoriasHome() {
   const container = el("categoriasHome");
   if (!container) return;
 
-  const MIN_ITENS_SECAO = 4;   // categorias com menos que isso não viram seção própria
-  const MAX_ITENS_PREVIA = 12; // quantos produtos mostrar na prévia de cada categoria
+  const MAX_ITENS_PREVIA = 12;
 
-  // mapa: chave normalizada -> nome cru representativo (usado só pra exibir)
-  const mapa = new Map();
+  // agrupamento numa passada só (antes era um filter dentro de um map,
+  // varrendo os 5 mil produtos uma vez por categoria)
+  const porFamilia = new Map();
   produtos.forEach(p => {
-    if (!p.categoria) return;
-    const chave = chaveCategoria(p.categoria);
-    if (!mapa.has(chave)) mapa.set(chave, p.categoria.trim());
+    if (!porFamilia.has(p.familia)) porFamilia.set(p.familia, []);
+    porFamilia.get(p.familia).push(p);
   });
 
-  const blocos = [...mapa.entries()]
-    .map(([chave, nomeCru]) => ({
-      chave,
-      nomeCru,
-      itens: produtos.filter(p => chaveCategoria(p.categoria) === chave)
-    }))
-    .filter(b => b.itens.length >= MIN_ITENS_SECAO)
-    .sort((a, b) => {
-      const iA = ORDEM_CATEGORIAS.indexOf(a.chave);
-      const iB = ORDEM_CATEGORIAS.indexOf(b.chave);
+  const blocos = familiasComProdutos()
+    .map(f => ({ ...f, itens: porFamilia.get(f.id) || [] }))
+    .filter(b => b.itens.length >= 4);
 
-      // categorias na lista de prioridade vêm primeiro, na ordem definida
-      if (iA !== -1 || iB !== -1) {
-        if (iA === -1) return 1;
-        if (iB === -1) return -1;
-        return iA - iB;
-      }
-
-      // as demais: da que tem mais produtos pra que tem menos
-      return b.itens.length - a.itens.length;
-    });
-
-  container.innerHTML = blocos.map(({ chave, nomeCru, itens }) => `
-    <section class="categoria-bloco" aria-label="${formatarCategoria(nomeCru)}">
+  container.innerHTML = blocos.map(({ id, nome, itens }, i) => `
+    <section class="categoria-bloco" aria-label="${esc(nome)}" data-familia="${esc(id)}">
       <div class="categoria-bloco-header">
-        <h2>${formatarCategoria(nomeCru)} <span class="categoria-contador">(${itens.length})</span></h2>
-        <button class="ver-tudo" onclick="filtrarCategoria('${chave.replace(/'/g, "\\'")}')">Ver tudo ›</button>
+        <h2>${esc(nome)} <span class="categoria-contador">${itens.length}</span></h2>
+        <button class="ver-tudo" data-acao="filtrar" data-familia="${esc(id)}">
+          Ver tudo ${icone("chevron-right", 12)}
+        </button>
       </div>
       <div class="scroll-horizontal">
-        ${itens.slice(0, MAX_ITENS_PREVIA).map(cardMiniHTML).join("")}
+        ${i < SECOES_INICIAIS ? itens.slice(0, MAX_ITENS_PREVIA).map(cardMiniHTML).join("") : ""}
       </div>
     </section>
   `).join("");
+
+  // monta as seções restantes quando elas chegam perto da tela
+  const pendentes = blocos.slice(SECOES_INICIAIS);
+  if (!pendentes.length || !("IntersectionObserver" in window)) return;
+
+  const obs = new IntersectionObserver((entradas, observador) => {
+    entradas.forEach(entrada => {
+      if (!entrada.isIntersecting) return;
+      const secao = entrada.target;
+      const bloco = blocos.find(b => b.id === secao.dataset.familia);
+      const trilho = secao.querySelector(".scroll-horizontal");
+      if (bloco && trilho && !trilho.children.length) {
+        trilho.innerHTML = bloco.itens.slice(0, MAX_ITENS_PREVIA).map(cardMiniHTML).join("");
+      }
+      observador.unobserve(secao);
+    });
+  }, { rootMargin: "400px 0px" });
+
+  pendentes.forEach(b => {
+    const secao = container.querySelector(`[data-familia="${CSS.escape(b.id)}"]`);
+    if (secao) obs.observe(secao);
+  });
 }
 
 /* =========================
 🔄 SINCRONIZAR QUANTIDADE NA TELA
-(atualiza o card no grid principal E no mais vendidos
-sem precisar re-renderizar tudo)
 ========================= */
 function atualizarQtdNaTela(codigo) {
-  const qtd = carrinho.find(i => i.codigo == codigo)?.qtd || 0;
+  const qtd = carrinho.find(i => String(i.codigo) === String(codigo))?.qtd || 0;
 
-  document.querySelectorAll(`[data-codigo="${codigo}"]`).forEach(card => {
+  document.querySelectorAll(`[data-codigo="${CSS.escape(String(codigo))}"]`).forEach(card => {
     const span = card.querySelector(".controle span, .controle-mini span");
     if (span) span.textContent = qtd;
   });
@@ -522,10 +1055,12 @@ function atualizarQtdNaTela(codigo) {
 🛒 CARRINHO — adicionar / remover
 ========================= */
 function mais(codigo) {
-  const p = produtos.find(i => i.codigo == codigo);
+  const p = produtos.find(i => String(i.codigo) === String(codigo));
   if (!p) return;
 
-  const item = carrinho.find(i => i.codigo == codigo);
+  if (BLOQUEAR_CONTROLADOS && p.exigeReceita) return falarSobreReceita(codigo);
+
+  const item = carrinho.find(i => String(i.codigo) === String(codigo));
 
   if (item) item.qtd++;
   else carrinho.push({ codigo: p.codigo, nome: p.nome, preco: p.preco, imagem: p.imagem, qtd: 1 });
@@ -535,18 +1070,41 @@ function mais(codigo) {
 }
 
 function menos(codigo) {
-  const item = carrinho.find(i => i.codigo == codigo);
+  const item = carrinho.find(i => String(i.codigo) === String(codigo));
   if (!item) return;
 
   item.qtd--;
-  if (item.qtd <= 0) carrinho = carrinho.filter(i => i.codigo != codigo);
+  if (item.qtd <= 0) carrinho = carrinho.filter(i => String(i.codigo) !== String(codigo));
 
   atualizarQtdNaTela(codigo);
   salvar();
 }
 
+/* medicamento que exige receita: leva a conversa para o WhatsApp da loja */
+function falarSobreReceita(codigo) {
+  const p = produtos.find(i => String(i.codigo) === String(codigo));
+  if (!p) return abrirWhatsApp("Olá! Gostaria de falar com a farmacêutica sobre um medicamento com receita.");
+
+  // tarja preta: a receita fica retida e a retirada é presencial. Dizer
+  // isso já na primeira mensagem evita o cliente esperar por uma entrega.
+  const texto = p.tarja === "P"
+    ? `Olá! Gostaria de saber sobre *${p.nome}* (Cód. ${p.codigo}). Sei que é tarja preta e que preciso levar a receita à loja.`
+    : `Olá! Gostaria de saber sobre *${p.nome}* (Cód. ${p.codigo}). Sei que precisa de receita.`;
+  abrirWhatsApp(texto);
+}
+
+function abrirWhatsApp(texto) {
+  const url = `https://wa.me/${WHATS_LOJA}?text=${encodeURIComponent(texto)}`;
+  const janela = window.open(url, "_blank");
+  return { url, abriu: !!janela };
+}
+
 function salvar() {
-  localStorage.setItem("carrinho", JSON.stringify(carrinho));
+  try {
+    localStorage.setItem("carrinho", JSON.stringify(carrinho));
+  } catch (e) {
+    console.warn("Não foi possível salvar o carrinho.", e);
+  }
   renderCarrinho();
   atualizarTotais();
 }
@@ -559,12 +1117,16 @@ function limparCarrinho() {
     if (span) span.textContent = "0";
   });
 
+  el("linkPedido")?.remove();
   resetarFrete();
   salvar();
 }
 
 function toggleCarrinho() {
-  el("carrinho")?.classList.toggle("ativo");
+  const box = el("carrinho");
+  if (!box) return;
+  const aberto = box.classList.toggle("ativo");
+  document.querySelector(".carrinho-header")?.setAttribute("aria-expanded", String(aberto));
 }
 
 /* =========================
@@ -575,20 +1137,20 @@ function renderCarrinho() {
   if (!container) return;
 
   if (!carrinho.length) {
-    container.innerHTML = "<p style='text-align:center; color:var(--text-muted); padding:12px 0;'>Seu carrinho está vazio</p>";
+    container.innerHTML = `<p class="carrinho-vazio">Seu carrinho está vazio</p>`;
     return;
   }
 
   container.innerHTML = carrinho.map(p => `
     <div class="item">
       <div class="item-info">
-        <b>${p.nome}</b><br>
+        <b>${esc(p.nome)}</b>
         <small>${fmt(p.preco)} cada</small>
       </div>
       <div class="item-qtd">
-        <button class="qtd-btn" onclick="menos('${p.codigo}')" aria-label="Remover">−</button>
+        <button class="qtd-btn" data-acao="menos" data-codigo="${esc(p.codigo)}" aria-label="Remover uma unidade de ${esc(p.nome)}">−</button>
         <span>${p.qtd}</span>
-        <button class="qtd-btn" onclick="mais('${p.codigo}')" aria-label="Adicionar">+</button>
+        <button class="qtd-btn" data-acao="mais" data-codigo="${esc(p.codigo)}" aria-label="Adicionar uma unidade de ${esc(p.nome)}">+</button>
       </div>
     </div>
   `).join("");
@@ -597,23 +1159,29 @@ function renderCarrinho() {
 /* =========================
 💰 TOTAIS
 ========================= */
-function atualizarTotais() {
-  let subtotal = 0;
-  let qtd = 0;
+function subtotalCarrinho() {
+  return carrinho.reduce((a, b) => a + b.preco * b.qtd, 0);
+}
 
-  carrinho.forEach(p => {
-    subtotal += p.preco * p.qtd;
-    qtd += p.qtd;
-  });
-
+function valorFreteAtual() {
   const tipo = el("tipoEntrega")?.value;
-  const frete = (tipo === "Entrega" && freteCalculado) ? freteCalculado.valor : 0;
-  const totalGeral = subtotal + frete;
+  if (tipo !== "Entrega" || !freteCalculado) return 0;
+  if (FRETE_GRATIS_ACIMA_DE > 0 && subtotalCarrinho() >= FRETE_GRATIS_ACIMA_DE) return 0;
+  return freteCalculado.valor;
+}
+
+function atualizarTotais() {
+  const subtotal = subtotalCarrinho();
+  const qtd = carrinho.reduce((a, b) => a + b.qtd, 0);
+  const totalGeral = subtotal + valorFreteAtual();
 
   el("total") && (el("total").textContent = fmt(totalGeral));
   el("qtd") && (el("qtd").textContent = qtd);
-  el("qtdTop") && (el("qtdTop").textContent = `(${qtd})`);
+  el("qtdTop") && (el("qtdTop").textContent = qtd);
   el("totalTop") && (el("totalTop").textContent = fmt(totalGeral));
+
+  document.querySelector(".header-carrinho")?.classList.toggle("tem-itens", qtd > 0);
+  document.body.classList.toggle("carrinho-com-itens", qtd > 0);
 }
 
 /* =========================
@@ -673,22 +1241,16 @@ async function buscarCEP() {
 ========================= */
 async function geocodificar(params) {
   const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=br&limit=1&${params}`;
-
   const res = await fetch(url, { headers: { "Accept-Language": "pt-BR" } });
   const data = await res.json();
 
   if (!data.length) return null;
-
-  return {
-    lat: parseFloat(data[0].lat),
-    lng: parseFloat(data[0].lon)
-  };
+  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
 }
 
 /* Tenta achar o endereço do mais preciso pro mais amplo, até conseguir
-   coordenadas. O Nominatim é bem exigente com texto livre completo
-   (rua + número + bairro + CEP juntos quase nunca casa), então é melhor
-   ir afrouxando a busca aos poucos do que falhar de primeira. */
+   coordenadas. O Nominatim é bem exigente com texto livre completo, então é
+   melhor ir afrouxando a busca aos poucos do que falhar de primeira. */
 async function geocodificarComFallback({ numero, endereco, bairro, cidade, cepLimpo }) {
   const tentativas = [
     `street=${encodeURIComponent(`${numero} ${endereco}`)}&city=${encodeURIComponent(cidade)}&postalcode=${cepLimpo}`,
@@ -772,20 +1334,26 @@ async function calcularFrete() {
 
     if (dist > RAIO_MAX_KM) {
       freteCalculado = null;
-      mostrarResultadoFrete(`Endereço fora da área de entrega. Finalize o pedido como retirada e solicite a entrega por aplicativo. (${dist.toFixed(1)} km).`, "erro");
+      mostrarResultadoFrete(`Endereço fora da área de entrega (${dist.toFixed(1)} km). Finalize como retirada e solicite a entrega por aplicativo.`, "erro");
       return;
     }
 
     const valor = calcularValorFrete(dist);
-
     freteCalculado = { dist, valor };
-    mostrarResultadoFrete(`Taxa de entrega: ${fmt(valor)} (${dist.toFixed(1)} km)`, "ok");
+
+    const gratis = FRETE_GRATIS_ACIMA_DE > 0 && subtotalCarrinho() >= FRETE_GRATIS_ACIMA_DE;
+    mostrarResultadoFrete(
+      gratis
+        ? `Entrega grátis neste pedido (${dist.toFixed(1)} km)`
+        : `Taxa de entrega: ${fmt(valor)} (${dist.toFixed(1)} km)`,
+      "ok"
+    );
   } catch (e) {
     console.error("Erro calcular frete", e);
     freteCalculado = null;
     mostrarResultadoFrete("Erro ao calcular a taxa de entrega. Tente novamente.", "erro");
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "📍 Calcular taxa de entrega"; }
+    if (btn) { btn.disabled = false; btn.innerHTML = `${icone("pin", 14)}Calcular taxa de entrega`; }
     atualizarTotais();
   }
 }
@@ -796,24 +1364,17 @@ async function calcularFrete() {
 function trocarPagamento() {
   const pagamento = el("pagamento")?.value;
   const box = el("boxTroco");
-
   if (!box) return;
 
   if (pagamento === "Dinheiro") {
     box.style.display = "block";
-
-    if (el("trocoInput") && !el("trocoInput").value) {
-      el("trocoInput").value = "R$ 0,00";
-    }
-
+    if (el("trocoInput") && !el("trocoInput").value) el("trocoInput").value = "R$ 0,00";
   } else {
     box.style.display = "none";
-
-    if (el("trocoInput")) {
-      el("trocoInput").value = "";
-    }
+    if (el("trocoInput")) el("trocoInput").value = "";
   }
 }
+
 function formatarTroco(input) {
   let valor = input.value.replace(/\D/g, "");
 
@@ -823,24 +1384,95 @@ function formatarTroco(input) {
   }
 
   valor = (parseInt(valor, 10) / 100).toFixed(2);
-
   input.value = "R$ " + valor.replace(".", ",");
 }
 
 /* =========================
 🎠 BANNER
 ========================= */
+let _bannerTimer = null;
+
 function iniciarBanner() {
   const slides = document.querySelectorAll(".banner-slide");
+
+  if (_bannerTimer) clearInterval(_bannerTimer);
+  if (!slides.length) return;
+
+  slides.forEach(s => s.classList.remove("ativo"));
+  slides[0].classList.add("ativo");
+
+  // quem pediu menos animação no sistema não recebe carrossel automático
+  const menosMovimento = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (menosMovimento || slides.length < 2) return;
+
   let i = 0;
-
-  setInterval(() => {
-    if (!slides.length) return;
-
+  _bannerTimer = setInterval(() => {
     slides[i].classList.remove("ativo");
     i = (i + 1) % slides.length;
     slides[i].classList.add("ativo");
-  }, 4000);
+  }, 5000);
+}
+
+/* monta o banner com produtos reais em oferta.
+   Sem produto em oferta no momento, o banner fica escondido. */
+function renderBannerOfertas() {
+  const banner = document.querySelector(".banner");
+  const container = document.querySelector(".banner-container");
+  if (!banner || !container) return;
+
+  const ofertas = produtos
+    .filter(p => p.emOferta && !p.exigeReceita)
+    .sort((a, b) => b.desconto - a.desconto)
+    .slice(0, 12);
+
+  if (!ofertas.length) {
+    banner.style.display = "none";
+    return;
+  }
+
+  banner.style.display = "";
+
+  const grupos = [];
+  for (let i = 0; i < ofertas.length; i += 3) grupos.push(ofertas.slice(i, i + 3));
+
+  container.innerHTML = grupos.map(grupo => `
+    <div class="banner-slide banner-slide-grupo">
+      <div class="banner-topo">
+        <span class="banner-badge">${icone("tag", 11)}Ofertas do dia</span>
+        <button class="banner-vertudo" data-acao="ofertas">Ver todas ${icone("chevron-right", 11)}</button>
+      </div>
+      <div class="banner-grupo-itens">
+        ${grupo.map(p => `
+          <button class="banner-item" data-acao="banner" data-codigo="${esc(p.codigo)}"
+                  aria-label="Adicionar ${esc(p.nome)} ao carrinho">
+            <span class="banner-item-img-wrap">
+              <img src="${esc(imagemDe(p))}"
+                   onerror="this.onerror=null;this.src='${esc(svgDe(p))}'"
+                   alt="" loading="lazy">
+              <span class="banner-item-add" aria-hidden="true">+</span>
+            </span>
+            <b>${esc(p.nome)}</b>
+            <span class="banner-item-de">${fmt(p.precoOriginal)}</span>
+            <span class="banner-item-por">${fmt(p.preco)}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  iniciarBanner();
+}
+
+/* clique em um item do banner: adiciona direto no carrinho e já o abre */
+function adicionarDoBanner(codigo) {
+  const p = produtos.find(i => String(i.codigo) === String(codigo));
+  mais(codigo);
+
+  if (p && !(BLOQUEAR_CONTROLADOS && p.exigeReceita)) {
+    toast(`${p.nome} adicionado`);
+    const box = el("carrinho");
+    if (box && !box.classList.contains("ativo")) toggleCarrinho();
+  }
 }
 
 /* =========================
@@ -885,11 +1517,14 @@ function finalizar() {
     if (valorTroco > 0) trocoTexto = `\nTroco para: ${fmt(valorTroco)}`;
   }
 
-  const subtotal = carrinho.reduce((a, b) => a + b.preco * b.qtd, 0);
-  const frete = tipoEntrega === "Entrega" ? (freteCalculado?.valor || 0) : 0;
+  const subtotal = subtotalCarrinho();
+  const frete = tipoEntrega === "Entrega" ? valorFreteAtual() : 0;
   const totalGeral = subtotal + frete;
 
-  let msg = `🛒 NOVO PEDIDO\n\n`;
+  // código curto para casar o WhatsApp com a linha da planilha
+  const ref = "P" + Date.now().toString(36).slice(-5).toUpperCase();
+
+  let msg = `🛒 NOVO PEDIDO — ${ref}\n\n`;
 
   carrinho.forEach(p => {
     msg += `${p.qtd}x ${p.nome} (Cód. ${p.codigo}) - ${fmt(p.preco * p.qtd)}\n`;
@@ -906,26 +1541,47 @@ function finalizar() {
   msg += `\n💳 ${pagamento}${trocoTexto}`;
 
   const pedido = {
+    ref,
     cliente: nome,
-    telefone: telefone,
+    telefone,
     entrega: tipoEntrega,
-    pagamento: pagamento,
-    subtotal: subtotal,
-    frete: frete,
+    pagamento,
+    subtotal,
+    frete,
     total: totalGeral,
-    itens: carrinho.map(item =>
-      `${item.qtd}x ${item.nome}`
-    ).join(" | ")
+    itens: carrinho.map(item => `${item.qtd}x ${item.nome}`).join(" | ")
   };
 
-  fetch(API_PEDIDOS, {
-    method: "POST",
-    body: JSON.stringify(pedido)
-  })
-  .catch(err => console.error("Erro ao salvar pedido:", err));
+  fetch(API_PEDIDOS, { method: "POST", body: JSON.stringify(pedido) })
+    .catch(err => console.error("Erro ao salvar pedido:", err));
 
-  window.open(`https://wa.me/${WHATS_LOJA}?text=${encodeURIComponent(msg)}`, "_blank");
+  const { url, abriu } = abrirWhatsApp(msg);
 
-  toast("Pedido enviado! 🎉");
-  limparCarrinho();
+  if (abriu) {
+    toast(`Pedido ${ref} enviado!`);
+    limparCarrinho();
+  } else {
+    // pop-up bloqueado (comum no iOS): antes o carrinho era limpo aqui
+    // e o cliente ficava sem pedido E sem carrinho.
+    mostrarLinkPedido(url, ref);
+  }
+}
+
+function mostrarLinkPedido(url, ref) {
+  const acoes = document.querySelector(".carrinho-acoes");
+  if (!acoes) { window.location.href = url; return; }
+
+  let caixa = el("linkPedido");
+  if (!caixa) {
+    caixa = document.createElement("div");
+    caixa.id = "linkPedido";
+    caixa.className = "link-pedido";
+    acoes.prepend(caixa);
+  }
+
+  caixa.innerHTML = `
+    <p>Seu navegador bloqueou a janela do WhatsApp. O carrinho está guardado — toque abaixo para enviar o pedido ${esc(ref)}.</p>
+    <a class="btn-finalizar" href="${esc(url)}" target="_blank" rel="noopener">Abrir o WhatsApp</a>
+  `;
+  caixa.scrollIntoView({ behavior: "smooth", block: "center" });
 }
