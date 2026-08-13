@@ -900,7 +900,7 @@ h1, h2 { font-family: var(--fonte-titulo); }
 /* ========================= */
 .card.card-oferta, .card-mini.card-oferta { border-color: var(--amarelo-escura); }
 
-.badge-oferta, .badge-receita {
+.badge-oferta, .badge-receita, .badge-controle {
   position: absolute;
   top: 8px;
   left: 8px;
@@ -921,9 +921,11 @@ h1, h2 { font-family: var(--fonte-titulo); }
 
 .badge-oferta { background: var(--amarelo); color: var(--tinta); }
 .badge-receita { background: var(--marca); color: var(--branco); }
+.badge-controle { background: var(--ok); color: var(--branco); }
 
 .card-mini .badge-oferta,
-.card-mini .badge-receita { font-size: 9px; padding: 2px 6px; top: 6px; left: 6px; }
+.card-mini .badge-receita,
+.card-mini .badge-controle { font-size: 9px; padding: 2px 6px; top: 6px; left: 6px; }
 
 .preco-linha-de {
   display: flex;
@@ -1193,6 +1195,34 @@ h1, h2 { font-family: var(--fonte-titulo); }
   border-radius: var(--raio-sm);
 }
 
+.aviso-controle-especial {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--tinta);
+  margin-top: 12px;
+  padding: 12px;
+  background: #E6F4EC;
+  border: 1.5px solid var(--ok);
+  border-radius: var(--raio-sm);
+}
+
+.aviso-controle-especial-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.aviso-controle-especial-check input {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ok);
+  flex-shrink: 0;
+}
+
 .carrinho-acoes {
   display: flex;
   flex-direction: column;
@@ -1454,7 +1484,8 @@ h1, h2 { font-family: var(--fonte-titulo); }
 
 .produto-detalhe-foto img { width: 100%; height: 100%; object-fit: contain; }
 .produto-detalhe-foto .badge-oferta,
-.produto-detalhe-foto .badge-receita { font-size: 11px; padding: 4px 10px; top: 12px; left: 12px; }
+.produto-detalhe-foto .badge-receita,
+.produto-detalhe-foto .badge-controle { font-size: 11px; padding: 4px 10px; top: 12px; left: 12px; }
 
 .produto-marca {
   font-family: var(--fonte-titulo);

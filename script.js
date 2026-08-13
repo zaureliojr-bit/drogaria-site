@@ -9,20 +9,24 @@ const API_PEDIDOS =
 const WHATS_LOJA = "5511925190101";
 const POR_PAGINA = 12;
 
-/* Produtos de categorias que exigem receita não entram no carrinho:
-   em vez de "Adicionar", o cliente é levado ao WhatsApp para falar com
-   a farmacêutica. Se a Dra. Laís definir outro fluxo, mude para false. */
+/* Produtos das listas A/B da Portaria 344 (retenção de receita sempre
+   presencial) não entram no carrinho: em vez de "Adicionar", o cliente é
+   levado ao WhatsApp para falar com a farmacêutica. Se a Dra. Laís
+   definir outro fluxo, mude para false. */
 const BLOQUEAR_CONTROLADOS = true;
 
-/* Tabela de tarja da CMED (ANVISA), por EAN. A categoria do FarmaxPDV não
-   diz se o medicamento exige receita: cruzando o catálogo com a Lista de
-   Conformidade, 1.008 produtos que exigem receita entravam no carrinho —
-   34 deles de tarja preta (Portaria 344). Quem manda agora é a tarja.
+/* Tabela de tarja da CMED (ANVISA), por EAN — usada só como informação
+   (rótulo "venda sob prescrição" no card/detalhe). Quem manda no
+   carrinho é bloqueioPresencial/receitaRemota, calculados pelo
+   padronizador a partir da Portaria 344: tarja vermelha sozinha
+   (antibiótico comum, anticoncepcional) NÃO bloqueia mais — só quem
+   está de fato nas listas A/B (bloqueio total) ou C (entrega remota
+   com receita) da Portaria.
 
-   Se o arquivo não carregar, o site continua de pé usando só a regra por
-   categoria: a tarja SOMA bloqueios, nunca libera nenhum. Para atualizar,
-   baixe a lista nova em gov.br/anvisa/pt-br/assuntos/medicamentos/cmed/precos
-   e gere o arquivo de novo. */
+   Se o arquivo não carregar, a tarja simplesmente não aparece — não
+   afeta o carrinho. Para atualizar, baixe a lista nova em
+   gov.br/anvisa/pt-br/assuntos/medicamentos/cmed/precos e gere o
+   arquivo de novo. */
 const API_TARJAS = "tarjas.json";
 
 /* Frete grátis a partir de: use 0 para desativar.
@@ -35,9 +39,10 @@ const SECOES_INICIAIS = 4;
 
 /* Validade do catálogo guardado no navegador (evita rebaixar 3 MB
    ao navegar entre a home e a página de produto). */
-/* v5: o produto passou a guardar a tarja da CMED — um cache antigo
-   deixaria medicamento de receita voltar para o carrinho. */
-const CACHE_CHAVE = "catalogo_v5";
+/* v6: exigeReceita deixou de bloquear por tarja sozinha e passou a
+   bloquear pela Portaria 344 (bloqueioPresencial/receitaRemota) — um
+   cache v5 traria de volta o bloqueio antigo (e incorreto) até expirar. */
+const CACHE_CHAVE = "catalogo_v6";
 const CACHE_MINUTOS = 30;
 
 /* =========================
@@ -468,8 +473,9 @@ function ligarDelegacaoDeCliques() {
 💊 TARJA (CMED / ANVISA)
 ========================= */
 /* P = preta (Portaria 344)  R = vermelha sob restrição
-   V = vermelha              L = livre, isento de prescrição (MIP) */
-const TARJA_EXIGE_RECEITA = new Set(["P", "R", "V"]);
+   V = vermelha              L = livre, isento de prescrição (MIP)
+   Só informativo agora - não decide mais o bloqueio do carrinho (ver
+   bloqueioPresencial/receitaRemota em mapearProduto). */
 let _tarjas = null;   // Map<eanNumerico, "P"|"R"|"V"|"L">
 
 const TARJA_ROTULO = {
@@ -522,6 +528,17 @@ function mapearProduto(p) {
   // catálogo estiver exportado com o campo, aquele arquivo pode ser apagado.
   const tarja = p.tarja || tarjaDe(p.ean);
 
+  // Retenção de receita sempre presencial (Portaria 344, listas A/B) - tira
+  // do carrinho e manda para o WhatsApp. A categoria SOMA bloqueios: nada
+  // que já era bloqueado volta a ser vendido porque o produto não bateu
+  // com a lista de substâncias do padronizador.
+  const bloqueioPresencial = !!familia.receita || p.bloqueioPresencial === true;
+
+  // Controle especial que a Portaria permite entregar remoto com
+  // conferência da receita antes do envio (listas C, Art. 34-B) - entra
+  // no carrinho normalmente; o checkout que cobra a confirmação.
+  const receitaRemota = !bloqueioPresencial && p.receitaRemota === true;
+
   return {
     tarja,
     tarjaNome: TARJA_ROTULO[tarja] || "",
@@ -534,11 +551,13 @@ function mapearProduto(p) {
 
     familia: familia.id,
     familiaNome: familia.nome,
-    // a tarja SOMA à regra por categoria: nada que já era bloqueado
-    // volta a ser vendido porque a CMED não conhece aquele EAN.
-    exigeReceita: !!familia.receita ||
-      p.exigeReceita === true ||
-      TARJA_EXIGE_RECEITA.has(tarja),
+    // NÃO é mais "tarja vermelha bloqueia": anticoncepcional e antibiótico
+    // comum são tarja vermelha e vendem livre. Bloqueio de verdade só para
+    // quem está nas listas A/B da Portaria 344 (ver mapearProduto acima).
+    exigeReceita: bloqueioPresencial,
+    receitaRemota,
+    controleEspecial: p.controleEspecial || "",
+    tipoReceita: p.tipoReceita || "",
     ehMedicamento: !!familia.medicamento,
     temSeloGenerico: CATS_COM_SELO_GENERICO.includes(chaveCategoria(p.categoria)),
 
@@ -904,9 +923,11 @@ function cardHTML(p, mini = false) {
 
   const selo = p.exigeReceita
     ? `<span class="badge-receita">${icone("receita", 11)}Receita</span>`
-    : p.emOferta
-      ? `<span class="badge-oferta">${icone("tag", 11)}-${p.desconto}%</span>`
-      : "";
+    : p.receitaRemota
+      ? `<span class="badge-controle">${icone("receita", 11)}Controle especial</span>`
+      : p.emOferta
+        ? `<span class="badge-oferta">${icone("tag", 11)}-${p.desconto}%</span>`
+        : "";
 
   const bloco = p.emOferta
     ? `<div class="preco-linha-de"><span class="preco-de">${fmt(p.precoOriginal)}</span></div>
@@ -1117,6 +1138,9 @@ function limparCarrinho() {
     if (span) span.textContent = "0";
   });
 
+  const check = el("confirmaReceita");
+  if (check) check.checked = false;
+
   el("linkPedido")?.remove();
   resetarFrete();
   salvar();
@@ -1154,6 +1178,36 @@ function renderCarrinho() {
       </div>
     </div>
   `).join("");
+
+  atualizarAvisoControleEspecial();
+}
+
+/* =========================
+📋 CONTROLE ESPECIAL NO CARRINHO (Portaria 344, listas C)
+Itens destas listas entram no carrinho normalmente, mas a lei só permite
+entrega remota se a receita for conferida antes do envio (Art. 34-B) - o
+site não consegue anexar a foto sozinho num link wa.me, então quem garante
+isso é o cliente, confirmando aqui que vai enviar a receita pelo WhatsApp
+depois de finalizar o pedido (conforme o POP de entregas remotas da loja).
+========================= */
+function itensDeControleEspecialNoCarrinho() {
+  return carrinho
+    .map(item => ({ item, p: produtos.find(x => String(x.codigo) === String(item.codigo)) }))
+    .filter(({ p }) => p && p.receitaRemota);
+}
+
+function atualizarAvisoControleEspecial() {
+  const box = el("avisoControleEspecial");
+  if (!box) return;
+
+  const tem = itensDeControleEspecialNoCarrinho().length > 0;
+  box.style.display = tem ? "block" : "none";
+
+  // some o item, some a obrigação de confirmar de novo
+  if (!tem) {
+    const check = el("confirmaReceita");
+    if (check) check.checked = false;
+  }
 }
 
 /* =========================
@@ -1481,6 +1535,13 @@ function adicionarDoBanner(codigo) {
 function finalizar() {
   if (!carrinho.length) return toast("Carrinho vazio");
 
+  const itensControleEspecial = itensDeControleEspecialNoCarrinho();
+
+  if (itensControleEspecial.length && !el("confirmaReceita")?.checked) {
+    el("avisoControleEspecial")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return toast("Confirme o envio da receita para finalizar");
+  }
+
   const nome = el("nome")?.value.trim();
   const telefone = el("telefone")?.value.trim();
   const tipoEntrega = el("tipoEntrega")?.value;
@@ -1539,6 +1600,11 @@ function finalizar() {
   msg += `\n${tipoEntrega === "Entrega" ? "🚚 Entrega" : "🏪 Retirada na loja"}`;
   if (enderecoTexto) msg += `\n📍 ${enderecoTexto}`;
   msg += `\n💳 ${pagamento}${trocoTexto}`;
+
+  if (itensControleEspecial.length) {
+    msg += `\n\n📋 *Item(ns) de controle especial neste pedido - envie a foto da receita aqui no WhatsApp antes da entrega:*`;
+    itensControleEspecial.forEach(({ item }) => { msg += `\n• ${item.nome}`; });
+  }
 
   const pedido = {
     ref,

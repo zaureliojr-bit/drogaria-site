@@ -122,9 +122,11 @@ function renderProdutoDetalhe(p) {
 
   const selo = p.exigeReceita
     ? `<span class="badge-receita">${icone("receita", 12)}Exige receita</span>`
-    : p.emOferta
-      ? `<span class="badge-oferta">${icone("tag", 12)}-${p.desconto}%</span>`
-      : "";
+    : p.receitaRemota
+      ? `<span class="badge-controle">${icone("receita", 12)}Controle especial</span>`
+      : p.emOferta
+        ? `<span class="badge-oferta">${icone("tag", 12)}-${p.desconto}%</span>`
+        : "";
 
   container.innerHTML = `
     <nav class="migalhas" aria-label="Você está em">
@@ -174,6 +176,13 @@ function renderProdutoDetalhe(p) {
         ${icone("whats", 16)}Falar com a farmacêutica
       </button>
     ` : `
+      ${p.receitaRemota ? `
+        <div class="aviso-receita">
+          <p><strong>Item de controle especial.</strong></p>
+          <p>Pode ser comprado normalmente, mas a entrega só sai depois de conferirmos a receita — você vai confirmar o envio dela ao finalizar o pedido.</p>
+        </div>
+      ` : ""}
+
       <div class="controle controle-detalhe">
         <button data-acao="menos" data-codigo="${codigo}" aria-label="Remover uma unidade">−</button>
         <span aria-live="polite">${qtd}</span>
