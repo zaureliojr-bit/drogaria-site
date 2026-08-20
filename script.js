@@ -463,6 +463,7 @@ function ligarDelegacaoDeCliques() {
     else if (acao === "receita")    { ev.preventDefault(); falarSobreReceita(codigo); }
     else if (acao === "banner")     { ev.preventDefault(); adicionarDoBanner(codigo); }
     else if (acao === "recarregar") { ev.preventDefault(); carregar(); }
+    else if (acao === "voltar-vitrine") { ev.preventDefault(); voltarParaVitrine(); }
   });
 }
 
@@ -842,6 +843,23 @@ function filtrarCategoria(familiaId) {
   }
 }
 
+/* volta da tela de resultado para a vitrine: limpa categoria, busca e
+   ofertas de uma vez, e sobe a página — o cliente estava lá embaixo na
+   lista, e a vitrine começa de cima. */
+function voltarParaVitrine() {
+  categoriaAtual = "todas";
+  modoOfertas = false;
+  termoBusca = "";
+
+  const campoBusca = el("busca");
+  if (campoBusca) campoBusca.value = "";
+
+  marcarChipAtivo("todas");
+  aplicarFiltro();
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 /* mostra só os produtos em oferta no grid principal */
 function verOfertas() {
   modoOfertas = true;
@@ -891,6 +909,22 @@ function aplicarFiltro() {
 
   if (boxCategorias) boxCategorias.style.display = modoHome ? "block" : "none";
   if (boxProdutos) boxProdutos.style.display = modoHome ? "none" : "grid";
+
+  // Vitrine e resultado são telas diferentes. Quem escolheu uma categoria
+  // já disse o que quer ver: ofertas do dia e destaques da semana viram
+  // ruído no meio do caminho, e empurram o primeiro produto para fora da
+  // tela. Ficam só o cabeçalho, os filtros e os produtos da categoria.
+  const banner = document.querySelector(".banner");
+  const destaques = document.querySelector(".mais-vendidos");
+
+  if (destaques) destaques.style.display = modoHome ? "" : "none";
+
+  if (banner) {
+    // o banner some sozinho quando não há oferta nenhuma no catálogo —
+    // voltar para a vitrine não pode ressuscitá-lo vazio
+    const temSlide = !!banner.querySelector(".banner-slide");
+    banner.style.display = (modoHome && temSlide) ? "" : "none";
+  }
 
   const barra = el("barraResultado");
   if (barra) {

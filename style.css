@@ -662,10 +662,37 @@ h1, h2 { font-family: var(--fonte-titulo); }
 
 .barra-resultado-info {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   min-width: 0;
 }
+
+/* Seta de voltar para a vitrine. Com o banner e os destaques escondidos
+   na tela de resultado, é por aqui que o cliente sai da categoria — o
+   chip "Todos" pode estar rolado para fora da barra de filtros. */
+.btn-voltar-vitrine {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--branco);
+  border: 1.5px solid var(--linha);
+  border-radius: 50%;
+  color: var(--marca);
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.btn-voltar-vitrine:hover {
+  background: var(--marca-clara);
+  border-color: var(--marca);
+  color: var(--marca-escura);
+}
+
+.btn-voltar-vitrine:active { transform: scale(0.93); }
+
+.btn-voltar-vitrine .ic { pointer-events: none; }
 
 .barra-resultado-info strong {
   font-size: 16px;
