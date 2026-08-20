@@ -688,7 +688,9 @@ function reconciliarCarrinho() {
 
     if (Number(item.preco) !== Number(p.preco)) mudouPreco++;
 
-    acc.push({ codigo: p.codigo, nome: p.nome, preco: p.preco, imagem: p.imagem, qtd: item.qtd });
+    // relê tudo do catálogo, e não do que estava salvo: é isto que
+    // preenche o EAN nos carrinhos guardados antes de ele existir aqui
+    acc.push({ codigo: p.codigo, ean: p.ean, nome: p.nome, preco: p.preco, imagem: p.imagem, qtd: item.qtd });
     return acc;
   }, []);
 
@@ -1084,7 +1086,7 @@ function mais(codigo) {
   const item = carrinho.find(i => String(i.codigo) === String(codigo));
 
   if (item) item.qtd++;
-  else carrinho.push({ codigo: p.codigo, nome: p.nome, preco: p.preco, imagem: p.imagem, qtd: 1 });
+  else carrinho.push({ codigo: p.codigo, ean: p.ean, nome: p.nome, preco: p.preco, imagem: p.imagem, qtd: 1 });
 
   atualizarQtdNaTela(codigo);
   salvar();
@@ -1112,6 +1114,32 @@ function falarSobreReceita(codigo) {
     ? `Olá! Gostaria de saber sobre *${p.nome}* (Cód. ${p.codigo}). Sei que é tarja preta e que preciso levar a receita à loja.`
     : `Olá! Gostaria de saber sobre *${p.nome}* (Cód. ${p.codigo}). Sei que precisa de receita.`;
   abrirWhatsApp(texto);
+}
+
+/* Código de barras do item do pedido.
+
+   Vem do próprio item do carrinho, mas com o catálogo como reserva: quem
+   já tinha carrinho salvo antes desta mudança guardou item sem EAN, e o
+   pedido dessa pessoa não pode sair sem o código. Normalmente o
+   reconciliarCarrinho já preencheu na carga; isto cobre o caso de ele não
+   ter rodado (catálogo fora do ar, por exemplo). */
+function eanDoItem(item) {
+  if (item.ean) return item.ean;
+
+  if (typeof produtos === "undefined") return "";
+
+  const p = produtos.find(x => String(x.codigo) === String(item.codigo));
+
+  return p?.ean || "";
+}
+
+/* Acima disto o WhatsApp começa a cortar o texto preenchido pelo link.
+   Não é número documentado; 2.000 é o patamar que se sustenta nos clientes
+   antigos de Android, que são justamente os que cortam mais cedo. */
+const LIMITE_URL_WHATSAPP = 2000;
+
+function tamanhoDaURL(texto) {
+  return `https://wa.me/${WHATS_LOJA}?text=${encodeURIComponent(texto)}`.length;
 }
 
 function abrirWhatsApp(texto) {
@@ -1585,26 +1613,56 @@ function finalizar() {
   // código curto para casar o WhatsApp com a linha da planilha
   const ref = "P" + Date.now().toString(36).slice(-5).toUpperCase();
 
-  let msg = `🛒 NOVO PEDIDO — ${ref}\n\n`;
+  const montarMensagem = (comCodigos) => {
 
-  carrinho.forEach(p => {
-    msg += `${p.qtd}x ${p.nome} (Cód. ${p.codigo}) - ${fmt(p.preco * p.qtd)}\n`;
-  });
+    let m = `🛒 NOVO PEDIDO — ${ref}\n\n`;
 
-  msg += `\nSubtotal: ${fmt(subtotal)}`;
-  if (tipoEntrega === "Entrega") msg += `\nTaxa de entrega: ${fmt(frete)}`;
-  msg += `\n*TOTAL: ${fmt(totalGeral)}*\n`;
+    carrinho.forEach(p => {
+      m += `${p.qtd}x ${p.nome} - ${fmt(p.preco * p.qtd)}\n`;
 
-  msg += `\n👤 ${nome}`;
-  msg += `\n📞 ${telefone}`;
-  msg += `\n${tipoEntrega === "Entrega" ? "🚚 Entrega" : "🏪 Retirada na loja"}`;
-  if (enderecoTexto) msg += `\n📍 ${enderecoTexto}`;
-  msg += `\n💳 ${pagamento}${trocoTexto}`;
+      if (!comCodigos) return;
 
-  if (itensControleEspecial.length) {
-    msg += `\n\n📋 *Item(ns) de controle especial neste pedido - envie a foto da receita aqui no WhatsApp antes da entrega:*`;
-    itensControleEspecial.forEach(({ item }) => { msg += `\n• ${item.nome}`; });
-  }
+      // Código e código de barras numa linha só embaixo, e não no fim da
+      // linha do produto: no celular o WhatsApp quebra a linha onde couber,
+      // e um EAN partido no meio não dá para bipar nem copiar.
+      //
+      // Texto sem acento e sem "·" de propósito: isto tudo viaja dentro de
+      // uma URL, onde cada um deles ocupa 6 caracteres. Num pedido de 20
+      // itens a diferença passa de 300 caracteres.
+      const ean = eanDoItem(p);
+      m += ` Cod ${p.codigo}${ean ? ` EAN ${ean}` : ""}\n`;
+    });
+
+    if (!comCodigos) {
+      m += `\n_Pedido longo: os códigos de barras foram para a planilha, na referência ${ref}._\n`;
+    }
+
+    m += `\nSubtotal: ${fmt(subtotal)}`;
+    if (tipoEntrega === "Entrega") m += `\nTaxa de entrega: ${fmt(frete)}`;
+    m += `\n*TOTAL: ${fmt(totalGeral)}*\n`;
+
+    m += `\n👤 ${nome}`;
+    m += `\n📞 ${telefone}`;
+    m += `\n${tipoEntrega === "Entrega" ? "🚚 Entrega" : "🏪 Retirada na loja"}`;
+    if (enderecoTexto) m += `\n📍 ${enderecoTexto}`;
+    m += `\n💳 ${pagamento}${trocoTexto}`;
+
+    if (itensControleEspecial.length) {
+      m += `\n\n📋 *Item(ns) de controle especial neste pedido - envie a foto da receita aqui no WhatsApp antes da entrega:*`;
+      itensControleEspecial.forEach(({ item }) => { m += `\n• ${item.nome}`; });
+    }
+
+    return m;
+  };
+
+  // A mensagem viaja inteira dentro da URL do wa.me, e o WhatsApp corta o
+  // texto passado desse tamanho — calado, no meio da lista. Um pedido
+  // grande perderia itens sem ninguém perceber. Quando não couber com os
+  // códigos, vai sem eles: a planilha recebe a lista completa de qualquer
+  // jeito, então o que se perde é conveniência, não informação.
+  let msg = montarMensagem(true);
+
+  if (tamanhoDaURL(msg) > LIMITE_URL_WHATSAPP) msg = montarMensagem(false);
 
   const pedido = {
     ref,
@@ -1615,7 +1673,10 @@ function finalizar() {
     subtotal,
     frete,
     total: totalGeral,
-    itens: carrinho.map(item => `${item.qtd}x ${item.nome}`).join(" | ")
+    itens: carrinho.map(item => {
+      const ean = eanDoItem(item);
+      return `${item.qtd}x ${item.nome}${ean ? ` [${ean}]` : ""}`;
+    }).join(" | ")
   };
 
   fetch(API_PEDIDOS, { method: "POST", body: JSON.stringify(pedido) })
