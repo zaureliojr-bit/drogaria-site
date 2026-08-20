@@ -917,6 +917,49 @@ function aplicarFiltro() {
 /* =========================
 🧾 CARD (grid e versão compacta dos carrosséis)
 ========================= */
+/* A parte de baixo do card, que tem três estados:
+
+     exige receita      -> WhatsApp da farmacêutica
+     nada no carrinho   -> botão "Adicionar"
+     já está no carrinho -> stepper com a quantidade
+
+   O stepper não aparece mais marcando zero. Ele dizia "0" e oferecia um
+   botão de menos que não fazia nada, ocupando justamente o lugar onde
+   deveria estar a ação principal do card. Botão e stepper têm a mesma
+   altura, então a troca entre eles não mexe no tamanho do card.
+
+   Fica separado do cardHTML porque o atualizarQtdNaTela redesenha só este
+   pedaço quando a quantidade muda — os dois precisam gerar o mesmo HTML. */
+function acoesDoCardHTML(p, qtd, mini = false) {
+  const nome = esc(p.nome);
+  const codigo = esc(p.codigo);
+
+  if (BLOQUEAR_CONTROLADOS && p.exigeReceita) {
+    return `<button class="btn-receita" data-acao="receita" data-codigo="${codigo}">
+              ${icone("whats", 13)}Falar com a farmacêutica
+            </button>`;
+  }
+
+  if (qtd > 0) {
+    // na última unidade o "−" vira lixeira: tirar o único item não é
+    // diminuir quantidade, é remover o produto do carrinho
+    const remover = qtd === 1
+      ? { simbolo: icone("trash", mini ? 12 : 13), rotulo: `Remover ${nome} do carrinho` }
+      : { simbolo: "−", rotulo: `Remover uma unidade de ${nome}` };
+
+    return `<div class="${mini ? "controle-mini" : "controle"}">
+              <button data-acao="menos" data-codigo="${codigo}" aria-label="${remover.rotulo}">${remover.simbolo}</button>
+              <span aria-live="polite">${qtd}</span>
+              <button data-acao="mais" data-codigo="${codigo}" aria-label="Adicionar uma unidade de ${nome}">+</button>
+            </div>`;
+  }
+
+  return `<button class="btn-add" data-acao="mais" data-codigo="${codigo}"
+                  aria-label="Adicionar ${nome} ao carrinho">
+            ${icone("cart", mini ? 13 : 14)}Adicionar
+          </button>`;
+}
+
 function cardHTML(p, mini = false) {
   const qtd = carrinho.find(i => String(i.codigo) === String(p.codigo))?.qtd || 0;
   const nome = esc(p.nome);
@@ -931,21 +974,16 @@ function cardHTML(p, mini = false) {
         ? `<span class="badge-oferta">${icone("tag", 11)}-${p.desconto}%</span>`
         : "";
 
+  // A linha do preço antigo sai vazia quando não há desconto, em vez de não
+  // sair: assim o preço fica na mesma altura em todos os cards da fileira,
+  // e não sobe no card sem oferta. Quem reserva a altura é o CSS.
   const bloco = p.emOferta
     ? `<div class="preco-linha-de"><span class="preco-de">${fmt(p.precoOriginal)}</span></div>
        <span class="preco preco-por">${precoGrandeHTML(p.preco)}</span>`
-    : `<span class="preco">${precoGrandeHTML(p.preco)}</span>`;
+    : `<div class="preco-linha-de" aria-hidden="true"></div>
+       <span class="preco">${precoGrandeHTML(p.preco)}</span>`;
 
-  // Produto que exige receita não entra no carrinho: vai para o WhatsApp.
-  const acoes = (BLOQUEAR_CONTROLADOS && p.exigeReceita)
-    ? `<button class="btn-receita" data-acao="receita" data-codigo="${codigo}">
-         ${icone("whats", 13)}Falar com a farmacêutica
-       </button>`
-    : `<div class="${mini ? "controle-mini" : "controle"}">
-         <button data-acao="menos" data-codigo="${codigo}" aria-label="Remover uma unidade de ${nome}">−</button>
-         <span aria-live="polite">${qtd}</span>
-         <button data-acao="mais" data-codigo="${codigo}" aria-label="Adicionar uma unidade de ${nome}">+</button>
-       </div>`;
+  const acoes = acoesDoCardHTML(p, qtd, mini);
 
   return `
     <div class="${mini ? "card-mini" : "card"}${p.emOferta ? " card-oferta" : ""}" data-codigo="${codigo}">
@@ -1067,11 +1105,35 @@ function renderCategoriasHome() {
 ========================= */
 function atualizarQtdNaTela(codigo) {
   const qtd = carrinho.find(i => String(i.codigo) === String(codigo))?.qtd || 0;
+  const p = produtos.find(i => String(i.codigo) === String(codigo));
+  const chave = CSS.escape(String(codigo));
 
-  document.querySelectorAll(`[data-codigo="${CSS.escape(String(codigo))}"]`).forEach(card => {
-    const span = card.querySelector(".controle span, .controle-mini span");
-    if (span) span.textContent = qtd;
-  });
+  // Nos cards não dá mais para trocar só o número: em 0 o bloco é um botão
+  // "Adicionar", em 1 é o stepper com lixeira, em 2 ou mais é o stepper
+  // comum. Redesenha o bloco inteiro a partir do mesmo gerador do card.
+  document.querySelectorAll(`.card[data-codigo="${chave}"], .card-mini[data-codigo="${chave}"]`)
+    .forEach(card => {
+      const mini = card.classList.contains("card-mini");
+      const bloco = card.querySelector(".btn-add, .controle, .controle-mini, .btn-receita");
+      if (!bloco || !p) return;
+
+      // se o foco estava aqui dentro, ele se perde ao trocar o HTML —
+      // devolve para o botão equivalente, senão quem navega por teclado
+      // volta para o começo da página a cada clique
+      const tinhaFoco = bloco.contains(document.activeElement)
+        ? document.activeElement.dataset.acao
+        : null;
+
+      bloco.outerHTML = acoesDoCardHTML(p, qtd, mini);
+
+      if (tinhaFoco) {
+        card.querySelector(`[data-acao="${tinhaFoco}"]`)?.focus();
+      }
+    });
+
+  // a página de produto tem controle próprio, com outro desenho
+  document.querySelectorAll(`.produto-detalhe[data-codigo="${chave}"] .controle span`)
+    .forEach(span => { span.textContent = qtd; });
 }
 
 /* =========================
