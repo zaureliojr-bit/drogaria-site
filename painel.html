@@ -164,7 +164,7 @@
 <script>
 /* Endereço do worker de pedidos. Precisa ser o mesmo valor que está em
    API_PEDIDOS_D1 no script.js — sem ele o painel não tem de onde ler. */
-const API = "";
+const API = "https://farmatech-pedidos-proxy.zaureliojr.workers.dev";
 
 const el = id => document.getElementById(id);
 const esc = t => String(t ?? "").replace(/[&<>"']/g, c =>

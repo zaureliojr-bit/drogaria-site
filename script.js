@@ -15,7 +15,7 @@ const API_PEDIDOS =
    estiver vazia o site nem tenta enviar para cá, então dá para publicar
    antes de o worker existir. Cole a URL do worker quando ele estiver no
    ar, algo como https://farmatech-pedidos-proxy.SEU-SUBDOMINIO.workers.dev */
-const API_PEDIDOS_D1 = "";
+const API_PEDIDOS_D1 = "https://farmatech-pedidos-proxy.zaureliojr.workers.dev";
 
 const WHATS_LOJA = "5511925190101";
 const POR_PAGINA = 12;
