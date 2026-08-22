@@ -1,0 +1,21 @@
+# Publicação deste site no Cloudflare Workers.
+#
+# O site é estático: 10 arquivos, sem etapa de build. O bloco [assets]
+# faz o Worker servi-los direto, sem código nenhum — não existe um
+# index.js aqui, e é assim mesmo.
+#
+# Os arquivos ficam em public/, e não na raiz, por um motivo concreto:
+# apontando [assets] para a raiz, o wrangler varre 132 arquivos em vez
+# de 10 — o .git inteiro entra junto, e o histórico do repositório iria
+# ao ar. O .assetsignore não impede isso. Com a pasta separada, ele lê
+# exatamente os 10 arquivos do site.
+
+name = "drogaria-site"
+compatibility_date = "2026-08-01"
+
+[assets]
+directory = "public"
+
+# Caminho inexistente devolve 404 de verdade. O site não é uma SPA:
+# cada página é um arquivo, então não faz sentido cair no index.html.
+not_found_handling = "none"
