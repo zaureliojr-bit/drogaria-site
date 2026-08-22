@@ -121,9 +121,9 @@ function renderProdutoDetalhe(p) {
   container.dataset.codigo = p.codigo;
 
   const selo = p.exigeReceita
-    ? `<span class="badge-receita">${icone("receita", 12)}Exige receita</span>`
+    ? `<span class="badge-receita">${icone("receita", 12)}Retém receita</span>`
     : p.receitaRemota
-      ? `<span class="badge-controle">${icone("receita", 12)}Controle especial</span>`
+      ? `<span class="badge-controle">${icone("receita", 12)}Com receita</span>`
       : p.emOferta
         ? `<span class="badge-oferta">${icone("tag", 12)}-${p.desconto}%</span>`
         : "";
@@ -178,8 +178,8 @@ function renderProdutoDetalhe(p) {
     ` : `
       ${p.receitaRemota ? `
         <div class="aviso-receita">
-          <p><strong>Item de controle especial.</strong></p>
-          <p>Pode ser comprado normalmente, mas a entrega só sai depois de conferirmos a receita — você vai confirmar o envio dela ao finalizar o pedido.</p>
+          <p><strong>Este medicamento exige receita.</strong></p>
+          <p>Pode ser comprado pelo site normalmente. A entrega só sai depois de conferirmos a receita — você confirma o envio dela ao finalizar o pedido.</p>
         </div>
       ` : ""}
 

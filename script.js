@@ -533,12 +533,25 @@ function mapearProduto(p) {
   // do carrinho e manda para o WhatsApp. A categoria SOMA bloqueios: nada
   // que já era bloqueado volta a ser vendido porque o produto não bateu
   // com a lista de substâncias do padronizador.
-  const bloqueioPresencial = !!familia.receita || p.bloqueioPresencial === true;
+  // Só as listas A/B da Portaria 344 ficam fora do carrinho: elas exigem
+  // receita retida e dispensação presencial, e isso não é escolha da loja.
+  //
+  // A tarja preta entra aqui como rede de segurança. O padronizador só
+  // marca bloqueioPresencial quando reconhece a substância; quando o
+  // cruzamento com a CMED falha, um Dimorf ou um Concerta passaria batido.
+  // A tarja vem do tarjas.json, por outro caminho, e não depende disso.
+  const bloqueioPresencial = p.bloqueioPresencial === true || tarja === "P";
 
-  // Controle especial que a Portaria permite entregar remoto com
-  // conferência da receita antes do envio (listas C, Art. 34-B) - entra
-  // no carrinho normalmente; o checkout que cobra a confirmação.
-  const receitaRemota = !bloqueioPresencial && p.receitaRemota === true;
+  // Todo o resto que precisa de receita É VENDIDO pelo site: a RDC 44/2009
+  // permite a venda a distância desde que a receita seja conferida antes da
+  // dispensação. Entra no carrinho normalmente, e o checkout cobra a
+  // confirmação do envio da receita antes de o pedido ser despachado.
+  const precisaDeReceita =
+    !bloqueioPresencial && (
+      p.receitaRemota === true ||        // listas C da Portaria 344
+      !!familia.receita ||               // categoria ETICO CONTROLADO do PDV
+      tarja === "V" || tarja === "R"     // tarja vermelha, com ou sem restrição
+    );
 
   return {
     tarja,
@@ -552,11 +565,11 @@ function mapearProduto(p) {
 
     familia: familia.id,
     familiaNome: familia.nome,
-    // NÃO é mais "tarja vermelha bloqueia": anticoncepcional e antibiótico
-    // comum são tarja vermelha e vendem livre. Bloqueio de verdade só para
-    // quem está nas listas A/B da Portaria 344 (ver mapearProduto acima).
+    // "exigeReceita" aqui quer dizer "não entra no carrinho" — é o nome que
+    // o resto do código já usava. Hoje só as listas A/B caem nele.
     exigeReceita: bloqueioPresencial,
-    receitaRemota,
+    // precisa de receita, mas vende pelo site com conferência antes do envio
+    receitaRemota: precisaDeReceita,
     controleEspecial: p.controleEspecial || "",
     tipoReceita: p.tipoReceita || "",
     ehMedicamento: !!familia.medicamento,
@@ -1001,9 +1014,9 @@ function cardHTML(p, mini = false) {
   const href = `produto.html?codigo=${encodeURIComponent(p.codigo)}`;
 
   const selo = p.exigeReceita
-    ? `<span class="badge-receita">${icone("receita", 11)}Receita</span>`
+    ? `<span class="badge-receita">${icone("receita", 11)}Retém receita</span>`
     : p.receitaRemota
-      ? `<span class="badge-controle">${icone("receita", 11)}Controle especial</span>`
+      ? `<span class="badge-controle">${icone("receita", 11)}Com receita</span>`
       : p.emOferta
         ? `<span class="badge-oferta">${icone("tag", 11)}-${p.desconto}%</span>`
         : "";
@@ -1744,7 +1757,7 @@ function finalizar() {
     m += `\n💳 ${pagamento}${trocoTexto}`;
 
     if (itensControleEspecial.length) {
-      m += `\n\n📋 *Item(ns) de controle especial neste pedido - envie a foto da receita aqui no WhatsApp antes da entrega:*`;
+      m += `\n\n📋 *Item(ns) com receita neste pedido - envie a foto da receita aqui no WhatsApp antes da entrega:*`;
       itensControleEspecial.forEach(({ item }) => { m += `\n• ${item.nome}`; });
     }
 
