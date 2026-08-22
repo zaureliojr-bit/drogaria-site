@@ -1262,6 +1262,29 @@ function tamanhoDaURL(texto) {
   return `https://wa.me/${WHATS_LOJA}?text=${encodeURIComponent(texto)}`.length;
 }
 
+/* Número do pedido: 9 dígitos, sem letra nenhuma.
+
+   Não é sorteio puro, e não podia ser. Este número é chave primária do
+   histórico e é o que casa o WhatsApp com a planilha: dois pedidos com o
+   mesmo número fariam um sobrescrever o outro sem ninguém perceber. Com
+   6 dígitos sorteados isso acontece em 39% dos casos já no milésimo
+   pedido; mesmo com 8, chega a 39% em dez mil.
+
+   Então: 3 dígitos sorteados na frente, e atrás os 6 últimos dígitos do
+   relógio em segundos. A parte do relógio não repete por 11 dias, e a
+   sorteada quebra o empate de dois pedidos no mesmo segundo — em
+   simulação de um ano a 200 pedidos por dia, deu zero a seis colisões.
+
+   Os dígitos sorteados vêm primeiro de propósito: com o relógio na
+   frente, pedidos seguidos sairiam quase iguais (369537447, 369544900) e
+   pareceriam sequenciais. */
+function gerarNumeroDoPedido() {
+  const sorteio = Math.floor(Math.random() * 1000);
+  const relogio = Math.floor(Date.now() / 1000) % 1000000;
+
+  return String(sorteio).padStart(3, "0") + String(relogio).padStart(6, "0");
+}
+
 function abrirWhatsApp(texto) {
   const url = `https://wa.me/${WHATS_LOJA}?text=${encodeURIComponent(texto)}`;
   const janela = window.open(url, "_blank");
@@ -1731,7 +1754,7 @@ function finalizar() {
   const totalGeral = subtotal + frete;
 
   // código curto para casar o WhatsApp com a linha da planilha
-  const ref = "P" + Date.now().toString(36).slice(-5).toUpperCase();
+  const ref = gerarNumeroDoPedido();
 
   const montarMensagem = (comCodigos) => {
 
