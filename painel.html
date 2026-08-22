@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel — Drogaria Mais Barato</title>
+<meta name="theme-color" content="#26247B">
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* O painel é da loja, não da vitrine: reaproveita a paleta e as fontes
+     do site, mas não o resto — nada de carrinho, filtros ou banner. */
+  body { padding-bottom: 40px; }
+
+  .painel-topo {
+    background: var(--marca);
+    color: var(--branco);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .painel-topo h1 { font-size: 16px; font-weight: 700; color: var(--amarelo); }
+  .painel-topo .sub { font-size: 11.5px; color: rgba(255,255,255,.8); }
+  .painel-topo a { color: var(--branco); font-size: 12px; font-weight: 600; }
+
+  .painel { max-width: 1000px; margin: 0 auto; padding: 0 14px; }
+
+  .entrar {
+    max-width: 380px; margin: 60px auto; background: var(--branco);
+    border: 1px solid var(--linha); border-radius: var(--raio-lg);
+    padding: 26px 22px; box-shadow: var(--sombra-sm);
+  }
+  .entrar h2 { font-size: 16px; margin-bottom: 6px; }
+  .entrar p { font-size: 12.5px; color: var(--tinta-suave); line-height: 1.55; margin-bottom: 16px; }
+  .entrar input {
+    width: 100%; padding: 11px 12px; font-size: 14px; font-family: var(--fonte-corpo);
+    border: 1.5px solid var(--linha); border-radius: var(--raio-sm);
+    background: var(--papel); color: var(--tinta); outline: none; margin-bottom: 10px;
+  }
+  .entrar input:focus { border-color: var(--marca); box-shadow: 0 0 0 3px var(--marca-clara); }
+  .entrar button {
+    width: 100%; padding: 12px; border: none; border-radius: var(--raio-md);
+    background: var(--marca); color: var(--branco); font-weight: 700; font-size: 14px;
+    font-family: var(--fonte-corpo);
+  }
+  .entrar button:hover { background: var(--marca-escura); }
+
+  .erro {
+    background: var(--erro-clara); border: 1px solid var(--erro); color: var(--erro);
+    padding: 10px 12px; border-radius: var(--raio-sm); font-size: 12.5px;
+    margin-bottom: 12px; line-height: 1.5;
+  }
+
+  .periodo { display: flex; gap: 8px; padding: 16px 0 4px; flex-wrap: wrap; }
+  .periodo button {
+    background: var(--branco); border: 1.5px solid var(--linha); color: var(--marca-escura);
+    padding: 7px 14px; border-radius: var(--raio-lg); font-size: 12px; font-weight: 700;
+    font-family: var(--fonte-corpo);
+  }
+  .periodo button.ativo { background: var(--marca); border-color: var(--marca); color: var(--branco); }
+
+  .numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0 4px; }
+  .num {
+    background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio-md);
+    padding: 14px 16px; box-shadow: var(--sombra-sm); min-width: 0;
+  }
+  .num span { display: block; font-size: 11.5px; color: var(--tinta-suave); margin-bottom: 5px; }
+  .num strong { font-size: 20px; font-family: var(--fonte-preco); font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
+  .num.alerta strong { color: var(--erro); }
+
+  .bloco { margin-top: 22px; }
+  .bloco h2 { font-size: 14.5px; margin-bottom: 10px; display: flex; align-items: baseline; gap: 8px; }
+  .bloco h2 small { font-size: 11.5px; font-weight: 400; color: var(--tinta-suave); }
+
+  .tabela-wrap {
+    background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio-md);
+    overflow-x: auto; box-shadow: var(--sombra-sm);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--linha); white-space: nowrap; }
+  th { color: var(--tinta-suave); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; }
+  tr:last-child td { border-bottom: none; }
+  td.num-col, th.num-col { text-align: right; font-family: var(--fonte-preco); font-variant-numeric: tabular-nums; }
+  td.larga { white-space: normal; min-width: 200px; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 700; }
+  .pill-novo { background: var(--marca-clara); color: var(--marca-escura); }
+  .pill-receita { background: #FFF3CD; color: #7A5B00; }
+  .pill-entregue { background: #E6F4EC; color: var(--ok); }
+
+  /* barras do faturamento por dia: um gráfico simples resolve, e não
+     carrega biblioteca nenhuma para dentro do site */
+  .barras { display: flex; align-items: flex-end; gap: 3px; height: 90px; padding: 10px 12px; }
+  .barra { flex: 1; min-width: 0; background: var(--marca); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .barra:hover { background: var(--tag); }
+
+  .vazio { padding: 26px 16px; text-align: center; color: var(--tinta-suave); font-size: 13px; }
+</style>
+</head>
+
+<body>
+
+<div class="painel-topo">
+  <div>
+    <h1>Painel da loja</h1>
+    <span class="sub" id="atualizado"></span>
+  </div>
+  <a href="index.html">← Ver o site</a>
+</div>
+
+<div class="painel">
+
+  <div id="login" class="entrar" style="display:none;">
+    <h2>Painel da loja</h2>
+    <p>Digite a senha do painel. Ela é a mesma que está no
+       <code>PAINEL_KEY</code> do worker de pedidos.</p>
+    <div id="erroLogin"></div>
+    <input type="password" id="senha" placeholder="Senha do painel" autocomplete="current-password">
+    <button id="btnEntrar">Entrar</button>
+  </div>
+
+  <div id="conteudo" style="display:none;">
+
+    <div class="periodo" id="periodo">
+      <button data-dias="1">Hoje</button>
+      <button data-dias="7">7 dias</button>
+      <button data-dias="30" class="ativo">30 dias</button>
+      <button data-dias="90">90 dias</button>
+    </div>
+
+    <div class="numeros" id="numeros"></div>
+
+    <div class="bloco">
+      <h2>Faturamento por dia <small id="rotuloPeriodo"></small></h2>
+      <div class="tabela-wrap"><div class="barras" id="barras"></div></div>
+    </div>
+
+    <div class="bloco">
+      <h2>Produtos mais vendidos</h2>
+      <div class="tabela-wrap" id="produtos"></div>
+    </div>
+
+    <div class="bloco">
+      <h2>Últimos pedidos</h2>
+      <div class="tabela-wrap" id="pedidos"></div>
+    </div>
+
+    <div class="bloco">
+      <h2>Clientes <small>quem já comprou, pelo telefone</small></h2>
+      <div class="tabela-wrap" id="clientes"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+/* Endereço do worker de pedidos. Precisa ser o mesmo valor que está em
+   API_PEDIDOS_D1 no script.js — sem ele o painel não tem de onde ler. */
+const API = "";
+
+const el = id => document.getElementById(id);
+const esc = t => String(t ?? "").replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const dinheiro = v => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const dataHora = ms => new Date(ms).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const dataCurta = ms => new Date(ms).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+
+// A senha fica só nesta aba: fechou, sai. Não é "lembrar de mim" de
+// propósito — é o painel do faturamento da loja.
+let senha = sessionStorage.getItem("painelKey") || "";
+let dias = 30;
+
+async function api(rota) {
+  const r = await fetch(`${API.replace(/\/+$/, "")}${rota}`, { headers: { "X-Painel-Key": senha } });
+  if (r.status === 401) throw new Error("SENHA");
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+function mostrarLogin(mensagem) {
+  el("login").style.display = "";
+  el("conteudo").style.display = "none";
+  el("erroLogin").innerHTML = mensagem ? `<div class="erro">${esc(mensagem)}</div>` : "";
+  el("senha").focus();
+}
+
+function tabela(colunas, linhas, vazio) {
+  if (!linhas.length) return `<div class="vazio">${esc(vazio)}</div>`;
+  return `<table>
+    <thead><tr>${colunas.map(c => `<th class="${c.num ? "num-col" : ""}">${esc(c.titulo)}</th>`).join("")}</tr></thead>
+    <tbody>${linhas.map(l => `<tr>${l.map((v, i) =>
+      `<td class="${colunas[i].num ? "num-col" : ""} ${colunas[i].larga ? "larga" : ""}">${v}</td>`).join("")}</tr>`).join("")}</tbody>
+  </table>`;
+}
+
+function pillStatus(p) {
+  if (p.status === "entregue") return `<span class="pill pill-entregue">entregue</span>`;
+  if (p.tem_receita && p.status === "novo") return `<span class="pill pill-receita">aguarda receita</span>`;
+  return `<span class="pill pill-novo">${esc(p.status)}</span>`;
+}
+
+async function carregar() {
+  const [resumo, clientes] = await Promise.all([
+    api(`/resumo?dias=${dias}`),
+    api(`/clientes?limite=100`)
+  ]);
+
+  el("numeros").innerHTML = `
+    <div class="num"><span>Pedidos hoje</span><strong>${resumo.hoje.pedidos}</strong></div>
+    <div class="num"><span>Faturamento hoje</span><strong>${dinheiro(resumo.hoje.faturamento)}</strong></div>
+    <div class="num"><span>Pedidos no período</span><strong>${resumo.periodo.pedidos}</strong></div>
+    <div class="num"><span>Faturamento no período</span><strong>${dinheiro(resumo.periodo.faturamento)}</strong></div>
+    <div class="num"><span>Ticket médio</span><strong>${dinheiro(resumo.periodo.ticket)}</strong></div>
+    <div class="num ${resumo.aguardandoReceita ? "alerta" : ""}"><span>Aguardando receita</span><strong>${resumo.aguardandoReceita}</strong></div>
+  `;
+
+  el("rotuloPeriodo").textContent = `últimos ${resumo.dias} dias`;
+
+  const maior = Math.max(1, ...resumo.porDia.map(d => d.faturamento));
+  el("barras").innerHTML = resumo.porDia.length
+    ? resumo.porDia.map(d => `<div class="barra" style="height:${Math.round((d.faturamento / maior) * 100)}%"
+         title="${esc(d.dia)} — ${dinheiro(d.faturamento)} em ${d.pedidos} pedido(s)"></div>`).join("")
+    : `<div class="vazio">Nenhum pedido no período.</div>`;
+
+  el("produtos").innerHTML = tabela(
+    [{ titulo: "Produto", larga: true }, { titulo: "EAN" }, { titulo: "Unidades", num: true }, { titulo: "Faturamento", num: true }],
+    resumo.topProdutos.map(p => [esc(p.descricao), esc(p.ean || "—"), p.unidades, dinheiro(p.faturamento)]),
+    "Nenhum produto vendido no período."
+  );
+
+  el("pedidos").innerHTML = tabela(
+    [{ titulo: "Pedido" }, { titulo: "Quando" }, { titulo: "Cliente", larga: true }, { titulo: "Telefone" },
+     { titulo: "Entrega" }, { titulo: "Total", num: true }, { titulo: "Situação" }],
+    resumo.recentes.map(p => [
+      esc(p.ref), dataHora(p.criado_em), esc(p.cliente), esc(p.telefone),
+      esc(p.entrega), dinheiro(p.total), pillStatus(p)
+    ]),
+    "Nenhum pedido ainda."
+  );
+
+  el("clientes").innerHTML = tabela(
+    [{ titulo: "Cliente", larga: true }, { titulo: "Telefone" }, { titulo: "Pedidos", num: true },
+     { titulo: "Total gasto", num: true }, { titulo: "Primeira" }, { titulo: "Última" }],
+    clientes.clientes.map(c => [
+      esc(c.nome), esc(c.telefone), c.pedidos, dinheiro(c.total_gasto),
+      dataCurta(c.primeiro_pedido), dataCurta(c.ultimo_pedido)
+    ]),
+    "Nenhum cliente ainda."
+  );
+
+  el("atualizado").textContent = `atualizado às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  el("login").style.display = "none";
+  el("conteudo").style.display = "";
+}
+
+async function tentar() {
+  if (!API) {
+    mostrarLogin("Falta apontar o painel para o worker: preencha a constante API no topo do painel.html.");
+    el("senha").disabled = true;
+    el("btnEntrar").disabled = true;
+    return;
+  }
+  if (!senha) return mostrarLogin("");
+  try {
+    await carregar();
+  } catch (erro) {
+    sessionStorage.removeItem("painelKey");
+    senha = "";
+    mostrarLogin(erro.message === "SENHA"
+      ? "Senha incorreta."
+      : `Não consegui falar com o servidor (${erro.message}).`);
+  }
+}
+
+el("btnEntrar").addEventListener("click", () => {
+  senha = el("senha").value.trim();
+  if (!senha) return;
+  sessionStorage.setItem("painelKey", senha);
+  tentar();
+});
+
+el("senha").addEventListener("keydown", e => { if (e.key === "Enter") el("btnEntrar").click(); });
+
+el("periodo").addEventListener("click", e => {
+  const btn = e.target.closest("[data-dias]");
+  if (!btn) return;
+  dias = Number(btn.dataset.dias);
+  document.querySelectorAll("#periodo button").forEach(b => b.classList.toggle("ativo", b === btn));
+  carregar().catch(() => tentar());
+});
+
+tentar();
+</script>
+
+</body>
+</html>

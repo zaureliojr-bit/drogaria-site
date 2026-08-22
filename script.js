@@ -6,6 +6,17 @@ const API_PRODUTOS =
 
 const API_PEDIDOS =
 "https://script.google.com/macros/s/AKfycbxkYaQekyFpkptlBPxz5CoyR50sJU_gzLC8tVuW6rWTSJejk0_BRQGaSRkapnMUhWszLw/exec";
+
+/* Histórico de pedidos no D1 (ver pedidos-proxy, no repositório do
+   padronizador). Aqui os itens vão como lista, e não como uma linha de
+   texto — é isso que permite o painel somar produtos vendidos.
+
+   A planilha continua recebendo em paralelo. Enquanto esta constante
+   estiver vazia o site nem tenta enviar para cá, então dá para publicar
+   antes de o worker existir. Cole a URL do worker quando ele estiver no
+   ar, algo como https://farmatech-pedidos-proxy.SEU-SUBDOMINIO.workers.dev */
+const API_PEDIDOS_D1 = "";
+
 const WHATS_LOJA = "5511925190101";
 const POR_PAGINA = 12;
 
@@ -1790,6 +1801,35 @@ function finalizar() {
 
   fetch(API_PEDIDOS, { method: "POST", body: JSON.stringify(pedido) })
     .catch(err => console.error("Erro ao salvar pedido:", err));
+
+  // O mesmo pedido, com os itens em lista, para o histórico no D1. A
+  // planilha continua recebendo o formato antigo: os dois convivem até o
+  // painel ganhar confiança, e nenhum dos dois depende do outro.
+  if (API_PEDIDOS_D1) {
+    fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/pedidos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ref,
+        cliente: nome,
+        telefone,
+        entrega: tipoEntrega,
+        endereco: enderecoTexto,
+        pagamento,
+        subtotal,
+        frete,
+        total: totalGeral,
+        temReceita: itensControleEspecial.length > 0,
+        itens: carrinho.map(item => ({
+          ean: eanDoItem(item),
+          codigo: item.codigo,
+          descricao: item.nome,
+          qtd: item.qtd,
+          preco: item.preco
+        }))
+      })
+    }).catch(err => console.error("Erro ao gravar no histórico:", err));
+  }
 
   const { url, abriu } = abrirWhatsApp(msg);
 
