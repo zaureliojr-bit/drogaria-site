@@ -507,7 +507,8 @@ h1, h2 { font-family: var(--fonte-titulo); }
   height: 46px;
   object-fit: contain;
   border-radius: var(--raio-sm);
-  background: var(--marca-clara);
+  background: var(--branco);
+  border: 1px solid var(--linha);
   padding: 5px;
   display: block;
 }
@@ -786,7 +787,13 @@ h1, h2 { font-family: var(--fonte-titulo); }
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: var(--raio-md);
-  background: linear-gradient(160deg, var(--marca-clara) 0%, var(--branco) 72%);
+  /* Branco puro atrás da foto. A maioria das fotos de produto vem com
+     fundo branco recortado; sobre o degradê lavanda que havia aqui, esse
+     fundo aparecia como um retângulo claro no meio do card. Em branco,
+     a foto se funde e só o produto fica visível.
+     A borda de baixo separa a foto do nome sem precisar de cor. */
+  background: var(--branco);
+  border-bottom: 1px solid var(--linha);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1571,7 +1578,10 @@ h1, h2 { font-family: var(--fonte-titulo); }
 
 .produto-detalhe-foto {
   position: relative;
-  background: linear-gradient(160deg, var(--marca-clara) 0%, var(--branco) 72%);
+  /* mesmo motivo do card: foto com fundo branco não pode virar um
+     retângulo destacado sobre o fundo colorido */
+  background: var(--branco);
+  border: 1px solid var(--linha);
   border-radius: var(--raio-lg);
   aspect-ratio: 1 / 1;
   display: flex;
