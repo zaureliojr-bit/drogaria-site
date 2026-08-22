@@ -597,6 +597,42 @@ h1, h2 { font-family: var(--fonte-titulo); }
 
 .scroll-horizontal::-webkit-scrollbar { display: none; }
 
+/* Barra de rolagem desenhada para os carrosséis de produto.
+
+   A nativa fica escondida acima, e no celular ela é overlay de qualquer
+   jeito: aparece durante o arrasto e some depois. Sem esta barra o
+   cliente não descobre que existem mais produtos para o lado — foi
+   exatamente o que aconteceu na tela de "Mais de Medicamentos".
+
+   Mesma mecânica da barra dos filtros; o JS cria estes elementos e
+   esconde a barra quando não há transbordo. */
+.scroll-barra {
+  display: none;
+  position: relative;
+  height: 5px;
+  margin: 2px 0 4px;
+  background: var(--marca-clara);
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.scroll-barra.ativa { display: block; }
+
+.scroll-barra-thumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  min-width: 26px;
+  background: var(--marca);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.scroll-barra:hover .scroll-barra-thumb,
+.scroll-barra.arrastando .scroll-barra-thumb { background: var(--marca-escura); }
+
 /* ========================= */
 /* 🗂️ SEÇÕES POR FAMÍLIA     */
 /* ========================= */

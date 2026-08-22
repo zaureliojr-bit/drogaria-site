@@ -224,6 +224,10 @@ function renderRelacionados(p) {
     <h2>Mais de ${esc(p.familiaNome || "produtos")}</h2>
     <div class="scroll-horizontal">${lista.map(cardMiniHTML).join("")}</div>
   `;
+
+  // a barra de rolagem desenhada vem do script.js, e só faz sentido
+  // depois que os cards existem no DOM
+  if (typeof ligarBarrasDosCarrosseis === "function") ligarBarrasDosCarrosseis(box);
 }
 
 function adicionarAoCarrinhoDetalhe(codigo) {

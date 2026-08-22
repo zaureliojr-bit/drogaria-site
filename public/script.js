@@ -775,9 +775,16 @@ sempre visível quando há transbordo, acompanha a rolagem e pode ser
 arrastada com o mouse.
 ========================= */
 function ligarBarraFiltros() {
-  const trilho = el("filtros");
-  const barra = el("filtrosBarra");
-  const polegar = el("filtrosThumb");
+  return ligarBarraDeRolagem(el("filtros"), el("filtrosBarra"), el("filtrosThumb"));
+}
+
+/* A mecânica em si, separada para servir também aos carrosséis de
+   produto ("Destaques da semana", "Mais de ..."). Lá o problema é o
+   mesmo dos filtros: a barra nativa está escondida por CSS e, no
+   celular, ela é overlay — aparece durante o arrasto e some depois.
+   Sem uma barra desenhada, o cliente não descobre que existem mais
+   produtos para o lado. */
+function ligarBarraDeRolagem(trilho, barra, polegar) {
   if (!trilho || !barra || !polegar) return;
 
   function atualizar() {
@@ -842,6 +849,40 @@ function ligarBarraFiltros() {
 
   atualizar();
   return atualizar;
+}
+
+/* Coloca uma barra de rolagem embaixo de cada carrossel de produtos que
+   ainda não tenha uma.
+
+   É chamada depois de cada render porque os carrosséis nascem em
+   momentos diferentes: os destaques na carga, as seções de categoria
+   conforme o cliente rola, e os relacionados só na página de produto.
+   Marcar o trilho com dataset.barraLigada deixa a função repetível —
+   chamar duas vezes no mesmo carrossel não cria barra duplicada.
+
+   A barra também se atualiza quando o carrossel muda de tamanho, o que
+   acontece quando as fotos terminam de carregar e empurram a largura. */
+function ligarBarrasDosCarrosseis(raiz = document) {
+  raiz.querySelectorAll(".scroll-horizontal").forEach(trilho => {
+    if (trilho.dataset.barraLigada) return;
+    trilho.dataset.barraLigada = "1";
+
+    const barra = document.createElement("div");
+    barra.className = "scroll-barra";
+    barra.setAttribute("aria-hidden", "true");
+
+    const polegar = document.createElement("span");
+    polegar.className = "scroll-barra-thumb";
+    barra.appendChild(polegar);
+
+    trilho.insertAdjacentElement("afterend", barra);
+
+    const atualizar = ligarBarraDeRolagem(trilho, barra, polegar);
+
+    if (atualizar && typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(atualizar).observe(trilho);
+    }
+  });
 }
 
 let _atualizarBarraFiltros = null;
@@ -1097,6 +1138,7 @@ function renderMaisVendidos() {
   const container = el("listaMaisVendidos");
   if (!container) return;
   container.innerHTML = maisVendidos.map(cardMiniHTML).join("");
+  ligarBarrasDosCarrosseis(container.parentElement || document);
 }
 
 /* =========================
@@ -1135,6 +1177,8 @@ function renderCategoriasHome() {
     </section>
   `).join("");
 
+  ligarBarrasDosCarrosseis(container);
+
   // monta as seções restantes quando elas chegam perto da tela
   const pendentes = blocos.slice(SECOES_INICIAIS);
   if (!pendentes.length || !("IntersectionObserver" in window)) return;
@@ -1147,6 +1191,7 @@ function renderCategoriasHome() {
       const trilho = secao.querySelector(".scroll-horizontal");
       if (bloco && trilho && !trilho.children.length) {
         trilho.innerHTML = bloco.itens.slice(0, MAX_ITENS_PREVIA).map(cardMiniHTML).join("");
+        ligarBarrasDosCarrosseis(secao);
       }
       observador.unobserve(secao);
     });
