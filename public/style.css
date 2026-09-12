@@ -788,25 +788,90 @@ h1, h2 { font-family: var(--fonte-titulo); }
 /* ========================= */
 /* 🧾 CARD PRODUTO           */
 /* ========================= */
+/* Alinhado à esquerda, não centralizado. Numa grade de dois, o olho desce
+   por uma coluna só: nome, fabricante e preço começam todos no mesmo x, e
+   o corte do nome em duas linhas passa a parecer proposital. Centralizado,
+   cada linha começava num ponto diferente. */
 .card, .card-mini {
   background: var(--branco);
   border: 1px solid var(--linha);
   border-radius: var(--raio-lg);
-  padding: 12px;
-  text-align: center;
+  padding: 0 12px 12px;   /* sem padding em cima: a tira encosta na borda */
+  text-align: left;
   box-shadow: var(--sombra-sm);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 6px;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   position: relative;
+  overflow: hidden;   /* a tira precisa respeitar o canto arredondado */
 }
 
 .card-mini {
   flex: 0 0 132px;
-  padding: 10px;
+  padding: 0 10px 10px;
   min-height: 208px;
+}
+
+/* ---- tira do topo ---------------------------------------------------- */
+/* Fundo tingido com texto na cor forte, em vez de pílula sólida por cima
+   da foto. Ocupa a largura toda, então o texto cabe inteiro e o produto
+   não fica com um canto tapado. */
+.faixa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 0 -12px;        /* sangra até a borda: o card tem padding lateral */
+  padding: 5px 10px;
+  font-family: var(--fonte-titulo);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-mini .faixa { margin: 0 -10px; font-size: 9.5px; padding: 4px 8px; }
+
+.faixa-oferta   { background: var(--tag-clara);   color: var(--tag-escura); }
+.faixa-controle { background: #E4F2EA;            color: var(--ok); }
+.faixa-receita  { background: var(--marca-clara); color: var(--marca); }
+
+/* Sem oferta nem receita a tira fica invisível, mas continua ocupando o
+   lugar: é o que mantém a foto na mesma altura em todos os cards.
+   O espaço rígido é o que garante isso — só o padding não basta, porque
+   sem texto não existe caixa de linha e a tira encolhe. Feito assim, e não
+   com min-height fixo, a altura acompanha sozinha o corpo menor do
+   card-mini. */
+.faixa-vazia { background: transparent; }
+.faixa-vazia::before { content: "\00a0"; }
+
+/* ---- fabricante ------------------------------------------------------ */
+/* Sai no card-mini do carrossel: em 132px de largura ele rouba a linha do
+   preço sem acrescentar muito. */
+.card-marca {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 13px;   /* reserva a linha mesmo sem marca cadastrada */
+}
+
+/* ---- bloco do preço -------------------------------------------------- */
+/* A divisória separa o que o produto É do que ele CUSTA. O margin-top:auto
+   empurra o bloco para baixo, então a linha cai na mesma altura nos dois
+   cards da fileira — é o alinhamento que a grade centralizada nunca teve. */
+.card-preco {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--linha);
 }
 
 .card:hover, .card-mini:hover {
@@ -829,7 +894,6 @@ h1, h2 { font-family: var(--fonte-titulo); }
      a foto se funde e só o produto fica visível.
      A borda de baixo separa a foto do nome sem precisar de cor. */
   background: var(--branco);
-  border-bottom: 1px solid var(--linha);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -860,7 +924,6 @@ h1, h2 { font-family: var(--fonte-titulo); }
 .produto-nome-wrap {
   width: 100%;
   display: block;   /* precisa ser bloco, não flex: senão o <a> vira flex item e blockifica de novo */
-  padding: 0 2px;
 }
 
 .produto-nome-link {
@@ -898,7 +961,6 @@ h1, h2 { font-family: var(--fonte-titulo); }
    Antes o card já nascia com o stepper marcando zero: o "0" ocupava o
    lugar da ação principal e o botão de menos não fazia nada. */
 .btn-add {
-  margin-top: auto;
   width: 100%;
   min-height: 38px;   /* igual à do stepper: trocar um pelo outro não pode
                          mudar a altura do card nem empurrar a grade */
@@ -930,7 +992,6 @@ h1, h2 { font-family: var(--fonte-titulo); }
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  margin-top: auto;
   width: 100%;
   min-height: 38px;
   background: var(--marca-clara);
@@ -1021,8 +1082,14 @@ h1, h2 { font-family: var(--fonte-titulo); }
 /* ========================= */
 /* 🏷️ OFERTA / RECEITA       */
 /* ========================= */
-.card.card-oferta, .card-mini.card-oferta { border-color: var(--amarelo-escura); }
+/* A borda amarela do card em oferta saiu junto com a pílula sobre a foto:
+   numa grade em que metade dos produtos está em promoção, ela virava ruído.
+   Quem avisa agora é a tira do topo, e o quanto é o desconto está ao lado
+   do preço riscado, que é onde a pergunta aparece. */
 
+/* As pílulas abaixo ficaram só para a página do produto (produto.js), que
+   as coloca sobre a foto grande. No card da grade, quem faz esse papel é
+   a .faixa. */
 .badge-oferta, .badge-receita, .badge-controle {
   position: absolute;
   top: 8px;
@@ -1046,10 +1113,6 @@ h1, h2 { font-family: var(--fonte-titulo); }
 .badge-receita { background: var(--marca); color: var(--branco); }
 .badge-controle { background: var(--ok); color: var(--branco); }
 
-.card-mini .badge-oferta,
-.card-mini .badge-receita,
-.card-mini .badge-controle { font-size: 9px; padding: 2px 6px; top: 6px; left: 6px; }
-
 /* "CONTROLE ESPECIAL" em caixa alta quebrava em duas linhas e cobria
    quase metade da foto do produto. Sem caixa alta cabe em uma linha. */
 .badge-oferta, .badge-receita, .badge-controle {
@@ -1061,10 +1124,6 @@ h1, h2 { font-family: var(--fonte-titulo); }
   white-space: nowrap;
 }
 
-.card-mini .badge-oferta,
-.card-mini .badge-receita,
-.card-mini .badge-controle { font-size: 9.5px; padding: 2px 7px; }
-
 /* Card sem desconto não tem a linha "de R$ ..." e o preço subia, saindo do
    alinhamento dos vizinhos na mesma fileira. Reserva a altura sempre. */
 .preco-linha-de { min-height: 15px; }
@@ -1073,10 +1132,29 @@ h1, h2 { font-family: var(--fonte-titulo); }
 .preco-linha-de {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
+
+/* O "quanto desconto" saiu de cima da foto e veio para o lado do preço
+   riscado — a pergunta "de quanto por quanto" se responde numa linha só.
+   Como não depende mais da tira do topo, produto que precisa de receita E
+   está em oferta agora mostra as duas coisas; antes o desconto sumia. */
+.preco-desconto {
+  background: var(--tag-clara);
+  color: var(--tag-escura);
+  font-family: var(--fonte-titulo);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.card-mini .preco-desconto { font-size: 9.5px; padding: 2px 5px; }
 
 .preco-de {
   color: var(--tinta-suave);

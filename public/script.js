@@ -1065,19 +1065,37 @@ function cardHTML(p, mini = false) {
   const codigo = esc(p.codigo);
   const href = `produto.html?codigo=${encodeURIComponent(p.codigo)}`;
 
-  const selo = p.exigeReceita
-    ? `<span class="badge-receita">${icone("receita", 11)}Retém receita</span>`
+  // A faixa fica numa tira no topo do card, e não flutuando sobre a foto:
+  // cabe o texto inteiro sem tapar o produto, e a foto de todos os cards
+  // da fileira começa na mesma altura (por isso a tira vazia).
+  //
+  // Receita ganha da oferta porque muda o que o cliente precisa fazer.
+  // O desconto não some mais nesse caso: ele saiu daqui e virou a pílula
+  // ao lado do preço riscado, que aparece nas duas situações.
+  const faixa = p.exigeReceita
+    ? `<div class="faixa faixa-receita">${icone("receita", 11)}Retém receita</div>`
     : p.receitaRemota
-      ? `<span class="badge-controle">${icone("receita", 11)}Com receita</span>`
+      ? `<div class="faixa faixa-controle">${icone("receita", 11)}Com receita</div>`
       : p.emOferta
-        ? `<span class="badge-oferta">${icone("tag", 11)}-${p.desconto}%</span>`
-        : "";
+        ? `<div class="faixa faixa-oferta">${icone("tag", 11)}Oferta</div>`
+        : `<div class="faixa faixa-vazia" aria-hidden="true"></div>`;
+
+  // Quem fabrica, abaixo do nome. É o que separa dois genéricos de mesmo
+  // princípio ativo com preços diferentes — no card antigo essa informação
+  // só existia na página do produto.
+  const fabricante = esc(p.marca || p.laboratorio || "");
+  const linhaMarca = mini
+    ? ""
+    : `<div class="card-marca">${fabricante || "&nbsp;"}</div>`;
 
   // A linha do preço antigo sai vazia quando não há desconto, em vez de não
   // sair: assim o preço fica na mesma altura em todos os cards da fileira,
   // e não sobe no card sem oferta. Quem reserva a altura é o CSS.
   const bloco = p.emOferta
-    ? `<div class="preco-linha-de"><span class="preco-de">${fmt(p.precoOriginal)}</span></div>
+    ? `<div class="preco-linha-de">
+         <span class="preco-de">${fmt(p.precoOriginal)}</span>
+         <span class="preco-desconto">−${p.desconto}%</span>
+       </div>
        <span class="preco preco-por">${precoGrandeHTML(p.preco)}</span>`
     : `<div class="preco-linha-de" aria-hidden="true"></div>
        <span class="preco">${precoGrandeHTML(p.preco)}</span>`;
@@ -1085,15 +1103,16 @@ function cardHTML(p, mini = false) {
   const acoes = acoesDoCardHTML(p, qtd, mini);
 
   return `
-    <div class="${mini ? "card-mini" : "card"}${p.emOferta ? " card-oferta" : ""}" data-codigo="${codigo}">
+    <div class="${mini ? "card-mini" : "card"}" data-codigo="${codigo}">
+      ${faixa}
       <a class="produto-foto" href="${href}" tabindex="-1" aria-hidden="true">
-        ${selo}
         <img src="${esc(imagemDe(p))}"
              onerror="this.onerror=null;this.src='${esc(svgDe(p))}'"
              alt="" loading="lazy">
       </a>
       <div class="produto-nome-wrap"><a class="produto-nome-link" href="${href}">${nome}</a></div>
-      ${bloco}
+      ${linhaMarca}
+      <div class="card-preco">${bloco}</div>
       ${acoes}
     </div>
   `;
