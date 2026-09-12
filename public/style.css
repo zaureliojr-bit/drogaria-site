@@ -1930,3 +1930,142 @@ h1, h2 { font-family: var(--fonte-titulo); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ========================= */
+/* 📲 BANNER DE INSTALAÇÃO   */
+/* ========================= */
+/* Flutua acima da barra do carrinho, nunca por cima dela: o carrinho é a
+   ação principal da loja e não pode ser tapado por um convite. */
+.instalar-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--carrinho-barra-h) + 12px + env(safe-area-inset-bottom, 0px));
+  z-index: 1100;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+
+  background: var(--branco);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--sombra-md);
+
+  /* entra deslizando de baixo; a classe .aberto é posta no quadro
+     seguinte à inserção, senão o navegador agrupa as duas coisas e não
+     há transição nenhuma */
+  transform: translateY(calc(100% + 24px));
+  opacity: 0;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease;
+}
+
+.instalar-banner.aberto { transform: translateY(0); opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .instalar-banner { transition: none; }
+}
+
+.instalar-icone {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  flex-shrink: 0;
+  box-shadow: var(--sombra-sm);
+}
+
+.instalar-texto { flex: 1; min-width: 0; }
+
+.instalar-texto strong {
+  display: block;
+  font-family: var(--fonte-titulo);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--tinta);
+  margin-bottom: 3px;
+}
+
+.instalar-texto p {
+  font-size: 12px;
+  line-height: 1.42;
+  color: var(--tinta-suave);
+}
+
+/* Passo a passo do iPhone — só aparece quando o cliente pede, porque
+   ocupa espaço e nem todo mundo precisa dele. */
+.instalar-passos {
+  margin: 10px 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--tinta);
+}
+
+/* O atributo hidden é display:none vindo do navegador, e o display:flex
+   acima, por ser do nosso CSS, ganhava dele — os passos nasciam abertos.
+   Esta linha devolve o hidden ao seu trabalho. */
+.instalar-passos[hidden] { display: none; }
+
+.instalar-passos li { padding-left: 2px; }
+.instalar-passos strong { display: inline; font-size: inherit; margin: 0; }
+.instalar-passos .ic { vertical-align: -3px; color: var(--marca); }
+
+.instalar-acoes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.instalar-btn {
+  background: var(--marca);
+  color: var(--branco);
+  border: none;
+  border-radius: 30px;
+  padding: 9px 15px;
+  font-family: var(--fonte-corpo);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.18s, transform 0.12s;
+}
+
+.instalar-btn:hover { background: var(--marca-escura); }
+.instalar-btn:active { transform: scale(0.97); }
+
+/* Recusar é ação secundária: fica discreta, mas com área de toque de
+   verdade (o alvo é maior do que o "✕" que se vê). */
+.instalar-fechar {
+  background: none;
+  border: none;
+  color: var(--tinta-suave);
+  font-size: 15px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 20px;
+}
+
+.instalar-fechar:hover { background: var(--papel); color: var(--tinta); }
+
+/* Em tela larga, ocupar a largura toda é exagero: vira uma faixa
+   atravessando a página e passa por cima do conteúdo — no desktop chegava
+   a cobrir o botão "Adicionar ao carrinho", que fica na coluna central.
+   Ancorado num canto, com largura de cartão, sai do caminho. */
+@media (min-width: 720px) {
+  .instalar-banner {
+    right: auto;
+    left: 16px;
+    max-width: 380px;
+  }
+}
+
+/* Instalado, o banner some de vez — sem isso ele reapareceria dentro do
+   próprio aplicativo, convidando a instalar o que já está instalado. */
+@media (display-mode: standalone) {
+  .instalar-banner { display: none; }
+}

@@ -1948,3 +1948,155 @@ function mostrarLinkPedido(url, ref) {
   `;
   caixa.scrollIntoView({ behavior: "smooth", block: "center" });
 }
+
+/* =========================
+📲 INSTALAR COMO APP
+========================= */
+/* O Android e o iPhone tratam isso de formas completamente diferentes,
+   e o banner precisa dar conta dos dois:
+
+   - Android/Chrome dispara o evento "beforeinstallprompt". Dá para
+     segurar esse evento e abrir a janela de instalação de verdade quando
+     o cliente tocar no botão.
+
+   - iPhone NÃO tem essa API. A Apple nunca expôs nada equivalente: o
+     único caminho é o cliente tocar em Compartilhar e escolher "Adicionar
+     à Tela de Início". Então lá o botão não instala nada — ele mostra
+     onde ficam esses dois toques.
+
+   Prometer "Instalar" no iPhone e abrir uma janela que não existe seria
+   pior do que não ter banner. */
+
+const INSTALAR_CHAVE = "instalar_dispensado_ate";
+const INSTALAR_DIAS = 30;   // quem fechou não é perguntado de novo por um mês
+
+let eventoDeInstalacao = null;
+
+/* Fica no topo do arquivo, fora de qualquer DOMContentLoaded: o Chrome
+   dispara esse evento cedo e só uma vez. Se o ouvinte não estiver no ar
+   na hora, a chance passa e o banner nunca aparece. */
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();          // segura o aviso automático do Chrome
+  eventoDeInstalacao = e;      // e guarda para usar no nosso botão
+  mostrarBannerInstalar();
+});
+
+window.addEventListener("appinstalled", () => {
+  eventoDeInstalacao = null;
+  el("instalarBanner")?.remove();
+  toast("Pronto! O catálogo está na sua tela inicial.");
+});
+
+function rodandoComoApp() {
+  return window.matchMedia("(display-mode: standalone)").matches ||
+         window.navigator.standalone === true;
+}
+
+function ehIPhone() {
+  // iPad com iPadOS 13+ se apresenta como Mac; o toque é o que entrega
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function instalarFoiDispensado() {
+  try {
+    return Date.now() < Number(localStorage.getItem(INSTALAR_CHAVE) || 0);
+  } catch {
+    return false;   // navegação privada bloqueia o storage; mostra assim mesmo
+  }
+}
+
+function dispensarInstalar() {
+  try {
+    localStorage.setItem(
+      INSTALAR_CHAVE,
+      String(Date.now() + INSTALAR_DIAS * 24 * 60 * 60 * 1000)
+    );
+  } catch { /* sem storage, volta a aparecer na próxima visita */ }
+
+  el("instalarBanner")?.remove();
+}
+
+function mostrarBannerInstalar() {
+  if (rodandoComoApp()) return;        // já instalado, não tem o que oferecer
+  if (instalarFoiDispensado()) return;
+  if (el("instalarBanner")) return;    // já está na tela
+
+  const banner = document.createElement("div");
+  banner.id = "instalarBanner";
+  banner.className = "instalar-banner";
+  banner.setAttribute("role", "dialog");
+  banner.setAttribute("aria-label", "Instalar o catálogo");
+
+  const noIPhone = ehIPhone();
+
+  banner.innerHTML = `
+    <img class="instalar-icone" src="icone-192.png" alt="" width="44" height="44">
+
+    <div class="instalar-texto">
+      <strong>Instale nosso catálogo</strong>
+      <p>Fica na tela inicial do celular e abre como aplicativo, sem precisar guardar o link.</p>
+      ${noIPhone ? `
+        <ol class="instalar-passos" id="instalarPassos" hidden>
+          <li>Toque em ${icone("compartilhar", 14)} <strong>Compartilhar</strong>, na barra do navegador.</li>
+          <li>Role e escolha <strong>Adicionar à Tela de Início</strong>.</li>
+          <li>Confirme em <strong>Adicionar</strong>.</li>
+        </ol>` : ""}
+    </div>
+
+    <div class="instalar-acoes">
+      <button class="instalar-btn" data-acao="instalar">${noIPhone ? "Como faz" : "Instalar"}</button>
+      <button class="instalar-fechar" data-acao="dispensar" aria-label="Agora não">✕</button>
+    </div>
+  `;
+
+  document.body.appendChild(banner);
+  requestAnimationFrame(() => banner.classList.add("aberto"));
+
+  banner.addEventListener("click", async (e) => {
+    const acao = e.target.closest("[data-acao]")?.dataset.acao;
+
+    if (acao === "dispensar") return dispensarInstalar();
+    if (acao !== "instalar") return;
+
+    if (noIPhone) {
+      // no iPhone o botão só revela o passo a passo, porque instalar
+      // depende de um gesto do cliente que nenhum código dispara
+      const passos = el("instalarPassos");
+      if (passos) {
+        passos.hidden = !passos.hidden;
+        e.target.textContent = passos.hidden ? "Como faz" : "Entendi";
+      }
+      return;
+    }
+
+    if (!eventoDeInstalacao) return dispensarInstalar();
+
+    eventoDeInstalacao.prompt();
+    const { outcome } = await eventoDeInstalacao.userChoice;
+    eventoDeInstalacao = null;
+
+    // recusou: não insiste na próxima visita
+    if (outcome !== "accepted") dispensarInstalar();
+    else el("instalarBanner")?.remove();
+  });
+}
+
+/* O iPhone nunca dispara beforeinstallprompt, então lá o banner precisa
+   ser chamado na mão. Com folga, para não competir com o carregamento do
+   catálogo nem aparecer antes de o cliente ver o que a loja vende. */
+document.addEventListener("DOMContentLoaded", () => {
+  if (!ehIPhone()) return;
+  setTimeout(mostrarBannerInstalar, 4000);
+});
+
+/* O service worker é requisito do Chrome para oferecer a instalação, e
+   de quebra deixa a casca do site abrir sem rede. Ele não guarda preço
+   nem tarja — ver os comentários no sw.js. */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch((erro) => {
+      console.warn("Service worker não registrou; o site funciona igual.", erro);
+    });
+  });
+}
