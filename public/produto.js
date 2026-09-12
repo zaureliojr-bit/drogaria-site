@@ -190,7 +190,7 @@ function renderProdutoDetalhe(p) {
       </div>
 
       <button class="btn-comprar" data-acao="comprar" data-codigo="${codigo}">
-        ${icone("cart", 15)}Adicionar ao carrinho
+        ${icone("cart-add", 16)}Adicionar ao carrinho
       </button>
     `}
 

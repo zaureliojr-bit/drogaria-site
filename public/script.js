@@ -1055,7 +1055,7 @@ function acoesDoCardHTML(p, qtd, mini = false) {
 
   return `<button class="btn-add" data-acao="mais" data-codigo="${codigo}"
                   aria-label="Adicionar ${nome} ao carrinho">
-            ${icone("cart", mini ? 13 : 14)}Adicionar
+            ${icone("cart-add", mini ? 14 : 15)}Adicionar
           </button>`;
 }
 
