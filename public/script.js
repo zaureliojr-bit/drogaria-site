@@ -947,6 +947,8 @@ function buscar() {
   modoOfertas = false;
   termoBusca = normalizar(el("busca")?.value || "");
   aplicarFiltro();
+  // tocar em Buscar é o cliente dizendo que terminou de digitar
+  enviarBuscaPendente();
   el("produtos")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -966,6 +968,10 @@ function aplicarFiltro() {
     if (termoBusca && !p.busca.includes(termoBusca)) return false;
     return true;
   }));
+
+  // aqui, e só aqui, existem as duas metades ao mesmo tempo: o que foi
+  // digitado e quantos produtos aquilo achou
+  anotarBusca(termoBusca, produtosFiltrados.length);
 
   const modoHome = estaNaHome();
 
@@ -2100,3 +2106,106 @@ if ("serviceWorker" in navigator) {
     });
   });
 }
+
+/* =========================
+🔎 O QUE OS CLIENTES PROCURAM
+========================= */
+/* Registra o termo digitado na busca, para o painel da loja responder
+   duas perguntas que o histórico de pedidos não responde:
+
+     - o que procuram muito (e precisa estar sempre em estoque)
+     - o que procuram e NÃO acham (o que falta no catálogo)
+
+   A segunda é a que vale dinheiro: é uma venda que não aconteceu e que
+   não aparece em lugar nenhum hoje.
+
+   NÃO acompanha pessoa. Vai o termo e o número de resultados, nada mais
+   — sem telefone, sem identificador de sessão. É estatística de loja, e
+   de propósito não dá para voltar dela a um cliente.
+
+   O envio acontece quando a busca TERMINA, não a cada tecla. Se
+   mandasse no meio, "d", "di", "dip" e "dipirona" virariam quatro
+   buscas e o relatório mostraria pedaços de palavra no topo. Por isso o
+   termo fica pendurado e só sai quando o cliente mostra que terminou:
+   toca em Buscar, aperta Enter, ou sai da página. */
+
+const BUSCA_MIN_LETRAS = 3;
+
+let buscaPendente = null;
+const buscasJaEnviadas = new Set();
+
+/* Chamado pelo aplicarFiltro a cada refiltragem: é o único lugar que
+   sabe, ao mesmo tempo, o termo e quantos produtos ele achou. */
+function anotarBusca(termo, resultados) {
+
+    if (!termo || termo.length < BUSCA_MIN_LETRAS) {
+        buscaPendente = null;
+        return;
+    }
+
+    // sobrescreve sempre: o termo mais novo é o que o cliente quis
+    // dizer, e o anterior era só o caminho até ele
+    buscaPendente = { termo, resultados };
+
+}
+
+function enviarBuscaPendente() {
+
+    const pendente = buscaPendente;
+
+    buscaPendente = null;
+
+    if (!pendente) return;
+
+    // mesma busca repetida na mesma visita conta uma vez: quem filtra e
+    // volta atrás não deve pesar mais que quem buscou uma vez só
+    if (buscasJaEnviadas.has(pendente.termo)) return;
+
+    buscasJaEnviadas.add(pendente.termo);
+
+    const corpo = JSON.stringify({
+        termo: pendente.termo,
+        resultados: pendente.resultados
+    });
+
+    try {
+
+        // text/plain de propósito: sendBeacon não sobrevive a uma
+        // verificação de CORS, e application/json exigiria uma. O worker
+        // lê o corpo como JSON de qualquer jeito.
+        const pacote = new Blob([corpo], { type: "text/plain" });
+
+        if (navigator.sendBeacon?.(API_PEDIDOS_D1 + "/busca", pacote)) return;
+
+        // navegador sem sendBeacon: keepalive faz o mesmo papel
+        fetch(API_PEDIDOS_D1 + "/busca", {
+            method: "POST",
+            body: corpo,
+            keepalive: true,
+            headers: { "Content-Type": "text/plain" }
+        }).catch(() => {});
+
+    } catch {
+        /* estatística não pode atrapalhar quem está comprando */
+    }
+
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    // O botão "Buscar" já chama buscar(), que fecha a busca por lá.
+    el("busca")?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") enviarBuscaPendente();
+    });
+
+    // Sair da página é o sinal mais confiável de que a busca acabou, e
+    // pega quem só digita e olha sem tocar em nada. No celular o
+    // pagehide nem sempre dispara (o sistema pode matar a aba antes),
+    // por isso o visibilitychange também está aqui.
+    window.addEventListener("pagehide", enviarBuscaPendente);
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") enviarBuscaPendente();
+    });
+
+});

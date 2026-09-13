@@ -148,6 +148,16 @@
     </div>
 
     <div class="bloco">
+      <h2>Procuraram e não acharam <small>cada linha é uma venda que não aconteceu</small></h2>
+      <div class="tabela-wrap" id="naoEncontrados"></div>
+    </div>
+
+    <div class="bloco">
+      <h2>O que mais procuram <small>o que foi digitado na busca do site</small></h2>
+      <div class="tabela-wrap" id="maisProcurados"></div>
+    </div>
+
+    <div class="bloco">
       <h2>Últimos pedidos</h2>
       <div class="tabela-wrap" id="pedidos"></div>
     </div>
@@ -234,6 +244,20 @@ async function carregar() {
     [{ titulo: "Produto", larga: true }, { titulo: "EAN" }, { titulo: "Unidades", num: true }, { titulo: "Faturamento", num: true }],
     resumo.topProdutos.map(p => [esc(p.descricao), esc(p.ean || "—"), p.unidades, dinheiro(p.faturamento)]),
     "Nenhum produto vendido no período."
+  );
+
+  // Vem antes dos pedidos de propósito: é o único relatório que mostra
+  // o que FALTA, e não o que já foi vendido.
+  el("naoEncontrados").innerHTML = tabela(
+    [{ titulo: "O cliente procurou por", larga: true }, { titulo: "Vezes", num: true }, { titulo: "Última vez" }],
+    (resumo.naoEncontrados || []).map(b => [esc(b.termo), b.buscas, dataHora(b.ultima)]),
+    "Ninguém buscou algo que o site não tivesse. Bom sinal."
+  );
+
+  el("maisProcurados").innerHTML = tabela(
+    [{ titulo: "Termo", larga: true }, { titulo: "Buscas", num: true }, { titulo: "Sem resultado", num: true }],
+    (resumo.maisProcurados || []).map(b => [esc(b.termo), b.buscas, b.vazias || 0]),
+    "Nenhuma busca registrada no período."
   );
 
   el("pedidos").innerHTML = tabela(
