@@ -107,7 +107,7 @@ varia pelo tipo do produto, pra não ficar tudo com a mesma imagem vazia.
 ========================= */
 function _svgDataUri(miolo, escala = 1.35) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-    <rect width="100" height="100" rx="14" fill="#ECEBF5"/>
+    <rect width="100" height="100" rx="14" fill="#F1F2F5"/>
     <g transform="translate(50 50) scale(${escala}) translate(-50 -50)">
       ${miolo}
     </g>
@@ -117,51 +117,51 @@ function _svgDataUri(miolo, escala = 1.35) {
 
 const PLACEHOLDERS = {
   comprimido: _svgDataUri(`
-    <rect x="26" y="24" width="48" height="52" rx="8" fill="none" stroke="#5c5c94" stroke-width="3"/>
-    <circle cx="38" cy="38" r="5" fill="#5c5c94"/>
-    <circle cx="62" cy="38" r="5" fill="#5c5c94"/>
+    <rect x="26" y="24" width="48" height="52" rx="8" fill="none" stroke="#767F92" stroke-width="3"/>
+    <circle cx="38" cy="38" r="5" fill="#767F92"/>
+    <circle cx="62" cy="38" r="5" fill="#767F92"/>
     <circle cx="38" cy="56" r="5" fill="#FFD400"/>
-    <circle cx="62" cy="56" r="5" fill="#5c5c94"/>
-    <circle cx="38" cy="68" r="5" fill="#5c5c94"/>
-    <circle cx="62" cy="68" r="5" fill="#5c5c94"/>
+    <circle cx="62" cy="56" r="5" fill="#767F92"/>
+    <circle cx="38" cy="68" r="5" fill="#767F92"/>
+    <circle cx="62" cy="68" r="5" fill="#767F92"/>
   `),
   xarope: _svgDataUri(`
-    <rect x="40" y="20" width="20" height="10" rx="2" fill="#5c5c94"/>
+    <rect x="40" y="20" width="20" height="10" rx="2" fill="#767F92"/>
     <path d="M38 30 h24 v10 l6 8 v28 a4 4 0 0 1 -4 4 H36 a4 4 0 0 1 -4 -4 V48 l6 -8 Z"
-      fill="none" stroke="#5c5c94" stroke-width="3" stroke-linejoin="round"/>
+      fill="none" stroke="#767F92" stroke-width="3" stroke-linejoin="round"/>
     <path d="M34 58 h32 v14 a4 4 0 0 1 -4 4 H38 a4 4 0 0 1 -4 -4 Z" fill="#FFD400" opacity="0.55"/>
-    <line x1="40" y1="46" x2="60" y2="46" stroke="#5c5c94" stroke-width="2"/>
+    <line x1="40" y1="46" x2="60" y2="46" stroke="#767F92" stroke-width="2"/>
   `),
   pomada: _svgDataUri(`
     <path d="M42 22 h16 v10 l6 6 v30 a10 10 0 0 1 -10 10 h-8 a10 10 0 0 1 -10 -10 V38 l6 -6 Z"
-      fill="none" stroke="#5c5c94" stroke-width="3" stroke-linejoin="round"/>
-    <rect x="42" y="20" width="16" height="6" rx="1.5" fill="#5c5c94"/>
+      fill="none" stroke="#767F92" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="42" y="20" width="16" height="6" rx="1.5" fill="#767F92"/>
     <line x1="38" y1="50" x2="62" y2="50" stroke="#FFD400" stroke-width="4"/>
-    <line x1="38" y1="60" x2="62" y2="60" stroke="#5c5c94" stroke-width="2" opacity="0.5"/>
+    <line x1="38" y1="60" x2="62" y2="60" stroke="#767F92" stroke-width="2" opacity="0.5"/>
   `),
   spray: _svgDataUri(`
-    <rect x="40" y="42" width="20" height="34" rx="5" fill="none" stroke="#5c5c94" stroke-width="3"/>
-    <rect x="45" y="30" width="10" height="12" fill="#5c5c94"/>
+    <rect x="40" y="42" width="20" height="34" rx="5" fill="none" stroke="#767F92" stroke-width="3"/>
+    <rect x="45" y="30" width="10" height="12" fill="#767F92"/>
     <path d="M55 26 h10 v6 h-10 Z" fill="#FFD400"/>
-    <line x1="65" y1="24" x2="72" y2="20" stroke="#5c5c94" stroke-width="3" stroke-linecap="round"/>
-    <line x1="44" y1="54" x2="56" y2="54" stroke="#5c5c94" stroke-width="2" opacity="0.5"/>
-    <line x1="44" y1="62" x2="56" y2="62" stroke="#5c5c94" stroke-width="2" opacity="0.5"/>
+    <line x1="65" y1="24" x2="72" y2="20" stroke="#767F92" stroke-width="3" stroke-linecap="round"/>
+    <line x1="44" y1="54" x2="56" y2="54" stroke="#767F92" stroke-width="2" opacity="0.5"/>
+    <line x1="44" y1="62" x2="56" y2="62" stroke="#767F92" stroke-width="2" opacity="0.5"/>
   `),
   cosmetico: _svgDataUri(`
-    <rect x="43" y="22" width="14" height="8" rx="2" fill="#5c5c94"/>
+    <rect x="43" y="22" width="14" height="8" rx="2" fill="#767F92"/>
     <path d="M38 30 h24 a4 4 0 0 1 4 4 v34 a8 8 0 0 1 -8 8 H42 a8 8 0 0 1 -8 -8 V34 a4 4 0 0 1 4 -4 Z"
-      fill="none" stroke="#5c5c94" stroke-width="3"/>
+      fill="none" stroke="#767F92" stroke-width="3"/>
     <circle cx="50" cy="54" r="9" fill="#FFD400" opacity="0.6"/>
   `),
   cabelo: _svgDataUri(`
-    <rect x="41" y="18" width="18" height="8" rx="2" fill="#5c5c94"/>
+    <rect x="41" y="18" width="18" height="8" rx="2" fill="#767F92"/>
     <path d="M38 26 h24 a5 5 0 0 1 5 5 v39 a6 6 0 0 1 -6 6 H39 a6 6 0 0 1 -6 -6 V31 a5 5 0 0 1 5 -5 Z"
-      fill="none" stroke="#5c5c94" stroke-width="3"/>
+      fill="none" stroke="#767F92" stroke-width="3"/>
     <rect x="38" y="44" width="24" height="14" rx="3" fill="#FFD400" opacity="0.55"/>
   `),
   generico: _svgDataUri(`
-    <rect x="28" y="30" width="44" height="40" rx="6" fill="none" stroke="#5c5c94" stroke-width="3"/>
-    <rect x="26" y="24" width="48" height="10" rx="3" fill="#5c5c94"/>
+    <rect x="28" y="30" width="44" height="40" rx="6" fill="none" stroke="#767F92" stroke-width="3"/>
+    <rect x="26" y="24" width="48" height="10" rx="3" fill="#767F92"/>
     <line x1="50" y1="42" x2="50" y2="58" stroke="#FFD400" stroke-width="5" stroke-linecap="round"/>
     <line x1="42" y1="50" x2="58" y2="50" stroke="#FFD400" stroke-width="5" stroke-linecap="round"/>
   `)
