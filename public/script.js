@@ -58,7 +58,7 @@ const SECOES_INICIAIS = 4;
    Foi exatamente o que faltou quando temEstoque entrou: quem tinha a aba
    aberta continuou lendo produtos mapeados pelo código anterior, sem o
    campo, e a vitrine inteira apareceu como "Indisponível no momento". */
-const CACHE_CHAVE = "catalogo_v7";
+const CACHE_CHAVE = "catalogo_v8";
 const CACHE_MINUTOS = 30;
 
 /* =========================
@@ -598,6 +598,24 @@ function mapearProduto(p) {
       tarja === "V" || tarja === "R"     // tarja vermelha, com ou sem restrição
     );
 
+  /* Confirmação da receita no checkout — quem decide é este campo, e não
+     mais a tarja.
+
+     A tarja vermelha é um conjunto grande demais para esta pergunta: ela
+     inclui remédio de uso contínuo cuja receita o farmacêutico confere e
+     devolve. O campo novo marca só antibiótico e listas C da Portaria
+     344, que são os casos em que a receita FICA RETIDA — e é por isso que
+     a loja precisa da foto antes de despachar.
+
+     O fallback existe porque isto é controle sanitário, não preferência
+     de interface: enquanto o catálogo publicado não trouxer o campo, vale
+     o critério antigo. Não pode haver uma janela em que o site simplesmente
+     pare de pedir a receita. Quando todo produto trouxer o campo, este
+     ramo deixa de ser exercido sozinho. */
+  const confirmarReceita = typeof p.confirmarReceita === "boolean"
+    ? p.confirmarReceita && !bloqueioPresencial
+    : precisaDeReceita;
+
   return {
     tarja,
     tarjaNome: TARJA_ROTULO[tarja] || "",
@@ -613,8 +631,15 @@ function mapearProduto(p) {
     // "exigeReceita" aqui quer dizer "não entra no carrinho" — é o nome que
     // o resto do código já usava. Hoje só as listas A/B caem nele.
     exigeReceita: bloqueioPresencial,
-    // precisa de receita, mas vende pelo site com conferência antes do envio
+    // precisa de receita, mas vende pelo site com conferência antes do envio.
+    // Continua sendo o que mostra "Com receita" no card e na página do
+    // produto: a informação de que o remédio exige receita segue valendo
+    // para a tarja vermelha inteira.
     receitaRemota: precisaDeReceita,
+
+    // recorte menor: só estes obrigam o cliente a confirmar o envio da
+    // foto da receita antes de fechar o pedido
+    confirmarReceita,
     controleEspecial: p.controleEspecial || "",
     tipoReceita: p.tipoReceita || "",
     ehMedicamento: !!familia.medicamento,
@@ -1533,7 +1558,7 @@ depois de finalizar o pedido (conforme o POP de entregas remotas da loja).
 function itensDeControleEspecialNoCarrinho() {
   return carrinho
     .map(item => ({ item, p: produtos.find(x => String(x.codigo) === String(item.codigo)) }))
-    .filter(({ p }) => p && p.receitaRemota);
+    .filter(({ p }) => p && p.confirmarReceita);
 }
 
 function atualizarAvisoControleEspecial() {
