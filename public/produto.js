@@ -100,7 +100,7 @@ function renderProdutoDetalhe(p) {
   // p.temEstoque e p.encomenda vêm prontos do mapearProduto (script.js):
   // a grade e esta página precisam responder a mesma coisa sobre o mesmo
   // item, e antes cada uma tinha a sua interpretação do campo.
-  const emEstoque = p.temEstoque;
+  const emEstoque = !semEstoque(p);
   const marcaOuLab = p.marca || p.laboratorio || "";
   const codigo = esc(p.codigo);
   const nome = esc(p.nome);

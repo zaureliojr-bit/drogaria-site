@@ -53,7 +53,12 @@ const SECOES_INICIAIS = 4;
 /* v6: exigeReceita deixou de bloquear por tarja sozinha e passou a
    bloquear pela Portaria 344 (bloqueioPresencial/receitaRemota) — um
    cache v5 traria de volta o bloqueio antigo (e incorreto) até expirar. */
-const CACHE_CHAVE = "catalogo_v6";
+/* ATENÇÃO: o cache guarda o produto JÁ MAPEADO, não o JSON cru. Campo
+   novo no mapearProduto = chave nova aqui, sem exceção.
+   Foi exatamente o que faltou quando temEstoque entrou: quem tinha a aba
+   aberta continuou lendo produtos mapeados pelo código anterior, sem o
+   campo, e a vitrine inteira apareceu como "Indisponível no momento". */
+const CACHE_CHAVE = "catalogo_v7";
 const CACHE_MINUTOS = 30;
 
 /* =========================
@@ -550,6 +555,15 @@ function temEstoqueDe(estoque) {
   return true;
 }
 
+/* A pergunta é "está marcado como esgotado?", e não "tem o campo?".
+   Só o false explícito tira o produto da venda; undefined é ausência de
+   informação e vale como disponível. É o que impede um produto guardado
+   por uma versão anterior do site — ou um export sem a coluna — de
+   sumir da loja inteira. Falhar vendendo é melhor que falhar escondendo. */
+function semEstoque(p) {
+  return p && p.temEstoque === false;
+}
+
 function mapearProduto(p) {
   const venda = Number(String(p.precoVenda || 0).replace(",", "."));
   const promo = Number(String(p.precoPromocao || 0).replace(",", "."));
@@ -743,7 +757,7 @@ function reconciliarCarrinho() {
     // Sem esta linha a correção seria só de fachada: o card pararia de
     // oferecer o produto, mas quem já tinha ele no carrinho de ontem
     // fecharia o pedido do mesmo jeito.
-    if (!p.temEstoque) return acc;                          // acabou o estoque
+    if (semEstoque(p)) return acc;                          // acabou o estoque
 
     if (Number(item.preco) !== Number(p.preco)) mudouPreco++;
 
@@ -1080,7 +1094,7 @@ function acoesDoCardHTML(p, qtd, mini = false) {
      Quem pode ser encomendado ganha um caminho; quem está zerado de
      propósito só avisa. Prometer encomenda de item descontinuado seria
      trocar uma frustração por outra. */
-  if (!p.temEstoque) {
+  if (semEstoque(p)) {
 
     if (p.encomenda) {
       return `<button class="btn-encomendar" data-acao="encomendar" data-codigo="${codigo}"
@@ -1136,7 +1150,7 @@ function cardHTML(p, mini = false) {
   // ao lado do preço riscado, que aparece nas duas situações.
   /* Estoque ganha da receita e da oferta: não adianta dizer que está 20%
      mais barato se não dá para levar. */
-  const faixa = !p.temEstoque
+  const faixa = semEstoque(p)
     ? `<div class="faixa faixa-indisponivel">Indisponível no momento</div>`
     : p.exigeReceita
     ? `<div class="faixa faixa-receita">${icone("receita", 11)}Retém receita</div>`
@@ -1169,7 +1183,7 @@ function cardHTML(p, mini = false) {
   const acoes = acoesDoCardHTML(p, qtd, mini);
 
   return `
-    <div class="${mini ? "card-mini" : "card"}${p.temEstoque ? "" : " card-indisponivel"}" data-codigo="${codigo}">
+    <div class="${mini ? "card-mini" : "card"}${semEstoque(p) ? " card-indisponivel" : ""}" data-codigo="${codigo}">
       ${faixa}
       <a class="produto-foto" href="${href}" tabindex="-1" aria-hidden="true">
         <img src="${esc(imagemDe(p))}"
@@ -1338,7 +1352,7 @@ function mais(codigo) {
      próprio e escaparia de uma checagem feita só no card.
      Não fica em silêncio: sem estoque com encomenda vira conversa no
      WhatsApp, e o resto explica por que nada aconteceu. */
-  if (!p.temEstoque) {
+  if (semEstoque(p)) {
     if (p.encomenda) return encomendarProduto(codigo);
     toast(`${p.nome} está indisponível no momento.`);
     return;
@@ -1801,7 +1815,7 @@ function renderBannerOfertas() {
   if (!banner || !container) return;
 
   const ofertas = produtos
-    .filter(p => p.emOferta && !p.exigeReceita && p.temEstoque)
+    .filter(p => p.emOferta && !p.exigeReceita && !semEstoque(p))
     .sort((a, b) => b.desconto - a.desconto)
     .slice(0, 12);
 
