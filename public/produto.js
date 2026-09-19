@@ -40,21 +40,6 @@ function aguardarProdutos() {
   });
 }
 
-// interpreta o campo "estoque" (pode vir como número, "S"/"N", etc.)
-// retorna true, false, ou null (quando não há essa informação no cadastro)
-function estoqueStatus(estoque) {
-  if (estoque === undefined || estoque === null || String(estoque).trim() === "") return null;
-
-  const n = Number(String(estoque).replace(",", "."));
-  if (!isNaN(n)) return n > 0;
-
-  const s = String(estoque).trim().toUpperCase();
-  if (["N", "NAO", "NÃO", "0", "FALSE", "INDISPONIVEL"].includes(s)) return false;
-  if (["S", "SIM", "1", "TRUE", "DISPONIVEL"].includes(s)) return true;
-
-  return null;
-}
-
 function mostrarSkeletonProduto() {
   const container = el("produtoDetalhe");
   if (!container) return;
@@ -112,7 +97,10 @@ function renderProdutoDetalhe(p) {
   const qtd = (typeof carrinho !== "undefined" ? carrinho : [])
     .find(i => String(i.codigo) === String(p.codigo))?.qtd || 0;
 
-  const emEstoque = estoqueStatus(p.estoque);
+  // p.temEstoque e p.encomenda vêm prontos do mapearProduto (script.js):
+  // a grade e esta página precisam responder a mesma coisa sobre o mesmo
+  // item, e antes cada uma tinha a sua interpretação do campo.
+  const emEstoque = p.temEstoque;
   const marcaOuLab = p.marca || p.laboratorio || "";
   const codigo = esc(p.codigo);
   const nome = esc(p.nome);
@@ -157,12 +145,34 @@ function renderProdutoDetalhe(p) {
       `}
     </div>
 
-    ${emEstoque !== null ? `
-      <div class="produto-estoque ${emEstoque ? "disponivel" : "indisponivel"}">
-        <span class="ponto"></span> ${emEstoque ? "Disponível na loja" : "Indisponível no momento"}
-      </div>` : ""}
+    <div class="produto-estoque ${emEstoque ? "disponivel" : "indisponivel"}">
+      <span class="ponto"></span> ${emEstoque ? "Disponível na loja" : "Indisponível no momento"}
+    </div>
 
-    ${bloqueado ? `
+    ${!emEstoque ? `
+
+      ${p.encomenda ? `
+        <div class="aviso-encomenda">
+          <p><strong>Não temos em estoque agora.</strong></p>
+          <p>Este é um item que conseguimos trazer sob encomenda. Fale com a
+             gente pelo WhatsApp que verificamos prazo e preço com o
+             distribuidor.</p>
+        </div>
+        <button class="btn-comprar btn-encomendar-grande" data-acao="encomendar" data-codigo="${codigo}">
+          ${icone("whats", 16)}Encomendar pelo WhatsApp
+        </button>
+      ` : `
+        <div class="aviso-encomenda">
+          <p><strong>Produto indisponível.</strong></p>
+          <p>Não estamos trabalhando com este item no momento. Se precisar de
+             algo parecido, fale com a nossa farmacêutica.</p>
+        </div>
+        <button class="btn-comprar btn-receita-grande" data-acao="receita" data-codigo="${codigo}">
+          ${icone("whats", 16)}Falar com a farmacêutica
+        </button>
+      `}
+
+    ` : bloqueado ? `
       <div class="aviso-receita">
         ${p.tarja === "P" ? `
           <p><strong>Medicamento de tarja preta.</strong></p>

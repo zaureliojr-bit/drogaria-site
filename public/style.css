@@ -2103,3 +2103,85 @@ h1, h2 { font-family: var(--fonte-titulo); }
 @media (display-mode: standalone) {
   .instalar-banner { display: none; }
 }
+
+/* ========================= */
+/* 📦 SEM ESTOQUE            */
+/* ========================= */
+/* Dois estados diferentes, e a diferença é o que a loja pode prometer:
+     "Encomendar"   -> ficou de fora da planilha, mas dá para trazer
+     "Indisponível" -> veio zerado de propósito (descontinuado)
+   Misturar os dois seria oferecer encomenda de item que não volta. */
+
+/* O card recua, mas continua legível: quem procurou por nome precisa
+   achar o produto e entender que existe — só não hoje. Opacidade só na
+   foto, nunca no texto, senão o preço e o nome perdem contraste. */
+.card-indisponivel .produto-foto { opacity: 0.55; }
+.card-indisponivel .preco { color: var(--tinta-suave); }
+
+.faixa-indisponivel {
+  background: var(--papel-forte);
+  color: var(--tinta-suave);
+}
+
+/* Botão de encomenda: verde do WhatsApp, porque é para lá que ele leva.
+   Não usa o azul da marca de propósito — azul no site significa "põe no
+   carrinho", e isto não põe nada no carrinho. */
+.btn-encomendar {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #1FA855;
+  color: var(--branco);
+  border: none;
+  border-radius: var(--raio-botao);
+  font-family: var(--fonte-corpo);
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: background 0.18s, transform 0.12s;
+}
+
+.btn-encomendar:hover { background: #178944; }
+.btn-encomendar:active { transform: scale(0.97); }
+
+.card-mini .btn-encomendar { font-size: 11.5px; min-height: 34px; }
+
+/* Descontinuado: botão apagado e sem ação. Existe para ocupar a mesma
+   altura dos vizinhos — sem ele a fileira desalinha — e para dizer o
+   motivo de não haver botão. */
+.btn-esgotado {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--papel-forte);
+  color: var(--tinta-suave);
+  border: none;
+  border-radius: var(--raio-botao);
+  font-family: var(--fonte-corpo);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: not-allowed;
+}
+
+.card-mini .btn-esgotado { font-size: 11.5px; min-height: 34px; }
+
+/* Aviso na página do produto, no mesmo desenho do aviso de receita */
+.aviso-encomenda {
+  background: var(--papel-forte);
+  border-radius: var(--raio-md);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--tinta-suave);
+}
+
+.aviso-encomenda strong { color: var(--tinta); }
+.aviso-encomenda p + p { margin-top: 6px; }
+
+.btn-encomendar-grande { background: #1FA855; }
+.btn-encomendar-grande:hover { background: #178944; }

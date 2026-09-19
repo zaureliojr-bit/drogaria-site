@@ -472,6 +472,7 @@ function ligarDelegacaoDeCliques() {
     else if (acao === "filtrar")    { ev.preventDefault(); filtrarCategoria(alvo.dataset.familia); }
     else if (acao === "ofertas")    { ev.preventDefault(); verOfertas(); }
     else if (acao === "receita")    { ev.preventDefault(); falarSobreReceita(codigo); }
+    else if (acao === "encomendar") { ev.preventDefault(); encomendarProduto(codigo); }
     else if (acao === "banner")     { ev.preventDefault(); adicionarDoBanner(codigo); }
     else if (acao === "recarregar") { ev.preventDefault(); carregar(); }
     else if (acao === "voltar-vitrine") { ev.preventDefault(); voltarParaVitrine(); }
@@ -528,6 +529,25 @@ function tarjaDe(ean) {
   if (!_tarjas) return "";
   const n = Number(String(ean || "").replace(/\D/g, ""));
   return n ? (_tarjas.get(n) || "") : "";
+}
+
+/* O "estoque" do FarmaxPDV já chegou aqui como número, como "S"/"N" e
+   como célula vazia. Campo ausente ou ilegível vale como DISPONÍVEL: se
+   um dia a coluna sumir da exportação, é melhor a loja vender do que a
+   vitrine inteira aparecer esgotada.
+   Fica aqui, e não em cada página, porque a grade e a página do produto
+   precisam responder a mesma coisa sobre o mesmo item. */
+function temEstoqueDe(estoque) {
+
+  if (estoque === undefined || estoque === null || String(estoque).trim() === "") return true;
+
+  const n = Number(String(estoque).replace(",", "."));
+  if (!isNaN(n)) return n > 0;
+
+  const t = String(estoque).trim().toUpperCase();
+  if (["N", "NAO", "NÃO", "FALSE", "INDISPONIVEL"].includes(t)) return false;
+
+  return true;
 }
 
 function mapearProduto(p) {
@@ -592,6 +612,16 @@ function mapearProduto(p) {
     desconto: emOferta ? descontoPercent(venda, promo) : 0,
 
     estoque: p.estoque,
+
+    // Duas informações diferentes, e a distinção importa:
+    //   temEstoque = false  -> não dá para comprar agora
+    //   encomenda  = true   -> não veio na planilha desta importação, mas
+    //                          a loja consegue trazer se o cliente pedir
+    // Um item que veio na planilha zerado de propósito (descontinuado)
+    // tem temEstoque falso e encomenda falso: fica visível e honesto,
+    // sem prometer uma encomenda que não vai acontecer.
+    temEstoque: p.encomenda === true ? false : temEstoqueDe(p.estoque),
+    encomenda: p.encomenda === true,
 
     imagem: p.imagem || "",
     tipoImg: tipoImagemProduto(p.descricao, p.categoria),
@@ -710,6 +740,10 @@ function reconciliarCarrinho() {
     const p = produtos.find(x => String(x.codigo) === String(item.codigo));
     if (!p) return acc;                                     // saiu do catálogo
     if (BLOQUEAR_CONTROLADOS && p.exigeReceita) return acc;  // passou a exigir receita
+    // Sem esta linha a correção seria só de fachada: o card pararia de
+    // oferecer o produto, mas quem já tinha ele no carrinho de ontem
+    // fecharia o pedido do mesmo jeito.
+    if (!p.temEstoque) return acc;                          // acabou o estoque
 
     if (Number(item.preco) !== Number(p.preco)) mudouPreco++;
 
@@ -1039,6 +1073,28 @@ function acoesDoCardHTML(p, qtd, mini = false) {
   const nome = esc(p.nome);
   const codigo = esc(p.codigo);
 
+  /* Vem antes de tudo, inclusive do stepper: até aqui o card mostrava
+     "Adicionar" mesmo com estoque zero, e o pedido só esbarrava na
+     realidade no WhatsApp, com o cliente já esperando o produto.
+
+     Quem pode ser encomendado ganha um caminho; quem está zerado de
+     propósito só avisa. Prometer encomenda de item descontinuado seria
+     trocar uma frustração por outra. */
+  if (!p.temEstoque) {
+
+    if (p.encomenda) {
+      return `<button class="btn-encomendar" data-acao="encomendar" data-codigo="${codigo}"
+                      aria-label="Encomendar ${nome} pelo WhatsApp">
+                ${icone("whats", mini ? 12 : 13)}Encomendar
+              </button>`;
+    }
+
+    return `<button class="btn-esgotado" disabled
+                    aria-label="${nome} está indisponível">
+              Indisponível
+            </button>`;
+  }
+
   if (BLOQUEAR_CONTROLADOS && p.exigeReceita) {
     return `<button class="btn-receita" data-acao="receita" data-codigo="${codigo}">
               ${icone("whats", 13)}Falar com a farmacêutica
@@ -1078,7 +1134,11 @@ function cardHTML(p, mini = false) {
   // Receita ganha da oferta porque muda o que o cliente precisa fazer.
   // O desconto não some mais nesse caso: ele saiu daqui e virou a pílula
   // ao lado do preço riscado, que aparece nas duas situações.
-  const faixa = p.exigeReceita
+  /* Estoque ganha da receita e da oferta: não adianta dizer que está 20%
+     mais barato se não dá para levar. */
+  const faixa = !p.temEstoque
+    ? `<div class="faixa faixa-indisponivel">Indisponível no momento</div>`
+    : p.exigeReceita
     ? `<div class="faixa faixa-receita">${icone("receita", 11)}Retém receita</div>`
     : p.receitaRemota
       ? `<div class="faixa faixa-controle">${icone("receita", 11)}Com receita</div>`
@@ -1109,7 +1169,7 @@ function cardHTML(p, mini = false) {
   const acoes = acoesDoCardHTML(p, qtd, mini);
 
   return `
-    <div class="${mini ? "card-mini" : "card"}" data-codigo="${codigo}">
+    <div class="${mini ? "card-mini" : "card"}${p.temEstoque ? "" : " card-indisponivel"}" data-codigo="${codigo}">
       ${faixa}
       <a class="produto-foto" href="${href}" tabindex="-1" aria-hidden="true">
         <img src="${esc(imagemDe(p))}"
@@ -1242,7 +1302,7 @@ function atualizarQtdNaTela(codigo) {
   document.querySelectorAll(`.card[data-codigo="${chave}"], .card-mini[data-codigo="${chave}"]`)
     .forEach(card => {
       const mini = card.classList.contains("card-mini");
-      const bloco = card.querySelector(".btn-add, .controle, .controle-mini, .btn-receita");
+      const bloco = card.querySelector(".btn-add, .controle, .controle-mini, .btn-receita, .btn-encomendar, .btn-esgotado");
       if (!bloco || !p) return;
 
       // se o foco estava aqui dentro, ele se perde ao trocar o HTML —
@@ -1273,6 +1333,17 @@ function mais(codigo) {
 
   if (BLOQUEAR_CONTROLADOS && p.exigeReceita) return falarSobreReceita(codigo);
 
+  /* Porta única: todo caminho que põe item no carrinho passa por aqui —
+     o card, a página do produto e o carrossel de ofertas, que tem botão
+     próprio e escaparia de uma checagem feita só no card.
+     Não fica em silêncio: sem estoque com encomenda vira conversa no
+     WhatsApp, e o resto explica por que nada aconteceu. */
+  if (!p.temEstoque) {
+    if (p.encomenda) return encomendarProduto(codigo);
+    toast(`${p.nome} está indisponível no momento.`);
+    return;
+  }
+
   const item = carrinho.find(i => String(i.codigo) === String(codigo));
 
   if (item) item.qtd++;
@@ -1294,6 +1365,20 @@ function menos(codigo) {
 }
 
 /* medicamento que exige receita: leva a conversa para o WhatsApp da loja */
+/* Encomenda: o produto não está na prateleira, mas a loja consegue
+   trazer. O pedido sai pelo WhatsApp porque é conversa — prazo e preço
+   dependem do distribuidor, e nada disso cabe num botão de carrinho. */
+function encomendarProduto(codigo) {
+  const p = produtos.find(i => String(i.codigo) === String(codigo));
+
+  if (!p) return abrirWhatsApp("Olá! Gostaria de encomendar um produto que vi no site.");
+
+  abrirWhatsApp(
+    `Olá! Vi no site que *${p.nome}* (Cód. ${p.codigo}) está indisponível. ` +
+    `Vocês conseguem encomendar?`
+  );
+}
+
 function falarSobreReceita(codigo) {
   const p = produtos.find(i => String(i.codigo) === String(codigo));
   if (!p) return abrirWhatsApp("Olá! Gostaria de falar com a farmacêutica sobre um medicamento com receita.");
@@ -1716,7 +1801,7 @@ function renderBannerOfertas() {
   if (!banner || !container) return;
 
   const ofertas = produtos
-    .filter(p => p.emOferta && !p.exigeReceita)
+    .filter(p => p.emOferta && !p.exigeReceita && p.temEstoque)
     .sort((a, b) => b.desconto - a.desconto)
     .slice(0, 12);
 
