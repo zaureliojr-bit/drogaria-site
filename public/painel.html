@@ -102,6 +102,110 @@
   .barra:hover { background: var(--tag); }
 
   .vazio { padding: 26px 16px; text-align: center; color: var(--tinta-suave); font-size: 13px; }
+
+  /* ========== ABAS ========== */
+  .abas { display: flex; gap: 6px; padding: 14px 0 0; }
+  .abas button {
+    background: transparent; border: none; border-bottom: 3px solid transparent;
+    color: var(--tinta-suave); padding: 9px 14px; font-size: 13.5px; font-weight: 700;
+    font-family: var(--fonte-corpo); border-radius: 0;
+  }
+  .abas button.ativo { color: var(--marca); border-bottom-color: var(--marca); }
+  .abas .contador {
+    display: inline-block; min-width: 19px; padding: 1px 6px; margin-left: 6px;
+    background: var(--tag); color: var(--branco); border-radius: 20px;
+    font-size: 11px; font-variant-numeric: tabular-nums;
+  }
+  .abas .contador:empty, .abas .contador[data-zero="1"] { display: none; }
+
+  /* ========== FILA DE PEDIDOS ========== */
+  .fila-topo {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap; padding: 14px 0 4px;
+  }
+  .fila-som {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12.5px; color: var(--tinta-suave); cursor: pointer;
+  }
+
+  .fila { display: grid; gap: 12px; padding-bottom: 20px; }
+
+  .pedido {
+    background: var(--branco); border: 1px solid var(--linha);
+    border-left: 4px solid var(--linha);
+    border-radius: var(--raio-md); box-shadow: var(--sombra-sm); overflow: hidden;
+  }
+  /* A cor da borda esquerda é o estado, lido de longe: quem está no balcão
+     não vai parar para ler a etiqueta de cada cartão. */
+  .pedido[data-status="novo"]       { border-left-color: var(--tag); }
+  .pedido[data-status="separando"]  { border-left-color: #E0A800; }
+  .pedido[data-status="receita-ok"] { border-left-color: var(--ok); }
+
+  .pedido-cab {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--linha);
+    flex-wrap: wrap;
+  }
+  .pedido-ref { font-size: 15px; font-weight: 800; font-family: var(--fonte-titulo); }
+  .pedido-quando { font-size: 11.5px; color: var(--tinta-suave); }
+  .pedido-cliente { font-size: 13px; font-weight: 600; margin-top: 3px; }
+  .pedido-linha { font-size: 12.5px; color: var(--tinta-suave); margin-top: 2px; line-height: 1.5; }
+
+  .pedido-itens { padding: 4px 14px; }
+  .pedido-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--linha);
+  }
+  .pedido-item:last-child { border-bottom: none; }
+  .pedido-item img {
+    width: 46px; height: 46px; object-fit: contain; flex-shrink: 0;
+    background: var(--papel); border-radius: var(--raio-sm); padding: 3px;
+  }
+  .pedido-item-nome { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.4; }
+  .pedido-item-nome small { display: block; color: var(--tinta-suave); font-size: 11px; }
+  /* A quantidade é o número que o balcão erra: fica grande e destacada. */
+  .pedido-item-qtd {
+    font-family: var(--fonte-preco); font-variant-numeric: tabular-nums;
+    font-size: 16px; font-weight: 800; color: var(--marca);
+    min-width: 34px; text-align: right;
+  }
+  .pedido-item-valor {
+    font-family: var(--fonte-preco); font-variant-numeric: tabular-nums;
+    font-size: 12.5px; color: var(--tinta-suave); min-width: 72px; text-align: right;
+  }
+
+  .pedido-total {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 10px 14px; background: var(--papel); font-size: 12.5px;
+    color: var(--tinta-suave);
+  }
+  .pedido-total strong {
+    font-family: var(--fonte-preco); font-variant-numeric: tabular-nums;
+    font-size: 16px; color: var(--tinta);
+  }
+
+  .pedido-receita {
+    background: #FFF3CD; color: #7A5B00; padding: 9px 14px;
+    font-size: 12.5px; font-weight: 600; line-height: 1.5;
+    border-top: 1px solid var(--linha);
+  }
+
+  .pedido-acoes { display: flex; gap: 8px; padding: 12px 14px; flex-wrap: wrap; }
+  .pedido-acoes button, .pedido-acoes a {
+    border: 1.5px solid var(--linha); background: var(--branco); color: var(--marca-escura);
+    padding: 9px 14px; border-radius: var(--raio-botao); font-size: 12.5px; font-weight: 700;
+    font-family: var(--fonte-corpo); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .pedido-acoes .principal { background: var(--marca); border-color: var(--marca); color: var(--branco); }
+  .pedido-acoes .principal:hover { background: var(--marca-escura); }
+  .pedido-acoes .perigo { color: var(--erro); border-color: var(--erro-clara); }
+  .pedido-acoes .perigo:hover { background: var(--erro-clara); }
+  .pedido-acoes button[disabled] { opacity: .45; cursor: not-allowed; }
+
+  .fila-vazia {
+    background: var(--branco); border: 1px dashed var(--linha); border-radius: var(--raio-md);
+    padding: 40px 20px; text-align: center; color: var(--tinta-suave); font-size: 13.5px;
+  }
 </style>
 </head>
 
@@ -127,6 +231,29 @@
   </div>
 
   <div id="conteudo" style="display:none;">
+
+    <div class="abas" id="abas">
+      <button data-aba="fila" class="ativo">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
+      <button data-aba="relatorios">Relatórios</button>
+    </div>
+
+    <!-- ===== ABA: FILA DE PEDIDOS ===== -->
+    <div id="abaFila">
+
+      <div class="fila-topo">
+        <span class="pedido-quando" id="filaStatus">carregando…</span>
+        <label class="fila-som">
+          <input type="checkbox" id="somLigado" checked>
+          Apitar quando entrar pedido
+        </label>
+      </div>
+
+      <div class="fila" id="fila"></div>
+
+    </div>
+
+    <!-- ===== ABA: RELATÓRIOS ===== -->
+    <div id="abaRelatorios" hidden>
 
     <div class="periodo" id="periodo">
       <button data-dias="1">Hoje</button>
@@ -166,6 +293,8 @@
       <h2>Clientes <small>quem já comprou, pelo telefone</small></h2>
       <div class="tabela-wrap" id="clientes"></div>
     </div>
+
+    </div><!-- /abaRelatorios -->
 
   </div>
 
@@ -285,6 +414,17 @@ async function carregar() {
   el("conteudo").style.display = "";
 }
 
+/* O painel abre na fila, e não no relatório: quem abre isto às oito da
+   manhã quer saber o que tem para separar, não o faturamento dos últimos
+   30 dias. O relatório continua a um clique. */
+async function abrirPainel() {
+  await carregarFila();          // falha aqui = senha errada ou servidor fora, e cai no catch de tentar()
+  el("login").style.display = "none";
+  el("conteudo").style.display = "";
+  ligarPolling();
+  carregarCatalogo().then(() => { if (fila.length) pintarFila(); });
+}
+
 async function tentar() {
   if (!API) {
     mostrarLogin("Falta apontar o painel para o worker: preencha a constante API no topo do painel.html.");
@@ -294,7 +434,7 @@ async function tentar() {
   }
   if (!senha) return mostrarLogin("");
   try {
-    await carregar();
+    await abrirPainel();
   } catch (erro) {
     sessionStorage.removeItem("painelKey");
     senha = "";
@@ -308,6 +448,15 @@ el("btnEntrar").addEventListener("click", () => {
   senha = el("senha").value.trim();
   if (!senha) return;
   sessionStorage.setItem("painelKey", senha);
+
+  /* Aqui, e só aqui, porque os dois exigem um gesto do usuário: o
+     navegador não deixa tocar som nem pedir permissão de aviso sem um
+     clique. O clique em "Entrar" é o único que temos garantido. */
+  prepararSom();
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+
   tentar();
 });
 
@@ -319,6 +468,292 @@ el("periodo").addEventListener("click", e => {
   dias = Number(btn.dataset.dias);
   document.querySelectorAll("#periodo button").forEach(b => b.classList.toggle("ativo", b === btn));
   carregar().catch(() => tentar());
+});
+
+/* =====================================================
+   FILA DE PEDIDOS — a tela de trabalho do balcão
+   =====================================================
+
+   O relatório responde "como foi o mês". Esta aba responde "o que tem
+   para fazer agora", e é outra coisa: ela se atualiza sozinha, apita
+   quando entra pedido e é por onde o pedido anda até sair.
+
+   O apito é o recurso que justifica a tela existir. Ninguém fica olhando
+   uma aba de navegador; todo mundo escuta.
+   ===================================================== */
+
+const INTERVALO_FILA = 30000;    // meio minuto: pedido de farmácia não corre mais que isso
+const ROTULO_STATUS = { novo: "novo", separando: "separando", "receita-ok": "receita conferida" };
+
+let fila = [];
+let refsConhecidas = null;       // null = ainda não carregou; evita apitar tudo na primeira vez
+let timerFila = null;
+let catalogo = null;             // codigo -> { imagem, nome }
+let audio = null;
+
+/* ---------- som ----------
+   Sem arquivo de áudio: três notas geradas na hora. Um .mp3 seria mais
+   uma coisa para carregar, e o navegador bloqueia áudio até o usuário
+   interagir com a página de qualquer jeito — o clique em "Entrar" é essa
+   interação, e é lá que o contexto é destravado. */
+function prepararSom() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx && !audio) audio = new Ctx();
+    if (audio && audio.state === "suspended") audio.resume();
+  } catch (e) { /* sem áudio, a tela ainda funciona */ }
+}
+
+/* Quem volta com a senha guardada na aba não passa pelo botão "Entrar",
+   e aí o áudio nasce travado. O primeiro clique ou tecla em qualquer
+   lugar resolve — é o que o navegador exige, e não custa nada. */
+["click", "keydown"].forEach(evento =>
+  document.addEventListener(evento, prepararSom, { once: true })
+);
+
+function apitar() {
+  if (!el("somLigado")?.checked || !audio) return;
+  try {
+    [0, 0.18, 0.36].forEach((atraso, i) => {
+      const osc = audio.createOscillator();
+      const vol = audio.createGain();
+      osc.type = "sine";
+      osc.frequency.value = i === 2 ? 1046 : 784;   // sol, sol, dó
+      vol.gain.setValueAtTime(0.0001, audio.currentTime + atraso);
+      vol.gain.exponentialRampToValueAtTime(0.25, audio.currentTime + atraso + 0.02);
+      vol.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + atraso + 0.16);
+      osc.connect(vol); vol.connect(audio.destination);
+      osc.start(audio.currentTime + atraso);
+      osc.stop(audio.currentTime + atraso + 0.18);
+    });
+  } catch (e) { /* idem */ }
+}
+
+function avisarNaTela(quantos) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  try {
+    new Notification(quantos === 1 ? "Pedido novo!" : `${quantos} pedidos novos!`, {
+      body: "Abra o painel da loja para separar.",
+      icon: "icone-192.png",
+      tag: "pedido-novo"   // substitui o aviso anterior em vez de empilhar
+    });
+  } catch (e) { /* idem */ }
+}
+
+/* ---------- catálogo, só para as fotos ----------
+   O pedido guarda código e descrição, mas não a imagem — e nem deveria:
+   a foto muda, o pedido é histórico. Então a foto vem do catálogo, pelo
+   código. Uma vez por abertura do painel; ele fica aberto o dia todo. */
+async function carregarCatalogo() {
+  if (catalogo) return catalogo;
+  catalogo = new Map();
+  try {
+    const r = await fetch("https://raw.githubusercontent.com/zaureliojr-bit/Produtos/refs/heads/main/produtos.json");
+    const dados = await r.json();
+    for (const p of (dados.produtos || [])) {
+      if (!p || !p.codigo) continue;
+      catalogo.set(String(p.codigo), { imagem: p.imagem || "", nome: p.descricao || "" });
+    }
+  } catch (e) {
+    // sem catálogo a fila continua: some a foto, fica o nome e a quantidade,
+    // que é o que a separação realmente precisa
+    console.warn("Catálogo indisponível; a fila segue sem as fotos.", e);
+  }
+  return catalogo;
+}
+
+function fotoDoItem(item) {
+  const achado = catalogo && catalogo.get(String(item.codigo));
+  return (achado && achado.imagem) || "sem-imagem-neutra.webp";
+}
+
+/* ---------- tempo ---------- */
+function haQuantoTempo(ms) {
+  const min = Math.floor((Date.now() - ms) / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h${String(min % 60).padStart(2, "0")}`;
+  return dataHora(ms);
+}
+
+/* ---------- o que o balcão pode fazer com este pedido ----------
+   A regra que importa: pedido com receita não pode ser marcado como
+   entregue antes de alguém confirmar que conferiu a receita. Não é
+   preferência de interface — é a obrigação que faz a loja poder vender
+   antibiótico e lista C pela internet. A tela não deixa pular. */
+function acoesDoPedido(p) {
+  const wa = `https://wa.me/55${String(p.telefone || "").replace(/\D/g, "").replace(/^55/, "")}`;
+  const botoes = [];
+
+  if (p.status === "novo") {
+    botoes.push(`<button class="principal" data-novo-status="separando" data-ref="${esc(p.ref)}">Iniciar separação</button>`);
+  }
+
+  if (p.status === "separando" && p.tem_receita) {
+    botoes.push(`<button class="principal" data-novo-status="receita-ok" data-ref="${esc(p.ref)}">Recebi e conferi a receita</button>`);
+  }
+
+  const podeEntregar = p.status === "receita-ok" || (p.status === "separando" && !p.tem_receita);
+  if (podeEntregar) {
+    botoes.push(`<button class="principal" data-novo-status="entregue" data-ref="${esc(p.ref)}">Concluir pedido</button>`);
+  }
+
+  botoes.push(`<a href="${esc(wa)}" target="_blank" rel="noopener">Falar no WhatsApp</a>`);
+  botoes.push(`<button class="perigo" data-novo-status="cancelado" data-ref="${esc(p.ref)}">Cancelar</button>`);
+
+  return botoes.join("");
+}
+
+function cartaoPedido(p) {
+  const itens = (p.itens || []).map(i => `
+    <div class="pedido-item">
+      <img src="${esc(fotoDoItem(i))}" alt="" loading="lazy"
+           onerror="this.src='sem-imagem-neutra.webp'">
+      <div class="pedido-item-nome">
+        ${esc(i.descricao)}
+        <small>${i.ean ? "EAN " + esc(i.ean) : ""}${i.ean && i.codigo ? " · " : ""}${i.codigo ? "cód. " + esc(i.codigo) : ""}</small>
+      </div>
+      <div class="pedido-item-qtd">${i.qtd}x</div>
+      <div class="pedido-item-valor">${dinheiro(i.total_item)}</div>
+    </div>
+  `).join("");
+
+  const entrega = p.entrega === "Entrega"
+    ? `Entrega — ${esc(p.endereco || "endereço não informado")}`
+    : "Retirada na loja";
+
+  return `
+    <div class="pedido" data-status="${esc(p.status)}" data-ref="${esc(p.ref)}">
+
+      <div class="pedido-cab">
+        <div>
+          <div class="pedido-ref">${esc(p.ref)}</div>
+          <div class="pedido-cliente">${esc(p.cliente)} · ${esc(p.telefone)}</div>
+          <div class="pedido-linha">${entrega}</div>
+          <div class="pedido-linha">Pagamento: ${esc(p.pagamento)}</div>
+        </div>
+        <div style="text-align:right">
+          <span class="pill pill-${p.status === "receita-ok" ? "entregue" : "novo"}">${esc(ROTULO_STATUS[p.status] || p.status)}</span>
+          <div class="pedido-quando">${haQuantoTempo(p.criado_em)}</div>
+        </div>
+      </div>
+
+      <div class="pedido-itens">${itens || '<div class="vazio">Pedido sem itens registrados.</div>'}</div>
+
+      <div class="pedido-total">
+        <span>Subtotal ${dinheiro(p.subtotal)}${p.frete ? " · Frete " + dinheiro(p.frete) : ""}</span>
+        <strong>${dinheiro(p.total)}</strong>
+      </div>
+
+      ${p.tem_receita ? `
+        <div class="pedido-receita">
+          Este pedido tem medicamento com receita retida.
+          ${p.status === "receita-ok"
+            ? "Receita conferida — pode entregar."
+            : "A entrega só pode sair depois de a farmacêutica receber e conferir a foto da receita."}
+        </div>` : ""}
+
+      <div class="pedido-acoes">${acoesDoPedido(p)}</div>
+
+    </div>
+  `;
+}
+
+function pintarFila() {
+  el("fila").innerHTML = fila.length
+    ? fila.map(cartaoPedido).join("")
+    : `<div class="fila-vazia">Nenhum pedido em aberto.<br>Quando entrar um, ele aparece aqui e o painel apita.</div>`;
+
+  const novos = fila.filter(p => p.status === "novo").length;
+  const contador = el("contadorFila");
+  contador.textContent = fila.length || "";
+  contador.dataset.zero = fila.length ? "0" : "1";
+
+  // o título da aba é o que o balcão vê quando o painel está atrás de
+  // outra janela
+  document.title = novos
+    ? `(${novos}) Painel — Drogaria Mais Barato`
+    : "Painel — Drogaria Mais Barato";
+
+  el("filaStatus").textContent =
+    `${fila.length} pedido(s) em aberto · atualizado às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+async function carregarFila() {
+  const dados = await api("/fila");
+  fila = dados.pedidos || [];
+
+  const agora = new Set(fila.map(p => p.ref));
+
+  if (refsConhecidas === null) {
+    // primeira carga: registra o que já existe sem apitar, senão abrir o
+    // painel de manhã dispararia o alarme para o dia inteiro de ontem
+    refsConhecidas = agora;
+  } else {
+    const chegaram = [...agora].filter(ref => !refsConhecidas.has(ref));
+    if (chegaram.length) {
+      apitar();
+      avisarNaTela(chegaram.length);
+    }
+    refsConhecidas = agora;
+  }
+
+  pintarFila();
+}
+
+function ligarPolling() {
+  if (timerFila) clearInterval(timerFila);
+  timerFila = setInterval(() => {
+    // aba escondida não precisa consultar tão rápido, mas precisa
+    // consultar: é justamente quando o apito importa
+    carregarFila().catch(() => { /* rede oscila; a próxima volta pega */ });
+  }, INTERVALO_FILA);
+}
+
+async function mudarStatus(ref, status) {
+  const r = await fetch(`${API.replace(/\/+$/, "")}/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+    body: JSON.stringify({ ref, status })
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+}
+
+el("fila").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("[data-novo-status]");
+  if (!btn) return;
+
+  const ref = btn.dataset.ref;
+  const status = btn.dataset.novoStatus;
+
+  if (status === "cancelado" && !confirm(`Cancelar o pedido ${ref}?`)) return;
+
+  // trava os botões do cartão para não mandar duas vezes no clique duplo
+  btn.closest(".pedido").querySelectorAll("button").forEach(b => b.disabled = true);
+
+  try {
+    await mudarStatus(ref, status);
+    // o pedido sai da fila sozinho quando vira entregue/cancelado, porque
+    // o /fila só devolve os abertos
+    refsConhecidas?.delete(ref);
+    await carregarFila();
+  } catch (e) {
+    alert("Não consegui atualizar o pedido. Tente de novo.");
+    btn.closest(".pedido")?.querySelectorAll("button").forEach(b => b.disabled = false);
+  }
+});
+
+el("abas").addEventListener("click", (ev) => {
+  const btn = ev.target.closest("[data-aba]");
+  if (!btn) return;
+  document.querySelectorAll("#abas button").forEach(b => b.classList.toggle("ativo", b === btn));
+  const ehFila = btn.dataset.aba === "fila";
+  el("abaFila").hidden = !ehFila;
+  el("abaRelatorios").hidden = ehFila;
+  // os relatórios só são calculados quando alguém pede: são consultas
+  // pesadas, e a fila fica aberta o dia inteiro
+  if (!ehFila) carregar().catch(() => tentar());
 });
 
 tentar();
