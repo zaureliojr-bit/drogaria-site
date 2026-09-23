@@ -108,10 +108,14 @@ function renderProdutoDetalhe(p) {
 
   container.dataset.codigo = p.codigo;
 
+  // Mesmo critério da tira do card: o selo sobre a foto é para quem tem um
+  // passo a mais a cumprir. A tarja vermelha comum não entra — ela é
+  // explicada logo abaixo, no aviso, com espaço para dizer que vende
+  // normalmente pelo site.
   const selo = p.exigeReceita
     ? `<span class="badge-receita">${icone("receita", 12)}Retém receita</span>`
-    : p.receitaRemota
-      ? `<span class="badge-controle">${icone("receita", 12)}Com receita</span>`
+    : p.confirmarReceita
+      ? `<span class="badge-controle">${icone("receita", 12)}Envie a receita</span>`
       : p.emOferta
         ? `<span class="badge-oferta">${icone("tag", 12)}-${p.desconto}%</span>`
         : "";
@@ -186,10 +190,15 @@ function renderProdutoDetalhe(p) {
         ${icone("whats", 16)}Falar com a farmacêutica
       </button>
     ` : `
-      ${p.receitaRemota ? `
+      ${p.confirmarReceita ? `
         <div class="aviso-receita">
-          <p><strong>Este medicamento exige receita.</strong></p>
-          <p>Pode ser comprado pelo site normalmente. A entrega só sai depois de conferirmos a receita — você confirma o envio dela ao finalizar o pedido.</p>
+          <p><strong>Compre pelo site normalmente.</strong></p>
+          <p>Este medicamento tem a receita retida na entrega. Ao finalizar o pedido você confirma que vai enviar a foto dela, e a farmacêutica combina o resto pelo WhatsApp.</p>
+        </div>
+      ` : p.receitaRemota ? `
+        <div class="aviso-receita aviso-receita-leve">
+          <p><strong>Compre pelo site normalmente.</strong></p>
+          <p>É um medicamento de venda sob prescrição médica: basta ter a receita em mãos na hora de receber, para a farmacêutica conferir. Ela é devolvida na hora.</p>
         </div>
       ` : ""}
 

@@ -1823,6 +1823,20 @@ h1, h2 { font-family: var(--fonte-titulo); }
 
 .aviso-receita p + p { margin-top: 6px; }
 
+/* Tarja vermelha comum: a informação é a mesma, o tom não. Aqui não há
+   passo a cumprir — só um lembrete de levar a receita —, então o aviso sai
+   da cor da marca e vira uma nota discreta, para não competir com o botão
+   de comprar logo abaixo. */
+.aviso-receita-leve {
+  background: var(--papel);
+  color: var(--tinta-suave);
+  border: 1px solid var(--linha);
+}
+
+/* A primeira linha é a que responde "posso comprar?" — ela continua no
+   tom cheio mesmo com o resto do aviso rebaixado. */
+.aviso-receita-leve strong { color: var(--tinta); }
+
 .controle-detalhe { max-width: 180px; margin: 0 auto 14px; }
 .controle-detalhe button { width: 32px; height: 32px; font-size: 18px; }
 

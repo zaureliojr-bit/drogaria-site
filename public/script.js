@@ -1195,12 +1195,23 @@ function cardHTML(p, mini = false) {
   // ao lado do preço riscado, que aparece nas duas situações.
   /* Estoque ganha da receita e da oferta: não adianta dizer que está 20%
      mais barato se não dá para levar. */
+  /* A tira só fala de receita quando ela muda o que o cliente tem que
+     FAZER — ou seja, no mesmo recorte do checkout (confirmarReceita).
+
+     Antes ela saía para receitaRemota, que é a tarja vermelha inteira, e
+     dizia "Com receita". Numa vitrine, ao lado do preço, isso é lido como
+     "não dá para comprar aqui" — e um losartana de uso contínuo vende
+     pelo site sem nenhum passo extra. A informação não sumiu: continua na
+     página do produto, onde há espaço para explicar em vez de alarmar.
+
+     "Envie a receita" no lugar de "Com receita" pelo mesmo motivo: diz o
+     que fazer, não em que categoria o remédio se encaixa. */
   const faixa = semEstoque(p)
     ? `<div class="faixa faixa-indisponivel">Indisponível no momento</div>`
     : p.exigeReceita
     ? `<div class="faixa faixa-receita">${icone("receita", 11)}Retém receita</div>`
-    : p.receitaRemota
-      ? `<div class="faixa faixa-controle">${icone("receita", 11)}Com receita</div>`
+    : p.confirmarReceita
+      ? `<div class="faixa faixa-controle">${icone("receita", 11)}Envie a receita</div>`
       : p.emOferta
         ? `<div class="faixa faixa-oferta">${icone("tag", 11)}Oferta</div>`
         : `<div class="faixa faixa-vazia" aria-hidden="true"></div>`;
