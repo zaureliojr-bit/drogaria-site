@@ -7,6 +7,13 @@
 <title>Painel — Drogaria Mais Barato</title>
 <meta name="theme-color" content="#26247B">
 <link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="icone-180.png">
+<!-- Manifesto próprio, separado do manifest.json da loja: o "id" e o
+     "start_url" diferentes fazem o Windows tratar isto como um segundo
+     aplicativo, com ícone próprio, em vez de reabrir a vitrine. -->
+<link rel="manifest" href="manifest-painel.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Painel">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -29,6 +36,14 @@
   .painel-topo h1 { font-size: 16px; font-weight: 700; color: var(--amarelo); }
   .painel-topo .sub { font-size: 11.5px; color: rgba(255,255,255,.8); }
   .painel-topo a { color: var(--branco); font-size: 12px; font-weight: 600; }
+
+  .painel-topo-acoes { display: flex; align-items: center; gap: 14px; }
+  .btn-instalar-painel {
+    background: var(--amarelo); color: var(--marca-escura); border: none;
+    padding: 7px 13px; border-radius: var(--raio-botao);
+    font-size: 12px; font-weight: 800; font-family: var(--fonte-corpo);
+  }
+  .btn-instalar-painel:hover { background: var(--amarelo-escura); }
 
   .painel { max-width: 1000px; margin: 0 auto; padding: 0 14px; }
 
@@ -123,6 +138,20 @@
     display: flex; align-items: center; justify-content: space-between;
     gap: 10px; flex-wrap: wrap; padding: 14px 0 4px;
   }
+  .fila-som-grupo { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .btn-testar-som {
+    background: var(--branco); border: 1.5px solid var(--linha); color: var(--marca-escura);
+    padding: 6px 12px; border-radius: var(--raio-botao); font-size: 12px; font-weight: 700;
+    font-family: var(--fonte-corpo);
+  }
+  .btn-testar-som:hover { background: var(--marca-clara); }
+
+  .som-bloqueado {
+    background: #FFF3CD; color: #7A5B00; border: 1px solid #E8D48A;
+    border-radius: var(--raio-md); padding: 11px 14px; margin: 10px 0 0;
+    font-size: 12.5px; line-height: 1.55;
+  }
+
   .fila-som {
     display: inline-flex; align-items: center; gap: 7px;
     font-size: 12.5px; color: var(--tinta-suave); cursor: pointer;
@@ -216,7 +245,10 @@
     <h1>Painel da loja</h1>
     <span class="sub" id="atualizado"></span>
   </div>
-  <a href="index.html">← Ver o site</a>
+  <div class="painel-topo-acoes">
+    <button type="button" id="btnInstalar" class="btn-instalar-painel" hidden>Instalar no computador</button>
+    <a href="index.html">← Ver o site</a>
+  </div>
 </div>
 
 <div class="painel">
@@ -242,10 +274,19 @@
 
       <div class="fila-topo">
         <span class="pedido-quando" id="filaStatus">carregando…</span>
-        <label class="fila-som">
-          <input type="checkbox" id="somLigado" checked>
-          Apitar quando entrar pedido
-        </label>
+        <span class="fila-som-grupo">
+          <label class="fila-som">
+            <input type="checkbox" id="somLigado" checked>
+            Apitar enquanto houver pedido novo
+          </label>
+          <button type="button" id="testarSom" class="btn-testar-som">Testar som</button>
+        </span>
+      </div>
+
+      <div id="somBloqueado" class="som-bloqueado" hidden>
+        O navegador está com o som bloqueado nesta aba. Clique em
+        <strong>Testar som</strong> aqui em cima para liberar — sem isso o
+        painel não vai apitar quando entrar pedido.
       </div>
 
       <div class="fila" id="fila"></div>
@@ -505,25 +546,36 @@ let audio = null;
 /* ---------- som ----------
    Sem arquivo de áudio: três notas geradas na hora. Um .mp3 seria mais
    uma coisa para carregar, e o navegador bloqueia áudio até o usuário
-   interagir com a página de qualquer jeito — o clique em "Entrar" é essa
-   interação, e é lá que o contexto é destravado. */
+   interagir com a página de qualquer jeito.
+
+   O contexto é destravado no clique de "Entrar", e também no primeiro
+   clique ou tecla em qualquer lugar, para quem entrou com a senha já
+   guardada na aba. */
 function prepararSom() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (Ctx && !audio) audio = new Ctx();
     if (audio && audio.state === "suspended") audio.resume();
   } catch (e) { /* sem áudio, a tela ainda funciona */ }
+  mostrarEstadoDoSom();
 }
 
-/* Quem volta com a senha guardada na aba não passa pelo botão "Entrar",
-   e aí o áudio nasce travado. O primeiro clique ou tecla em qualquer
-   lugar resolve — é o que o navegador exige, e não custa nada. */
 ["click", "keydown"].forEach(evento =>
   document.addEventListener(evento, prepararSom, { once: true })
 );
 
+/* Alarme mudo é pior que alarme nenhum: quem confia nele para de olhar a
+   tela. Então o estado fica escrito, e não deduzido. */
+function mostrarEstadoDoSom() {
+  const aviso = el("somBloqueado");
+  if (!aviso) return;
+  const travado = !audio || audio.state !== "running";
+  aviso.hidden = !travado;
+}
+
 function apitar() {
-  if (!el("somLigado")?.checked || !audio) return;
+  if (!el("somLigado")?.checked) return;
+  if (!audio || audio.state !== "running") { prepararSom(); return; }
   try {
     [0, 0.18, 0.36].forEach((atraso, i) => {
       const osc = audio.createOscillator();
@@ -671,6 +723,43 @@ function cartaoPedido(p) {
   `;
 }
 
+/* O apito repete enquanto existir pedido em "novo", e cala quando alguém
+   toca em "Iniciar separação".
+
+   A primeira versão apitava UMA vez, no instante em que o pedido novo
+   aparecia. Dependia de ninguém estar no banheiro, de a aba não estar
+   travada em segundo plano e de a detecção ter funcionado — três coisas
+   que não dá para garantir, e quando falha o pedido fica parado sem
+   ninguém saber. É por isso que o alarme do iFood insiste: o silêncio
+   tem que significar "não há nada", nunca "você perdeu o aviso".
+
+   Repetir também resolve o caso de abrir o painel e já haver pedido
+   esperando. Antes isso era tratado como "não é novidade, não apita" —
+   mas um pedido parado em "novo" precisa de atenção, tenha ele chegado
+   agora ou há uma hora. */
+const INTERVALO_ALARME = 20000;
+let timerAlarme = null;
+
+function ajustarAlarme() {
+  const temNovo = fila.some(p => p.status === "novo");
+
+  if (!temNovo || !el("somLigado")?.checked) {
+    if (timerAlarme) { clearInterval(timerAlarme); timerAlarme = null; }
+    return;
+  }
+
+  if (!timerAlarme) {
+    apitar();
+    timerAlarme = setInterval(() => {
+      if (!fila.some(p => p.status === "novo") || !el("somLigado")?.checked) {
+        clearInterval(timerAlarme); timerAlarme = null;
+        return;
+      }
+      apitar();
+    }, INTERVALO_ALARME);
+  }
+}
+
 function pintarFila() {
   el("fila").innerHTML = fila.length
     ? fila.map(cartaoPedido).join("")
@@ -689,6 +778,9 @@ function pintarFila() {
 
   el("filaStatus").textContent =
     `${fila.length} pedido(s) em aberto · atualizado às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+
+  ajustarAlarme();
+  mostrarEstadoDoSom();
 }
 
 async function carregarFila() {
@@ -697,16 +789,15 @@ async function carregarFila() {
 
   const agora = new Set(fila.map(p => p.ref));
 
+  /* O apito quem cuida é o ajustarAlarme(), dentro do pintarFila: ele
+     olha o estado da fila, não a chegada. Aqui sobra só o aviso do
+     sistema, que esse SIM precisa ser só na chegada — repetir
+     notificação a cada 20 segundos seria praga, não alerta. */
   if (refsConhecidas === null) {
-    // primeira carga: registra o que já existe sem apitar, senão abrir o
-    // painel de manhã dispararia o alarme para o dia inteiro de ontem
     refsConhecidas = agora;
   } else {
     const chegaram = [...agora].filter(ref => !refsConhecidas.has(ref));
-    if (chegaram.length) {
-      apitar();
-      avisarNaTela(chegaram.length);
-    }
+    if (chegaram.length) avisarNaTela(chegaram.length);
     refsConhecidas = agora;
   }
 
@@ -753,6 +844,70 @@ el("fila").addEventListener("click", async (ev) => {
     alert("Não consegui atualizar o pedido. Tente de novo.");
     btn.closest(".pedido")?.querySelectorAll("button").forEach(b => b.disabled = false);
   }
+});
+
+/* =====================================================
+   INSTALAR NO COMPUTADOR
+   =====================================================
+   Mesmo mecanismo do site, com dois detalhes próprios:
+
+   O manifesto é outro (manifest-painel.json), com id e start_url
+   diferentes — senão o Windows entende que é o mesmo aplicativo da
+   vitrine e reabre a loja em vez do painel.
+
+   E o service worker precisa ser registrado aqui, porque o painel não
+   carrega o script.js. Sem service worker o Chrome nem oferece instalar;
+   é exigência da plataforma, não escolha nossa.
+
+   Vale a pena instalar num balcão justamente pelo alarme: o aplicativo
+   abre em janela própria, fica na barra de tarefas e pode subir junto
+   com o Windows, em vez de depender de alguém lembrar de abrir a aba. */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+
+let eventoDeInstalacao = null;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  eventoDeInstalacao = e;
+  const btn = el("btnInstalar");
+  if (btn) btn.hidden = false;
+});
+
+window.addEventListener("appinstalled", () => {
+  eventoDeInstalacao = null;
+  const btn = el("btnInstalar");
+  if (btn) btn.hidden = true;
+});
+
+el("btnInstalar").addEventListener("click", async () => {
+  if (!eventoDeInstalacao) return;
+  eventoDeInstalacao.prompt();
+  await eventoDeInstalacao.userChoice.catch(() => {});
+  eventoDeInstalacao = null;
+  el("btnInstalar").hidden = true;
+});
+
+/* Rodando já instalado, o botão não tem razão de existir. */
+if (window.matchMedia("(display-mode: standalone)").matches) {
+  el("btnInstalar").hidden = true;
+}
+
+el("testarSom").addEventListener("click", () => {
+  prepararSom();
+  // o prepararSom pode levar um instante para sair de "suspended"
+  setTimeout(() => {
+    apitar();
+    mostrarEstadoDoSom();
+  }, 150);
+});
+
+el("somLigado").addEventListener("change", () => {
+  prepararSom();
+  ajustarAlarme();
 });
 
 el("abas").addEventListener("click", (ev) => {

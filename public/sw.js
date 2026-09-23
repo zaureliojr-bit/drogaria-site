@@ -16,11 +16,12 @@
    primeira vez que ele abrir, não na segunda.
    ===================================================== */
 
-const CACHE = "mais-barato-casca-v2";
+const CACHE = "mais-barato-casca-v3";
 
 /* Só a casca. "/index.html" fica de fora porque o Cloudflare Pages
    responde 308 nele e redireciona para "/", e resposta de redirecionamento
-   não pode ser guardada no cache. */
+   não pode ser guardada no cache. Pelo mesmo motivo o painel entra como
+   "/painel", e não "/painel.html". */
 const CASCA = [
   "/",
   "/style.css",
@@ -29,6 +30,8 @@ const CASCA = [
   "/produto.js",
   "/carrinho.html",
   "/carrinho.js",
+  "/painel",
+  "/manifest-painel.json",
   "/logo.png",
   "/icone-192.png",
   "/icone-512.png",
@@ -36,14 +39,18 @@ const CASCA = [
   "/sem-imagem-neutra.webp"
 ];
 
-/* Nunca entram no cache, em nenhuma circunstância.
-   - tarjas.json decide se o produto pede receita
-   - produtos.json traz preço e estoque
-   - painel.html é a tela da loja, com senha
-   Os dois primeiros desatualizados dariam informação errada sobre
-   medicamento; o terceiro não tem por que ficar guardado no aparelho
-   de ninguém. */
-const NUNCA_GUARDAR = ["/tarjas.json", "/produtos.json", "/painel.html"];
+/* Nunca entram no cache: tarjas.json decide se o produto pede receita e
+   produtos.json traz preço e estoque. Desatualizados, os dois dariam
+   informação errada sobre medicamento.
+
+   O painel SAIU desta lista. Ele estava aqui por "é a tela da loja, com
+   senha" — mas o que protege o painel é a senha, não a ausência do
+   arquivo: o HTML é só a casca, e sem a senha ele mostra a tela de
+   login e mais nada. Os pedidos e os clientes vêm da API em tempo real,
+   e a API continua exigindo a chave. Guardar a casca é o que permite
+   instalar o painel como aplicativo no balcão — e é justamente no
+   balcão que a conexão cai. */
+const NUNCA_GUARDAR = ["/tarjas.json", "/produtos.json"];
 
 self.addEventListener("install", (evento) => {
   evento.waitUntil((async () => {
