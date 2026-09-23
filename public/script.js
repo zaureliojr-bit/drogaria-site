@@ -1733,12 +1733,38 @@ async function buscarCEP() {
 
       // o ViaCEP devolve a string "true", não o booleano
       if (data.erro) {
+
+        /* Segunda chance antes de desistir: o CEP da raiz, com os três
+           últimos dígitos zerados. Ele é o CEP geral daquele pedaço da
+           cidade e está na base mesmo quando o da rua não está — o
+           09761-181 do cliente não existe lá, mas o 09761-000 existe e
+           devolve Baeta Neves, São Bernardo do Campo.
+
+           Isso não adivinha a rua, e nem tenta: preenche bairro e cidade,
+           que é o que o cálculo da entrega precisa, e deixa a rua para o
+           cliente escrever. */
+        const raiz = cep.slice(0, 5) + "000";
+        const porRegiao = raiz !== cep
+          ? await fetch(`https://viacep.com.br/ws/${raiz}/json/`).then(r => r.json()).catch(() => null)
+          : null;
+
         limparCamposEndereco();
         liberarEnderecoManual();
-        mostrarResultadoFrete(
-          "Não encontramos esse CEP na base dos Correios. Preencha a rua, o bairro e a cidade à mão que a gente calcula a entrega do mesmo jeito.",
-          "erro"
-        );
+
+        if (porRegiao && !porRegiao.erro && porRegiao.localidade) {
+          el("bairro").value = porRegiao.bairro || "";
+          el("cidade").value = porRegiao.localidade;
+          mostrarResultadoFrete(
+            `Esse CEP não está na base dos Correios, mas identificamos a região (${porRegiao.bairro || porRegiao.localidade}). Escreva a rua e o número que a gente calcula a entrega.`,
+            "erro"
+          );
+        } else {
+          mostrarResultadoFrete(
+            "Não encontramos esse CEP na base dos Correios. Preencha a rua, o bairro e a cidade à mão que a gente calcula a entrega do mesmo jeito.",
+            "erro"
+          );
+        }
+
         return;
       }
 
@@ -1783,20 +1809,36 @@ async function geocodificar(params) {
 /* Tenta achar o endereço do mais preciso pro mais amplo, até conseguir
    coordenadas. O Nominatim é bem exigente com texto livre completo, então é
    melhor ir afrouxando a busca aos poucos do que falhar de primeira. */
+/* O OpenStreetMap não tem todas as ruas de São Bernardo. "Rua Paul
+   Sousa", por exemplo, não existe lá em nenhuma grafia — conferido nas
+   quatro tentativas de rua, todas vazias. Antes disso significar "não
+   conseguimos calcular", e o cliente ficar sem poder pedir, a última
+   tentativa desce para o nível do bairro.
+
+   Bairro de São Bernardo tem cerca de um quilômetro, e a área de entrega
+   tem oito. O erro que isso introduz na conta cabe dentro da faixa, e o
+   resultado sai marcado como aproximado — a tela diz que é pela região,
+   e a loja confirma no WhatsApp. É melhor do que uma venda perdida por
+   causa de um mapa incompleto. */
 async function geocodificarComFallback({ numero, endereco, bairro, cidade, cepLimpo }) {
   const tentativas = [
-    `street=${encodeURIComponent(`${numero} ${endereco}`)}&city=${encodeURIComponent(cidade)}&postalcode=${cepLimpo}`,
-    `street=${encodeURIComponent(endereco)}&city=${encodeURIComponent(cidade)}`,
-    `postalcode=${cepLimpo}&country=Brasil`,
-    `q=${encodeURIComponent(`${endereco}, ${bairro}, ${cidade}, Brasil`)}`
-  ];
+    // nível da porta
+    { params: `street=${encodeURIComponent(`${numero} ${endereco}`)}&city=${encodeURIComponent(cidade)}&postalcode=${cepLimpo}` },
+    { params: `street=${encodeURIComponent(endereco)}&city=${encodeURIComponent(cidade)}` },
+    { params: `postalcode=${cepLimpo}&country=Brasil` },
+    { params: `q=${encodeURIComponent(`${endereco}, ${bairro}, ${cidade}, Brasil`)}` },
 
-  for (const params of tentativas) {
+    // nível da região: não acha a casa, acha o pedaço da cidade
+    bairro ? { params: `q=${encodeURIComponent(`${bairro}, ${cidade}, Brasil`)}`, aproximado: true } : null,
+    cidade ? { params: `q=${encodeURIComponent(`${cidade}, Brasil`)}`, aproximado: true } : null
+  ].filter(Boolean);
+
+  for (const tentativa of tentativas) {
     try {
-      const coords = await geocodificar(params);
-      if (coords) return coords;
+      const coords = await geocodificar(tentativa.params);
+      if (coords) return { ...coords, aproximado: !!tentativa.aproximado };
     } catch (e) {
-      console.error("Tentativa de geocodificação falhou", params, e);
+      console.error("Tentativa de geocodificação falhou", tentativa.params, e);
     }
   }
 
@@ -1875,13 +1917,19 @@ async function calcularFrete() {
     }
 
     const valor = calcularValorFrete(dist);
-    freteCalculado = { dist, valor };
+    freteCalculado = { dist, valor, aproximado: coords.aproximado };
 
     const gratis = FRETE_GRATIS_ACIMA_DE > 0 && subtotalCarrinho() >= FRETE_GRATIS_ACIMA_DE;
+    const base = gratis
+      ? `Entrega grátis neste pedido (${dist.toFixed(1)} km)`
+      : `Taxa de entrega: ${fmt(valor)} (${dist.toFixed(1)} km)`;
+
+    /* Quando a conta saiu do bairro e não da porta, o cliente precisa
+       saber — senão uma diferença na entrega vira discussão no balcão. */
     mostrarResultadoFrete(
-      gratis
-        ? `Entrega grátis neste pedido (${dist.toFixed(1)} km)`
-        : `Taxa de entrega: ${fmt(valor)} (${dist.toFixed(1)} km)`,
+      coords.aproximado
+        ? `${base}. Valor estimado pela região: não achamos essa rua no mapa, então a farmacêutica confirma a taxa no WhatsApp.`
+        : base,
       "ok"
     );
   } catch (e) {
