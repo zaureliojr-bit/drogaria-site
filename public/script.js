@@ -58,7 +58,7 @@ const SECOES_INICIAIS = 4;
    Foi exatamente o que faltou quando temEstoque entrou: quem tinha a aba
    aberta continuou lendo produtos mapeados pelo código anterior, sem o
    campo, e a vitrine inteira apareceu como "Indisponível no momento". */
-const CACHE_CHAVE = "catalogo_v8";
+const CACHE_CHAVE = "catalogo_v9";
 const CACHE_MINUTOS = 30;
 
 /* =========================
@@ -555,6 +555,22 @@ function temEstoqueDe(estoque) {
   return true;
 }
 
+/* O export do padronizador só escreve o campo quando ele é VERDADEIRO:
+   produto que não precisa de receita não recebe "confirmarReceita: false",
+   ele simplesmente não tem a chave. Então ausência não é "não sei" — é
+   "não", desde que o catálogo use o campo em algum lugar.
+
+   Era essa leitura que fazia todo tarjado pedir receita: o teste era por
+   produto (typeof === "boolean"), lia a ausência como desconhecido e
+   voltava ao critério antigo, que é a tarja vermelha inteira.
+
+   A pergunta certa é sobre o CATÁLOGO, não sobre o produto: se algum
+   produto traz o campo, o padronizador está marcando, e quem não tem é
+   porque não precisa. Se nenhum traz, o catálogo é anterior à mudança e
+   aí sim vale o critério antigo — controle sanitário não pode ficar sem
+   regra nenhuma enquanto o dado não chega. */
+let catalogoMarcaConfirmarReceita = false;
+
 /* A pergunta é "está marcado como esgotado?", e não "tem o campo?".
    Só o false explícito tira o produto da venda; undefined é ausência de
    informação e vale como disponível. É o que impede um produto guardado
@@ -612,8 +628,8 @@ function mapearProduto(p) {
      o critério antigo. Não pode haver uma janela em que o site simplesmente
      pare de pedir a receita. Quando todo produto trouxer o campo, este
      ramo deixa de ser exercido sozinho. */
-  const confirmarReceita = typeof p.confirmarReceita === "boolean"
-    ? p.confirmarReceita && !bloqueioPresencial
+  const confirmarReceita = catalogoMarcaConfirmarReceita
+    ? p.confirmarReceita === true && !bloqueioPresencial
     : precisaDeReceita;
 
   return {
@@ -708,9 +724,13 @@ async function carregar() {
 
       const dados = await resposta.json();
 
-      lista = (dados.produtos || [])
-        .filter(p => p && p.ean && p.descricao)
-        .map(mapearProduto);
+      const crus = (dados.produtos || []).filter(p => p && p.ean && p.descricao);
+
+      // precisa ser decidido ANTES de mapear: o mapearProduto consulta
+      // esta resposta produto a produto
+      catalogoMarcaConfirmarReceita = crus.some(p => p.confirmarReceita === true);
+
+      lista = crus.map(mapearProduto);
 
       gravarCache(lista);
     }
