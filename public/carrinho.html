@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Detalhes do produto - Drogaria Mais Barato">
-  <title>Produto — Drogaria Mais Barato</title>
+  <meta name="description" content="Seu carrinho na Drogaria Mais Barato - confira os itens e finalize o pedido.">
+  <title>Carrinho — Drogaria Mais Barato</title>
   <meta name="theme-color" content="#26247B">
 
   <link rel="icon" type="image/png" href="logo.png">
@@ -45,8 +45,6 @@
   </defs>
 </svg>
 
-<!-- 🟡 FAIXA DE MARCA -->
-
 <!-- 🔝 HEADER -->
 <header class="header" role="banner">
   <div class="header-left">
@@ -63,18 +61,157 @@
     </a>
   </div>
 
-  <a class="header-carrinho" href="carrinho.html" aria-label="Ver carrinho de compras">
+  <!-- Aqui não vira link: já estamos no carrinho. Continua mostrando
+       quantidade e total porque o cabeçalho é fixo e o cliente rola a
+       página inteira até o fim do formulário. -->
+  <div class="header-carrinho" aria-label="Itens no carrinho">
     <svg class="ic" width="16" height="16" aria-hidden="true"><use href="#ic-cart"></use></svg>
     <span id="qtdTop" class="header-carrinho-qtd">0</span>
     <span id="totalTop">R$ 0,00</span>
-  </a>
+  </div>
 </header>
 
-<!-- 📄 DETALHE DO PRODUTO -->
-<main id="produtoDetalhe" class="produto-detalhe" aria-live="polite"></main>
+<!-- 🛒 CARRINHO
+     Página própria, e não a gaveta que havia no rodapé da home, por três
+     motivos: o formulário abaixo não cabe numa gaveta com o teclado do
+     celular aberto; o botão "voltar" do aparelho agora devolve o cliente
+     para a vitrine em vez de fechar o site; e o passo do carrinho passa a
+     ter URL, que é o que torna possível medir quanta gente chega até aqui
+     e desiste. -->
+<main class="pagina-carrinho">
 
-<!-- 🗂️ RELACIONADOS -->
-<section id="relacionados" class="relacionados" aria-label="Produtos relacionados" style="display:none;"></section>
+  <nav class="migalhas" aria-label="Você está em">
+    <a href="index.html">Início</a>
+    <svg class="ic" width="11" height="11" aria-hidden="true"><use href="#ic-chevron-right"></use></svg>
+    <span>Carrinho</span>
+  </nav>
+
+  <h1 class="carrinho-titulo">Seu carrinho</h1>
+
+  <!-- Enquanto o catálogo não chega não dá para conferir preço nem saber
+       quais itens exigem receita, então o formulário fica escondido e no
+       lugar dele aparece este aviso. -->
+  <div id="carregandoCarrinho" class="carrinho-carregando">
+    <div class="loader-spinner"></div>
+    <p>Conferindo preços e estoque…</p>
+  </div>
+
+  <div id="carrinhoConteudo" hidden>
+
+    <div id="itens" class="carrinho-itens"></div>
+
+    <!-- Só aparece quando há itens: com o carrinho vazio, quem manda na
+         tela é o convite para voltar a comprar, logo abaixo. -->
+    <div id="blocoCheckout">
+
+      <div class="carrinho-form">
+
+        <h2 class="carrinho-secao">Entrega</h2>
+
+        <select id="tipoEntrega" onchange="toggleEndereco()" aria-label="Tipo de entrega">
+          <option value="Retirada">Retirada na loja</option>
+          <option value="Entrega">Entrega em casa</option>
+        </select>
+
+        <input type="text" id="nome" placeholder="Seu nome *" autocomplete="name">
+        <input type="tel" id="telefone" placeholder="Telefone *" autocomplete="tel">
+
+        <div id="boxEndereco" style="display:none;">
+
+          <input type="text" id="cep" placeholder="CEP *"
+            maxlength="9" inputmode="numeric" autocomplete="postal-code"
+            oninput="mascaraCEP(this); resetarFrete();"
+            onblur="buscarCEP()">
+
+          <input type="text" id="endereco" placeholder="Rua" readonly>
+          <input type="text" id="numero" placeholder="Número *" inputmode="numeric" oninput="resetarFrete()">
+          <input type="text" id="bairro" placeholder="Bairro" readonly>
+          <input type="text" id="cidade" placeholder="Cidade" readonly>
+
+          <button type="button" id="btnCalcularFrete" class="btn-calcular-frete" onclick="calcularFrete()">
+            <svg class="ic" width="14" height="14" aria-hidden="true"><use href="#ic-pin"></use></svg>
+            Calcular taxa de entrega
+          </button>
+
+          <div id="resultadoFrete" class="resultado-frete" style="display:none;"></div>
+
+        </div>
+
+        <h2 class="carrinho-secao">Pagamento</h2>
+
+        <select id="pagamento" onchange="trocarPagamento()" aria-label="Forma de pagamento">
+          <option value="">Forma de pagamento</option>
+          <option value="Pix">Pix</option>
+          <option value="Dinheiro">Dinheiro</option>
+          <option value="Cartão Crédito">Cartão Crédito</option>
+          <option value="Cartão Débito">Cartão Débito</option>
+        </select>
+
+        <div id="boxTroco" style="display:none;">
+          <input
+            type="text"
+            id="trocoInput"
+            placeholder="Troco para R$ 0,00"
+            inputmode="numeric"
+            aria-label="Troco para"
+            oninput="formatarTroco(this)"
+          >
+        </div>
+
+      </div>
+
+      <!-- O resumo de valores existe aqui, e não só na barra fixa, porque
+           na hora de confirmar o cliente quer ver subtotal e frete
+           separados — a barra mostra só o total. -->
+      <div class="carrinho-resumo">
+        <div class="linha-resumo">
+          <span>Subtotal</span>
+          <span id="resumoSubtotal">R$ 0,00</span>
+        </div>
+        <div class="linha-resumo" id="linhaFrete" hidden>
+          <span>Taxa de entrega</span>
+          <span id="resumoFrete">R$ 0,00</span>
+        </div>
+        <div class="linha-resumo linha-resumo-total">
+          <span>Total</span>
+          <span id="resumoTotal">R$ 0,00</span>
+        </div>
+      </div>
+
+      <p class="aviso-privacidade">
+        Usamos seu nome, telefone e endereço apenas para preparar e entregar este pedido.
+        Não compartilhamos com terceiros.
+      </p>
+
+      <div id="avisoControleEspecial" class="aviso-controle-especial" style="display:none;">
+        <p><strong>Este pedido tem medicamento que exige receita.</strong> A entrega só pode sair depois de a farmacêutica conferir a receita — envie uma foto dela nesta mesma conversa do WhatsApp assim que o pedido for enviado.</p>
+        <label class="aviso-controle-especial-check">
+          <input type="checkbox" id="confirmaReceita">
+          Estou ciente e vou enviar a foto da receita pelo WhatsApp.
+        </label>
+      </div>
+
+      <div class="carrinho-acoes">
+        <button class="btn-finalizar" onclick="finalizar()">
+          <svg class="ic" width="15" height="15" aria-hidden="true"><use href="#ic-check"></use></svg>
+          Finalizar Pedido
+        </button>
+        <button class="btn-limpar" onclick="limparCarrinho()">
+          <svg class="ic" width="15" height="15" aria-hidden="true"><use href="#ic-trash"></use></svg>
+          Limpar
+        </button>
+      </div>
+
+    </div>
+
+    <a class="btn-continuar-comprando" href="index.html">
+      <svg class="ic" width="15" height="15" aria-hidden="true"><use href="#ic-chevron-left"></use></svg>
+      Continuar comprando
+    </a>
+
+  </div>
+
+</main>
 
 <!-- 🔔 TOAST -->
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -102,6 +239,6 @@
 </footer>
 
 <script src="script.js" defer></script>
-<script src="produto.js" defer></script>
+<script src="carrinho.js" defer></script>
 </body>
 </html>

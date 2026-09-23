@@ -16,7 +16,7 @@
    primeira vez que ele abrir, não na segunda.
    ===================================================== */
 
-const CACHE = "mais-barato-casca-v1";
+const CACHE = "mais-barato-casca-v2";
 
 /* Só a casca. "/index.html" fica de fora porque o Cloudflare Pages
    responde 308 nele e redireciona para "/", e resposta de redirecionamento
@@ -27,6 +27,8 @@ const CASCA = [
   "/script.js",
   "/produto.html",
   "/produto.js",
+  "/carrinho.html",
+  "/carrinho.js",
   "/logo.png",
   "/icone-192.png",
   "/icone-512.png",

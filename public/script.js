@@ -447,12 +447,6 @@ document.addEventListener("DOMContentLoaded", () => {
   _atualizarBarraFiltros = ligarBarraFiltros();
   toggleEndereco();
   iniciarBanner();
-
-  // quem volta da página de produto pelo botão do carrinho já chega com ele aberto
-  if (new URLSearchParams(location.search).get("carrinho") === "1") {
-    toggleCarrinho();
-    history.replaceState(null, "", location.pathname);
-  }
 });
 
 function estaNaHome() {
@@ -1542,13 +1536,6 @@ function limparCarrinho() {
   salvar();
 }
 
-function toggleCarrinho() {
-  const box = el("carrinho");
-  if (!box) return;
-  const aberto = box.classList.toggle("ativo");
-  document.querySelector(".carrinho-header")?.setAttribute("aria-expanded", String(aberto));
-}
-
 /* =========================
 📋 RENDER LISTA DO CARRINHO
 ========================= */
@@ -1556,8 +1543,15 @@ function renderCarrinho() {
   const container = el("itens");
   if (!container) return;
 
+  /* Na página do carrinho, o formulário inteiro some quando não há o que
+     comprar: pedir nome, telefone e CEP para um carrinho vazio é um beco
+     sem saída. Quem manda na tela nesse caso é o "Continuar comprando". */
+  const bloco = el("blocoCheckout");
+  if (bloco) bloco.hidden = !carrinho.length;
+
   if (!carrinho.length) {
     container.innerHTML = `<p class="carrinho-vazio">Seu carrinho está vazio</p>`;
+    atualizarAvisoControleEspecial();
     return;
   }
 
@@ -1623,12 +1617,29 @@ function valorFreteAtual() {
 function atualizarTotais() {
   const subtotal = subtotalCarrinho();
   const qtd = carrinho.reduce((a, b) => a + b.qtd, 0);
-  const totalGeral = subtotal + valorFreteAtual();
+  const frete = valorFreteAtual();
+  const totalGeral = subtotal + frete;
 
   el("total") && (el("total").textContent = fmt(totalGeral));
   el("qtd") && (el("qtd").textContent = qtd);
   el("qtdTop") && (el("qtdTop").textContent = qtd);
   el("totalTop") && (el("totalTop").textContent = fmt(totalGeral));
+
+  /* Resumo destrinchado — só existe na página do carrinho. Na barra fixa
+     da vitrine cabe um número só, e lá o que importa é o total; aqui, na
+     hora de confirmar, o cliente quer ver de onde saiu esse total. A
+     linha do frete some quando é retirada na loja, para não anunciar uma
+     taxa que ninguém vai pagar. */
+  el("resumoSubtotal") && (el("resumoSubtotal").textContent = fmt(subtotal));
+  el("resumoTotal") && (el("resumoTotal").textContent = fmt(totalGeral));
+
+  const linhaFrete = el("linhaFrete");
+  if (linhaFrete) {
+    const entregando = el("tipoEntrega")?.value === "Entrega";
+    linhaFrete.hidden = !entregando;
+    el("resumoFrete") &&
+      (el("resumoFrete").textContent = freteCalculado ? fmt(frete) : "a calcular");
+  }
 
   document.querySelector(".header-carrinho")?.classList.toggle("tem-itens", qtd > 0);
   document.body.classList.toggle("carrinho-com-itens", qtd > 0);
@@ -1913,15 +1924,18 @@ function renderBannerOfertas() {
   iniciarBanner();
 }
 
-/* clique em um item do banner: adiciona direto no carrinho e já o abre */
+/* clique em um item do banner: adiciona direto no carrinho.
+
+   Antes isto também escancarava a gaveta do carrinho. Agora o carrinho é
+   uma página, e mandar o cliente para lá a cada item do banner o tiraria
+   da vitrine bem no momento em que ele está comprando. A barra de baixo
+   já confirma que o item entrou, e o "Ver carrinho" fica a um toque. */
 function adicionarDoBanner(codigo) {
   const p = produtos.find(i => String(i.codigo) === String(codigo));
   mais(codigo);
 
   if (p && !(BLOQUEAR_CONTROLADOS && p.exigeReceita)) {
     toast(`${p.nome} adicionado`);
-    const box = el("carrinho");
-    if (box && !box.classList.contains("ativo")) toggleCarrinho();
   }
 }
 
@@ -1930,6 +1944,21 @@ function adicionarDoBanner(codigo) {
 ========================= */
 function finalizar() {
   if (!carrinho.length) return toast("Carrinho vazio");
+
+  /* Trava de segurança, e não checagem de conveniência.
+
+     Quem decide se o pedido exige receita é itensDeControleEspecialNoCarrinho(),
+     que cruza o carrinho com o catálogo. Com o catálogo fora do ar essa
+     função devolve lista vazia — ou seja, um pedido de antibiótico
+     passaria SEM a confirmação da receita, em silêncio, e ninguém na loja
+     saberia. Falhar calado do lado errado da Portaria 344 não é opção.
+
+     Some daqui também a conferência de preço que o reconciliarCarrinho
+     faz: sem catálogo, o valor no carrinho é o que estava guardado no
+     aparelho, que pode ser de antes de um reajuste. */
+  if (!produtos.length) {
+    return toast("Não conseguimos conferir o catálogo agora. Recarregue a página e tente de novo.");
+  }
 
   const itensControleEspecial = itensDeControleEspecialNoCarrinho();
 
@@ -2084,11 +2113,45 @@ function finalizar() {
   if (abriu) {
     toast(`Pedido ${ref} enviado!`);
     limparCarrinho();
+    mostrarPedidoEnviado(ref, itensControleEspecial.length > 0);
   } else {
     // pop-up bloqueado (comum no iOS): antes o carrinho era limpo aqui
     // e o cliente ficava sem pedido E sem carrinho.
     mostrarLinkPedido(url, ref);
   }
+}
+
+/* Tela de "deu certo", só na página do carrinho.
+
+   Na gaveta antiga isso não existia — o WhatsApp abria numa aba nova e,
+   quando o cliente voltava, encontrava o carrinho vazio e nenhuma
+   explicação. Parecia que o pedido tinha se perdido.
+
+   Aqui ele volta para uma página que confirma o número do pedido e diz o
+   que acontece agora. O número importa: é a referência que casa a
+   conversa do WhatsApp com a linha do painel da loja. */
+function mostrarPedidoEnviado(ref, temReceita) {
+  const alvo = el("carrinhoConteudo");
+  if (!alvo) return;
+
+  alvo.innerHTML = `
+    <div class="pedido-enviado">
+      <div class="pedido-enviado-marca">
+        <svg class="ic" width="26" height="26" aria-hidden="true"><use href="#ic-check"></use></svg>
+      </div>
+      <h2>Pedido enviado!</h2>
+      <p class="pedido-enviado-ref">Número do pedido: <strong>${esc(ref)}</strong></p>
+      <p>Abrimos o WhatsApp da loja com o seu pedido. Se a conversa não apareceu, procure a aba que acabou de abrir e toque em enviar — o pedido só chega até nós depois disso.</p>
+      ${temReceita ? `
+        <p class="pedido-enviado-receita">
+          <strong>Não esqueça da receita.</strong> Envie a foto dela nessa mesma conversa. A entrega só pode sair depois de a farmacêutica conferir.
+        </p>
+      ` : ""}
+      <a class="btn-finalizar" href="index.html">Voltar para a loja</a>
+    </div>
+  `;
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function mostrarLinkPedido(url, ref) {

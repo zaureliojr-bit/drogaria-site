@@ -92,6 +92,14 @@ body {
   padding-bottom: calc(var(--carrinho-barra-h) + env(safe-area-inset-bottom, 0px));
 }
 
+/* O atributo hidden é display:none vindo do navegador — folha de estilo
+   do agente, a de menor prioridade. Qualquer display que a gente escreva
+   numa classe ganha dele, e o elemento fica visível mesmo com hidden no
+   HTML. Já mordeu duas vezes: os passos do banner de instalação nasciam
+   abertos, e a linha da taxa de entrega aparecia na retirada na loja.
+   Como hidden só quer dizer uma coisa, o !important aqui é honesto. */
+[hidden] { display: none !important; }
+
 button { cursor: pointer; font-family: var(--fonte-corpo); }
 a { color: inherit; }
 
@@ -1286,62 +1294,69 @@ h1, h2 { font-family: var(--fonte-titulo); }
 }
 
 /* ========================= */
-/* 🛒 CARRINHO               */
+/* 🛒 BARRA DO CARRINHO      */
 /* ========================= */
+/* Deixou de ser gaveta. O checkout mudou para carrinho.html; o que fica
+   fixo no rodapé é só o resumo, e ele existe para duas coisas: confirmar
+   que o item entrou (o cliente vê o número subir) e levar para o
+   carrinho num toque. */
 .carrinho {
   position: fixed;
   bottom: 0;
-  right: 12px;
-  width: 320px;
-  background: var(--branco);
-  border-radius: 16px 16px 0 0;
-  box-shadow: var(--sombra-lg);
+  left: 0;
+  right: 0;
   z-index: 2000;
-  overflow: visible;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--marca);
+  box-shadow: var(--sombra-lg);
+
+  /* Carrinho vazio, barra fora do caminho: no celular ela come 52px do
+     rodapé, e não há motivo para ocupá-los com "0 itens · R$ 0,00"
+     enquanto a pessoa ainda está só olhando a vitrine. Quem liga e
+     desliga é o atualizarTotais(), pela classe no body. */
+  transform: translateY(110%);
+  transition: transform 0.22s ease;
 }
 
-.carrinho-header {
-  width: 100%;
-  min-height: var(--carrinho-barra-h);
-  padding: 14px 16px;
-  background: var(--marca);
-  color: var(--branco);
-  border: none;
-  border-radius: 16px 16px 0 0;
+body.carrinho-com-itens .carrinho { transform: translateY(0); }
+
+/* A página do carrinho não tem barra: o total já está no cabeçalho fixo,
+   e uma barra por cima do "Finalizar Pedido" só atrapalharia o toque. */
+body.sem-barra-carrinho .carrinho { display: none; }
+
+.carrinho-barra {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
+  min-height: var(--carrinho-barra-h);
+  padding: 10px 16px;
+  color: var(--branco);
+  text-decoration: none;
+  font-family: var(--fonte-titulo);
   font-size: 13px;
   font-weight: 700;
-  font-family: var(--fonte-titulo);
   transition: background 0.2s;
 }
 
-.carrinho-header span:first-child {
+.carrinho-barra:hover { background: var(--marca-escura); }
+
+.carrinho-barra-info {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  font-variant-numeric: tabular-nums;
 }
 
-.carrinho-header span:last-child { font-family: var(--fonte-preco); font-variant-numeric: tabular-nums; }
-
-.carrinho-header:hover { background: var(--marca-escura); }
-
-.carrinho-body {
-  display: none;
-  max-height: 75vh;
-  overflow-y: auto;
-  padding: 16px 14px 12px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(38,36,123,0.4) transparent;
-  font-family: var(--fonte-corpo);
+.carrinho-barra-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--tag);
+  padding: 8px 14px;
+  border-radius: var(--raio-botao);
+  white-space: nowrap;
 }
-
-.carrinho-body::-webkit-scrollbar { width: 5px; }
-.carrinho-body::-webkit-scrollbar-thumb { background: rgba(38,36,123,0.4); border-radius: 10px; }
-
-.carrinho.ativo .carrinho-body { display: block; }
 
 .carrinho-vazio {
   text-align: center;
@@ -1932,14 +1947,8 @@ h1, h2 { font-family: var(--fonte-titulo); }
   .card { padding: 10px; }
   .produto-foto { padding: 10%; }
 
-  .carrinho {
-    width: 100%;
-    right: 0;
-    border-radius: 16px 16px 0 0;
-  }
-
-  .carrinho-header { border-radius: 16px 16px 0 0; }
-  .carrinho-body { max-height: 70vh; }
+  .carrinho-barra { padding: 10px 12px; font-size: 12px; }
+  .carrinho-barra-rotulo { display: none; }
 
   .banner-slide { font-size: 12px; }
   .banner-container { height: 162px; }
@@ -2053,10 +2062,8 @@ h1, h2 { font-family: var(--fonte-titulo); }
   color: var(--tinta);
 }
 
-/* O atributo hidden é display:none vindo do navegador, e o display:flex
-   acima, por ser do nosso CSS, ganhava dele — os passos nasciam abertos.
-   Esta linha devolve o hidden ao seu trabalho. */
-.instalar-passos[hidden] { display: none; }
+/* O hidden global está lá no início do arquivo; esta linha ficou só como
+   lembrete de onde o problema apareceu pela primeira vez. */
 
 .instalar-passos li { padding-left: 2px; }
 .instalar-passos strong { display: inline; font-size: inherit; margin: 0; }
@@ -2199,3 +2206,155 @@ h1, h2 { font-family: var(--fonte-titulo); }
 
 .btn-encomendar-grande { background: #1FA855; }
 .btn-encomendar-grande:hover { background: #178944; }
+
+/* ========================= */
+/* 🧾 PÁGINA DO CARRINHO     */
+/* ========================= */
+/* A largura é menor que a da vitrine de propósito: formulário em coluna
+   estreita se lê e se preenche melhor, e no desktop uma linha de input
+   de 1.100px parece um formulário de banco. */
+.pagina-carrinho {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+}
+
+.carrinho-titulo {
+  font-family: var(--fonte-titulo);
+  font-size: 22px;
+  font-weight: 800;
+  margin: 6px 0 16px;
+}
+
+.carrinho-secao {
+  font-family: var(--fonte-titulo);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tinta-suave);
+  margin: 4px 0 2px;
+}
+
+.carrinho-carregando {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 0;
+  color: var(--tinta-suave);
+}
+
+.carrinho-itens {
+  background: var(--branco);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-md);
+  padding: 4px 14px;
+  margin-bottom: 16px;
+}
+
+/* Resumo de valores */
+.carrinho-resumo {
+  background: var(--branco);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-md);
+  padding: 14px;
+  margin: 16px 0;
+}
+
+.linha-resumo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.linha-resumo + .linha-resumo { margin-top: 8px; }
+
+.linha-resumo-total {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--linha);
+  font-family: var(--fonte-titulo);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--tinta);
+}
+
+.btn-continuar-comprando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 18px;
+  padding: 12px;
+  color: var(--marca);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  border-radius: var(--raio-botao);
+}
+
+.btn-continuar-comprando:hover { background: var(--marca-clara); }
+
+/* Tela de pedido enviado */
+.pedido-enviado {
+  background: var(--branco);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-md);
+  padding: 28px 20px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.pedido-enviado-marca {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #E4F2EA;
+  color: var(--ok);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pedido-enviado h2 {
+  font-family: var(--fonte-titulo);
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.pedido-enviado p { color: var(--tinta-suave); font-size: 14px; }
+.pedido-enviado p + p { margin-top: 10px; }
+
+.pedido-enviado-ref {
+  font-size: 15px !important;
+  color: var(--tinta) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* O lembrete da receita não pode ter o mesmo peso do resto do texto: é a
+   única coisa nesta tela que, se for ignorada, impede a entrega de sair. */
+.pedido-enviado-receita {
+  background: var(--marca-clara);
+  color: var(--marca-escura) !important;
+  border-radius: var(--raio-md);
+  padding: 12px;
+  text-align: left;
+}
+
+.pedido-enviado .btn-finalizar {
+  margin-top: 18px;
+  text-decoration: none;
+  display: inline-flex;
+}
+
+@media (max-width: 480px) {
+  .pagina-carrinho { padding: 12px 12px 32px; }
+  .carrinho-titulo { font-size: 19px; }
+}
