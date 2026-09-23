@@ -1661,6 +1661,27 @@ function toggleEndereco() {
 /* =========================
 📮 CEP — máscara e busca (ViaCEP)
 ========================= */
+/* Telefone com a máscara (11) 98765-4321.
+
+   Celular e fixo não têm o mesmo tamanho — 9 dígitos contra 8 —, então a
+   máscara decide pelo que já foi digitado, em vez de forçar um formato
+   só. Fixo da loja, com 8, fecha como (11) 4321-8765.
+
+   O valor mascarado não atrapalha nada adiante: o telValido() e o
+   soDigitos() do worker já tiram tudo que não é número, e é pelos
+   dígitos que o cliente é reconhecido entre um pedido e outro. */
+function mascaraTelefone(input) {
+  const d = input.value.replace(/\D/g, "").slice(0, 11);
+
+  let v = d;
+  if (d.length > 10)     v = d.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, "($1) $2-$3");
+  else if (d.length > 6) v = d.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3");
+  else if (d.length > 2) v = d.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
+  else if (d.length > 0) v = "(" + d;
+
+  input.value = v;
+}
+
 function mascaraCEP(input) {
   let v = input.value.replace(/\D/g, "").slice(0, 8);
   if (v.length > 5) v = v.replace(/(\d{5})(\d)/, "$1-$2");

@@ -114,7 +114,8 @@
         </select>
 
         <input type="text" id="nome" placeholder="Seu nome *" autocomplete="name">
-        <input type="tel" id="telefone" placeholder="Telefone *" autocomplete="tel">
+        <input type="tel" id="telefone" placeholder="Telefone *" autocomplete="tel"
+          maxlength="15" inputmode="numeric" oninput="mascaraTelefone(this)">
 
         <div id="boxEndereco" style="display:none;">
 
