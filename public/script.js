@@ -1692,30 +1692,80 @@ function limparCamposEndereco() {
   ["endereco", "bairro", "cidade"].forEach(id => { if (el(id)) el(id).value = ""; });
 }
 
+/* Rua, bairro e cidade nascem bloqueados porque, quando o CEP é
+   encontrado, deixar digitar só serve para o cliente errar e o entregador
+   rodar. Mas a base do ViaCEP não tem todo CEP do Brasil — e quando ela
+   não tem, campo bloqueado e vazio vira beco sem saída: o cliente não
+   consegue pedir entrega de jeito nenhum, e a loja perde a venda sem
+   ficar sabendo por quê.
+
+   Então o bloqueio deixa de ser permanente e passa a seguir o que o CEP
+   respondeu. */
+function liberarEnderecoManual() {
+  ["endereco", "bairro", "cidade"].forEach(id => el(id)?.removeAttribute("readonly"));
+  el("endereco")?.focus();
+}
+
+function travarEnderecoAutomatico() {
+  ["endereco", "bairro", "cidade"].forEach(id => el(id)?.setAttribute("readonly", ""));
+}
+
+/* Guarda a busca em andamento para o calcularFrete poder esperá-la.
+
+   Sem isto havia uma corrida: o cliente digita o CEP e toca direto em
+   "Calcular taxa de entrega". O toque tira o foco do campo, o que dispara
+   esta busca — mas o clique no botão roda antes de a resposta chegar, e
+   o frete reclamava "Informe um CEP válido primeiro" com um CEP válido
+   na tela. Na segunda tentativa funcionava, o que é o pior tipo de
+   defeito: some quando alguém vai conferir. */
+let buscaCEPEmAndamento = null;
+
 async function buscarCEP() {
   const cep = el("cep")?.value.replace(/\D/g, "");
   resetarFrete();
 
   if (!cep || cep.length !== 8) return;
 
-  try {
-    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-    const data = await res.json();
+  buscaCEPEmAndamento = (async () => {
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await res.json();
 
-    if (data.erro) {
-      toast("CEP não encontrado");
-      limparCamposEndereco();
-      return;
+      // o ViaCEP devolve a string "true", não o booleano
+      if (data.erro) {
+        limparCamposEndereco();
+        liberarEnderecoManual();
+        mostrarResultadoFrete(
+          "Não encontramos esse CEP na base dos Correios. Preencha a rua, o bairro e a cidade à mão que a gente calcula a entrega do mesmo jeito.",
+          "erro"
+        );
+        return;
+      }
+
+      el("endereco").value = data.logradouro || "";
+      el("bairro").value = data.bairro || "";
+      el("cidade").value = data.localidade || "";
+
+      /* CEP de cidade inteira (os terminados em -000, por exemplo) vem
+         sem logradouro. Aí a rua continua sendo o cliente que diz. */
+      if (data.logradouro) travarEnderecoAutomatico();
+      else liberarEnderecoManual();
+
+      el("numero")?.focus();
+
+    } catch (e) {
+      console.error("Erro buscar CEP", e);
+      liberarEnderecoManual();
+      mostrarResultadoFrete(
+        "Não conseguimos consultar o CEP agora. Preencha o endereço à mão que a gente calcula a entrega do mesmo jeito.",
+        "erro"
+      );
+    } finally {
+      buscaCEPEmAndamento = null;
     }
+  })();
 
-    el("endereco").value = data.logradouro || "";
-    el("bairro").value = data.bairro || "";
-    el("cidade").value = data.localidade || "";
-    el("numero")?.focus();
-  } catch (e) {
-    console.error("Erro buscar CEP", e);
-    toast("Erro ao buscar CEP");
-  }
+  await buscaCEPEmAndamento;
 }
 
 /* =========================
@@ -1791,13 +1841,17 @@ function resetarFrete() {
 }
 
 async function calcularFrete() {
+  // se o cliente tocou no botão logo depois de digitar o CEP, a consulta
+  // ainda está voando; sem esperar, o endereço estaria vazio aqui
+  if (buscaCEPEmAndamento) await buscaCEPEmAndamento.catch(() => {});
+
   const numero = el("numero")?.value.trim();
   const endereco = el("endereco")?.value.trim();
   const bairro = el("bairro")?.value.trim();
   const cidade = el("cidade")?.value.trim();
   const cepLimpo = (el("cep")?.value || "").replace(/\D/g, "");
 
-  if (!endereco || !cidade) return toast("Informe um CEP válido primeiro");
+  if (!endereco || !cidade) return toast("Preencha a rua e a cidade");
   if (!numero) return toast("Informe o número do endereço");
 
   const btn = el("btnCalcularFrete");
