@@ -320,6 +320,10 @@ let dias = 30;
 async function api(rota) {
   const r = await fetch(`${API.replace(/\/+$/, "")}${rota}`, { headers: { "X-Painel-Key": senha } });
   if (r.status === 401) throw new Error("SENHA");
+  // 404 aqui quase sempre quer dizer worker desatualizado: a senha passou,
+  // então o problema não é permissão — é que a rota não existe naquela
+  // versão. Vale a mensagem específica, senão vira caça ao tesouro.
+  if (r.status === 404) throw new Error("ROTA:" + rota);
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
@@ -438,9 +442,16 @@ async function tentar() {
   } catch (erro) {
     sessionStorage.removeItem("painelKey");
     senha = "";
-    mostrarLogin(erro.message === "SENHA"
-      ? "Senha incorreta."
-      : `Não consegui falar com o servidor (${erro.message}).`);
+    let recado;
+    if (erro.message === "SENHA") {
+      recado = "Senha incorreta.";
+    } else if (erro.message.startsWith("ROTA:")) {
+      recado = `O worker de pedidos ainda não tem a rota ${erro.message.slice(5)}. ` +
+               "Publique a versão nova do worker no Cloudflare e recarregue esta página.";
+    } else {
+      recado = `Não consegui falar com o servidor (${erro.message}).`;
+    }
+    mostrarLogin(recado);
   }
 }
 
