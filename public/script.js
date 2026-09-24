@@ -447,7 +447,42 @@ document.addEventListener("DOMContentLoaded", () => {
   _atualizarBarraFiltros = ligarBarraFiltros();
   toggleEndereco();
   iniciarBanner();
+  girarAvisosDoCabecalho();
 });
+
+/* =========================
+📣 RECADOS DO CABEÇALHO
+=========================
+Alterna os três recados da loja, um a cada quatro segundos e meio —
+tempo de ler sem pressa e sem cansar quem fica na página.
+
+Só roda quando a aba está à frente. Um intervalo girando numa aba
+esquecida em segundo plano gasta bateria do celular para trocar um texto
+que ninguém está vendo. */
+const AVISO_SEGUNDOS = 4.5;
+
+function girarAvisosDoCabecalho() {
+  const avisos = document.querySelectorAll(".header-aviso");
+  if (avisos.length < 2) return;
+
+  let atual = 0;
+  let timer = null;
+
+  const trocar = () => {
+    avisos[atual].classList.remove("ativo");
+    atual = (atual + 1) % avisos.length;
+    avisos[atual].classList.add("ativo");
+  };
+
+  const ligar = () => { if (!timer) timer = setInterval(trocar, AVISO_SEGUNDOS * 1000); };
+  const desligar = () => { if (timer) { clearInterval(timer); timer = null; } };
+
+  document.addEventListener("visibilitychange", () => {
+    document.visibilityState === "hidden" ? desligar() : ligar();
+  });
+
+  ligar();
+}
 
 function estaNaHome() {
   return categoriaAtual === "todas" && !termoBusca && !modoOfertas;

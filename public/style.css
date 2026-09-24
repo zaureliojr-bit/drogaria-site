@@ -147,6 +147,82 @@ h1, h2 { font-family: var(--fonte-titulo); }
   box-shadow: var(--sombra-sm);
 }
 
+/* ===== Recados do cabeçalho ===== */
+/* Os três ocupam o mesmo lugar, empilhados um sobre o outro, e só um
+   fica visível por vez. É isso que permite a troca sem o cabeçalho
+   mudar de altura — se cada recado ocupasse seu espaço, a página
+   inteira pularia a cada quatro segundos. */
+.header-avisos {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 18px;
+  overflow: hidden;
+}
+
+.header-aviso {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--amarelo);
+  font-family: var(--fonte-titulo);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  pointer-events: none;
+}
+
+.header-aviso.ativo { opacity: 1; transform: translateY(0); }
+
+/* Abaixo de 640px o recado não cabe entre o logotipo e o carrinho — e
+   não é questão de apertar a fonte: medido, em 390px sobram 68px para um
+   texto que precisa de 158. Então ele desce para uma segunda linha,
+   ainda dentro do cabeçalho, ocupando a largura toda. É onde ele fica
+   legível, e o cabeçalho cresce 24px uma vez só, em vez de o recado
+   sair cortado em todo celular.
+
+   O --header-h acompanha porque a barra de filtros gruda logo abaixo
+   dele (top: var(--header-h)); sem isso ela taparia o recado. */
+@media (max-width: 639px) {
+  :root { --header-h: 86px; }
+
+  .header {
+    flex-wrap: wrap;
+    align-content: center;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .header-left, .header-carrinho { flex-shrink: 0; }
+
+  .header-avisos {
+    order: 3;
+    flex: 0 0 100%;
+    height: 24px;
+    margin-top: 2px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  .header-aviso { font-size: 12px; }
+}
+
+/* Quem pediu menos animação no sistema recebe a troca seca, sem deslize
+   nem esmaecimento. O conteúdo é o mesmo; o movimento é que some. */
+@media (prefers-reduced-motion: reduce) {
+  .header-aviso { transition: none; transform: none; }
+  .header-aviso.ativo { transform: none; }
+}
+
 .header-left {
   display: flex;
   align-items: center;
