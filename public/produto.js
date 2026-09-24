@@ -202,15 +202,7 @@ function renderProdutoDetalhe(p) {
         </div>
       ` : ""}
 
-      <div class="controle controle-detalhe">
-        <button data-acao="menos" data-codigo="${codigo}" aria-label="Remover uma unidade">−</button>
-        <span aria-live="polite">${qtd}</span>
-        <button data-acao="mais" data-codigo="${codigo}" aria-label="Adicionar uma unidade">+</button>
-      </div>
-
-      <button class="btn-comprar" data-acao="comprar" data-codigo="${codigo}">
-        ${icone("cart-add", 16)}Adicionar ao carrinho
-      </button>
+      <div id="acoesDetalhe">${acoesDoDetalheHTML(p, qtd)}</div>
     `}
 
     <div class="produto-meta">
@@ -255,6 +247,64 @@ function adicionarAoCarrinhoDetalhe(codigo) {
   if (p && !(typeof BLOQUEAR_CONTROLADOS !== "undefined" && BLOQUEAR_CONTROLADOS && p.exigeReceita)) {
     toast(`${p.nome} adicionado`);
   }
+}
+
+/* A mesma lógica do botão do card, no tamanho da página de produto.
+
+   Aqui havia os dois ao mesmo tempo: um contador marcando 0 e, embaixo,
+   "Adicionar ao carrinho". Um contador em zero não é controle de nada —
+   é uma pergunta sem resposta em cima do botão que já responde. E ficava
+   diferente do card, onde o contador só nasce depois que o produto entra
+   no carrinho.
+
+   Agora é um ou outro, como no card: sem nada no carrinho, só o botão;
+   com o produto dentro, só o contador. E na última unidade o "−" vira
+   lixeira, porque tirar o único item não é diminuir quantidade, é
+   remover o produto. */
+function acoesDoDetalheHTML(p, qtd) {
+  const codigo = esc(p.codigo);
+  const nome = esc(p.nome);
+
+  if (qtd > 0) {
+    const remover = qtd === 1
+      ? { simbolo: icone("trash", 14), rotulo: `Remover ${nome} do carrinho` }
+      : { simbolo: "−", rotulo: `Remover uma unidade de ${nome}` };
+
+    return `
+      <div class="controle controle-detalhe">
+        <button data-acao="menos" data-codigo="${codigo}" aria-label="${remover.rotulo}">${remover.simbolo}</button>
+        <span aria-live="polite">${qtd}</span>
+        <button data-acao="mais" data-codigo="${codigo}" aria-label="Adicionar uma unidade de ${nome}">+</button>
+      </div>
+
+      <a class="btn-comprar btn-ir-carrinho" href="carrinho.html">
+        ${icone("cart", 16)}Ver carrinho
+      </a>
+    `;
+  }
+
+  return `
+    <button class="btn-comprar" data-acao="comprar" data-codigo="${codigo}"
+            aria-label="Adicionar ${nome} ao carrinho">
+      ${icone("cart-add", 16)}Adicionar ao carrinho
+    </button>
+  `;
+}
+
+/* Redesenha o bloco inteiro, e não só o número: em 0 ele é um botão, em
+   1 é o contador com lixeira. Chamado pelo atualizarQtdNaTela do
+   script.js, que é quem sabe que a quantidade mudou. */
+function repintarAcoesDoDetalhe(p, qtd) {
+  const alvo = document.getElementById("acoesDetalhe");
+  if (!alvo || !p) return;
+
+  const tinhaFoco = alvo.contains(document.activeElement)
+    ? document.activeElement.dataset.acao
+    : null;
+
+  alvo.innerHTML = acoesDoDetalheHTML(p, qtd);
+
+  if (tinhaFoco) alvo.querySelector(`[data-acao="${tinhaFoco}"]`)?.focus();
 }
 
 /* a delegação do script.js cobre mais/menos/receita; aqui só o "comprar" */

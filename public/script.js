@@ -1383,9 +1383,16 @@ function atualizarQtdNaTela(codigo) {
       }
     });
 
-  // a página de produto tem controle próprio, com outro desenho
-  document.querySelectorAll(`.produto-detalhe[data-codigo="${chave}"] .controle span`)
-    .forEach(span => { span.textContent = qtd; });
+  /* A página de produto tem o bloco dela, com outro desenho, e agora ele
+     também troca de forma: em 0 é o botão "Adicionar ao carrinho", em 1
+     ou mais é o contador. Trocar só o número deixaria o botão e o
+     contador na tela ao mesmo tempo, que era o comportamento antigo.
+     Quem sabe desenhar isso é o produto.js, que só existe naquela
+     página — daí a checagem. */
+  if (document.querySelector(`.produto-detalhe[data-codigo="${chave}"]`)
+      && typeof repintarAcoesDoDetalhe === "function" && p) {
+    repintarAcoesDoDetalhe(p, qtd);
+  }
 }
 
 /* =========================

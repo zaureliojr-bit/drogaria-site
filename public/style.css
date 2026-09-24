@@ -1874,6 +1874,18 @@ body.sem-barra-carrinho .carrinho { display: none; }
 }
 
 .btn-comprar:hover { background: var(--marca-escura); }
+
+/* O "Ver carrinho" da página de produto é <a>, e não <button>: ele
+   navega. Herda o desenho do botão de comprar, mas em segundo plano —
+   quem já pôs o produto no carrinho não precisa de outro botão cheio
+   competindo com o contador logo acima. */
+.btn-ir-carrinho {
+  text-decoration: none;
+  background: var(--branco);
+  color: var(--marca);
+  border: 1.5px solid var(--marca-clara);
+}
+.btn-ir-carrinho:hover { background: var(--marca-clara); }
 .btn-comprar:active { transform: scale(0.98); }
 
 .btn-receita-grande { background: #1E9E58; }
