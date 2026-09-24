@@ -2495,3 +2495,224 @@ body.sem-barra-carrinho .carrinho { display: none; }
   .pagina-carrinho { padding: 12px 12px 32px; }
   .carrinho-titulo { font-size: 19px; }
 }
+
+/* ========================= */
+/* 🎯 LANDING PAGE           */
+/* ========================= */
+/* Página de chegada do anúncio. Reaproveita os tokens, os cards e o
+   rodapé do site — o visitante que clicar em "Ver o catálogo" tem que
+   sentir que continuou no mesmo lugar, não que trocou de empresa. */
+
+.pagina-lp { padding-bottom: 40px; }
+
+.lp-topo {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: var(--marca);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: var(--sombra-sm);
+}
+
+.lp-topo .logo { background: var(--branco); border-radius: 8px; padding: 3px 6px; }
+
+.lp-topo-whats {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #1FA855;
+  color: var(--branco);
+  padding: 9px 14px;
+  border-radius: var(--raio-botao);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.lp-topo-whats:hover { background: #17894A; }
+
+/* ---------- capa ---------- */
+.lp-capa {
+  background: linear-gradient(160deg, var(--marca) 0%, var(--marca-escura) 100%);
+  color: var(--branco);
+  padding: 40px 16px 44px;
+}
+
+.lp-capa-miolo { max-width: 680px; margin: 0 auto; text-align: center; }
+
+.lp-selo {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: var(--branco);
+  padding: 5px 13px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.lp-selo-aberto { background: rgba(31, 168, 85, 0.24); border-color: #4FD48A; color: #B9F3D0; }
+
+.lp-capa h1 {
+  font-family: var(--fonte-titulo);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 14px;
+}
+.lp-capa h1 strong { color: var(--amarelo); font-weight: 800; }
+
+.lp-chamada {
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.86);
+  max-width: 540px;
+  margin: 0 auto 24px;
+}
+
+.lp-botoes { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 22px;
+  border-radius: var(--raio-md);
+  font-family: var(--fonte-titulo);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.12s;
+}
+.lp-btn:active { transform: scale(0.98); }
+
+.lp-btn-whats { background: #1FA855; color: var(--branco); }
+.lp-btn-whats:hover { background: #17894A; }
+
+.lp-btn-catalogo {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--branco);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+}
+.lp-btn-catalogo:hover { background: rgba(255, 255, 255, 0.2); }
+
+.lp-horario { margin-top: 16px; font-size: 12.5px; color: rgba(255, 255, 255, 0.72); }
+
+/* ---------- seções ---------- */
+.lp-secao { max-width: 1000px; margin: 0 auto; padding: 32px 16px 8px; }
+
+.lp-secao-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.lp-titulo {
+  font-family: var(--fonte-titulo);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 14px;
+}
+.lp-secao-topo .lp-titulo { margin-bottom: 0; }
+
+.lp-link {
+  color: var(--marca);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+/* ---------- pilares ---------- */
+.lp-pilares { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+
+.lp-pilar {
+  background: var(--branco);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-md);
+  padding: 20px 18px;
+  box-shadow: var(--sombra-sm);
+}
+.lp-pilar-icone { font-size: 26px; display: block; margin-bottom: 8px; }
+.lp-pilar h2 { font-family: var(--fonte-titulo); font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+.lp-pilar p { font-size: 13.5px; line-height: 1.6; color: var(--tinta-suave); }
+
+/* ---------- ofertas ---------- */
+.lp-ofertas { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.lp-carregando { padding: 30px 0; text-align: center; color: var(--tinta-suave); font-size: 13.5px; }
+
+/* ---------- passos ---------- */
+.lp-passos-secao { background: var(--branco); border-top: 1px solid var(--linha); border-bottom: 1px solid var(--linha); max-width: none; }
+.lp-passos-secao .lp-titulo, .lp-passos { max-width: 1000px; margin-left: auto; margin-right: auto; }
+
+.lp-passos { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.lp-passos li { display: flex; gap: 12px; align-items: flex-start; }
+.lp-passos span {
+  flex-shrink: 0;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--marca-clara);
+  color: var(--marca);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--fonte-titulo); font-weight: 800; font-size: 14px;
+}
+.lp-passos strong { display: block; font-size: 14.5px; margin-bottom: 3px; }
+.lp-passos p { font-size: 13px; line-height: 1.55; color: var(--tinta-suave); }
+
+/* ---------- categorias ---------- */
+.lp-categorias { display: flex; flex-wrap: wrap; gap: 8px; }
+.lp-categoria {
+  background: var(--branco);
+  border: 1.5px solid var(--linha);
+  color: var(--marca-escura);
+  padding: 9px 15px;
+  border-radius: var(--raio-lg);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.lp-categoria:hover { border-color: var(--marca); background: var(--marca-clara); }
+
+/* ---------- confiança ---------- */
+.lp-confianca ul { list-style: none; display: grid; gap: 7px; }
+.lp-confianca li { font-size: 13.5px; line-height: 1.55; color: var(--tinta-suave); }
+.lp-confianca li strong { color: var(--tinta); }
+.lp-miudo { margin-top: 14px; font-size: 12px; line-height: 1.6; color: var(--tinta-suave); }
+
+/* ---------- chamada final ---------- */
+.lp-final {
+  margin: 34px auto 0;
+  max-width: 1000px;
+  background: var(--marca);
+  color: var(--branco);
+  border-radius: var(--raio-lg);
+  padding: 34px 20px;
+  text-align: center;
+}
+.lp-final h2 { font-family: var(--fonte-titulo); font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.lp-final p { font-size: 14.5px; color: rgba(255, 255, 255, 0.84); margin-bottom: 20px; }
+
+@media (max-width: 1032px) { .lp-final { margin-left: 16px; margin-right: 16px; } }
+
+@media (max-width: 480px) {
+  .lp-capa { padding: 30px 16px 34px; }
+  .lp-capa h1 { font-size: 27px; }
+  .lp-chamada { font-size: 14px; }
+  .lp-botoes { flex-direction: column; }
+  .lp-btn { width: 100%; }
+  .lp-topo-whats span { display: none; }
+  .lp-topo-whats { padding: 10px 12px; min-height: 38px; }
+  .lp-ofertas { grid-template-columns: repeat(2, 1fr); }
+}

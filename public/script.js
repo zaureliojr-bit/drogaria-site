@@ -450,6 +450,24 @@ document.addEventListener("DOMContentLoaded", () => {
   girarAvisosDoCabecalho();
 });
 
+/* Chegou da landing (ou de um link compartilhado) pedindo uma categoria:
+   abre a vitrine já filtrada, em vez de largar a pessoa na home para
+   procurar de novo o que ela acabou de clicar.
+
+   Espera o catálogo porque o filtro depende de produtos[] estar cheio —
+   e o endereço fica limpo depois, para o botão "voltar" do navegador não
+   trazer a pessoa de volta para o mesmo filtro sem ela pedir. */
+document.addEventListener("produtosProntos", (ev) => {
+  if (!ev.detail || !ev.detail.ok) return;
+
+  const familia = new URLSearchParams(location.search).get("familia");
+  if (!familia || typeof filtrarCategoria !== "function") return;
+  if (!familiasComProdutos().some(f => f.id === familia)) return;
+
+  filtrarCategoria(familia);
+  history.replaceState(null, "", location.pathname);
+});
+
 /* =========================
 📣 RECADOS DO CABEÇALHO
 =========================
