@@ -71,18 +71,33 @@
   </div>
 
 
-  <!-- Os três recados da loja. Ficam aqui, no cabeçalho, e não numa faixa
-       solta: é a primeira coisa que a pessoa lê, e é o que responde "por
-       que comprar aqui" antes de ela olhar preço.
+  <div class="header-faixa">
+    <!-- Os três recados da loja. Ficam aqui, no cabeçalho, e não numa faixa
+         solta: é a primeira coisa que a pessoa lê, e é o que responde "por
+         que comprar aqui" antes de ela olhar preço.
 
-       Um de cada vez, alternando. Os três lado a lado não cabem nem num
-       monitor: só o primeiro já tem 31 caracteres. E empilhados comeriam
-       um terço da tela do celular, empurrando os produtos para baixo da
-       dobra — que é o oposto do que eles existem para fazer. -->
-  <div class="header-avisos" aria-hidden="true">
-    <span class="header-aviso ativo">🔥 Entrega em até 2 horas em SBC</span>
-    <span class="header-aviso">💰 Preços baixos todos os dias</span>
-    <span class="header-aviso">📲 Peça agora pelo WhatsApp</span>
+         Um de cada vez, alternando. Os três lado a lado não cabem nem num
+         monitor: só o primeiro já tem 31 caracteres. E empilhados comeriam
+         um terço da tela do celular, empurrando os produtos para baixo da
+         dobra — que é o oposto do que eles existem para fazer. -->
+    <div class="header-avisos" aria-hidden="true">
+      <span class="header-aviso ativo">🔥 Entrega em até 2 horas em SBC</span>
+      <span class="header-aviso">💰 Preços baixos todos os dias</span>
+      <span class="header-aviso">📲 Peça agora pelo WhatsApp</span>
+    </div>
+
+    <!-- Pedido rápido: quem já sabe o que quer não precisa navegar o
+         catálogo. Fica colado no recado que convida a pedir pelo
+         WhatsApp, e não perdido no rodapé.
+
+         É <a> com href de verdade, e não um botão que chama JavaScript:
+         assim o cliente pode abrir em outra aba, copiar o link e mandar
+         para alguém — e continua funcionando se o script falhar. -->
+    <a class="header-whats" href="https://wa.me/5511925190101?text=Ol%C3%A1!%20Quero%20fazer%20um%20pedido%20r%C3%A1pido%20pelo%20WhatsApp." target="_blank" rel="noopener"
+       aria-label="Fazer um pedido rápido pelo WhatsApp">
+      <svg class="ic" width="15" height="15" aria-hidden="true"><use href="#ic-whats"></use></svg>
+      <span class="header-whats-texto">Pedido rápido</span>
+    </a>
   </div>
 
   <a class="header-carrinho" href="carrinho.html" aria-label="Ver carrinho de compras">

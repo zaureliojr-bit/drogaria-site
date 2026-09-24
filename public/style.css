@@ -148,6 +148,39 @@ h1, h2 { font-family: var(--fonte-titulo); }
 }
 
 /* ===== Recados do cabeçalho ===== */
+/* Recado e botão andam juntos: o botão existe porque o recado convida a
+   pedir pelo WhatsApp, e separá-los quebraria a frase. Por isso os dois
+   ficam no mesmo embrulho, que é o que desce inteiro para a segunda
+   linha no celular. */
+.header-faixa {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.header-whats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  background: #1FA855;
+  color: var(--branco);
+  padding: 6px 12px;
+  border-radius: var(--raio-botao);
+  font-family: var(--fonte-corpo);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s, transform 0.12s;
+}
+
+.header-whats:hover { background: #17894A; }
+.header-whats:active { transform: scale(0.97); }
+
 /* Os três ocupam o mesmo lugar, empilhados um sobre o outro, e só um
    fica visível por vez. É isso que permite a troca sem o cabeçalho
    mudar de altura — se cada recado ocupasse seu espaço, a página
@@ -193,7 +226,7 @@ h1, h2 { font-family: var(--fonte-titulo); }
    O --header-h acompanha porque a barra de filtros gruda logo abaixo
    dele (top: var(--header-h)); sem isso ela taparia o recado. */
 @media (max-width: 639px) {
-  :root { --header-h: 86px; }
+  :root { --header-h: 92px; }
 
   .header {
     flex-wrap: wrap;
@@ -204,16 +237,32 @@ h1, h2 { font-family: var(--fonte-titulo); }
 
   .header-left, .header-carrinho { flex-shrink: 0; }
 
-  .header-avisos {
+  .header-faixa {
     order: 3;
     flex: 0 0 100%;
-    height: 24px;
     margin-top: 2px;
-    padding-top: 4px;
+    padding-top: 5px;
     border-top: 1px solid rgba(255, 255, 255, 0.14);
+    gap: 8px;
   }
 
-  .header-aviso { font-size: 12px; }
+  .header-avisos { height: 24px; }
+  .header-aviso { font-size: 12px; justify-content: flex-start; }
+
+  /* Em tela estreita o rótulo sai e fica só o ícone: o verde do WhatsApp
+     já diz o que ele é, e o recado ao lado precisa do espaço mais do que
+     a palavra "Pedido".
+
+     A altura mínima é por causa do dedo, não do desenho: com o padding
+     que o rótulo pedia, o alvo ficava em 25px. Dedo não acerta 25px —
+     erra e toca no que estiver perto, que aqui é o carrinho. */
+  .header-whats {
+    padding: 6px 10px;
+    min-height: 32px;
+    min-width: 40px;
+    justify-content: center;
+  }
+  .header-whats-texto { display: none; }
 }
 
 /* Quem pediu menos animação no sistema recebe a troca seca, sem deslize
