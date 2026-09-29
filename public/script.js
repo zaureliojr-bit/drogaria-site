@@ -1453,6 +1453,13 @@ function aplicarFiltro() {
     banner.style.display = (modoHome && temSlide) ? "" : "none";
   }
 
+  /* A seta do cabeçalho acompanha a barra de resultado: as duas existem
+     enquanto a vitrine estiver dando lugar a uma lista. Ela some na
+     vitrine porque ali não há de onde voltar — e seta que não leva a
+     lugar nenhum ensina a pessoa a ignorar a seta. */
+  const setaTopo = el("voltarHeader");
+  if (setaTopo) setaTopo.hidden = modoHome;
+
   const barra = el("barraResultado");
   if (barra) {
     if (modoHome) {

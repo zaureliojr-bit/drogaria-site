@@ -58,6 +58,14 @@
 <!-- 🔝 HEADER -->
 <header class="header" role="banner">
   <div class="header-left">
+    <!-- Só aparece quando a vitrine deu lugar a uma lista (busca,
+         categoria ou ofertas). É o mesmo botão, no mesmo canto, que a
+         página do produto e a do carrinho já têm — é ali que a pessoa
+         procura a saída, e não na barra de resultado mais abaixo. -->
+    <button class="btn-voltar" id="voltarHeader" data-acao="voltar-vitrine"
+            aria-label="Voltar para a loja" hidden>
+      <svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-chevron-left"></use></svg>
+    </button>
     <img
       src="logo.png"
       class="logo"
@@ -191,12 +199,11 @@
 <!-- 📊 BARRA DE RESULTADO (busca / categoria / ofertas) -->
 <div id="barraResultado" class="barra-resultado" style="display:none;">
   <div class="barra-resultado-info">
-    <!-- com a vitrine escondida, este é o caminho de volta. Sem ele o
-         cliente só sairia da categoria caçando o chip "Todos" na barra
-         de filtros, que pode estar rolada para fora da tela. -->
-    <button class="btn-voltar-vitrine" data-acao="voltar-vitrine" aria-label="Voltar para a vitrine">
-      <svg class="ic" width="16" height="16" aria-hidden="true"><use href="#ic-chevron-left"></use></svg>
-    </button>
+    <!-- A seta de voltar saiu daqui e foi para o cabeçalho, ao lado do
+         logotipo, que é onde a página do produto e a do carrinho já a
+         têm — e onde a pessoa procura. Duas setas iguais na mesma tela,
+         a 200px uma da outra, é ruído: esta ficava mais perto da lista,
+         mas a do cabeçalho está sempre no mesmo lugar em todo o site. -->
     <strong id="resultadoTitulo"></strong>
     <span id="resultadoContagem" class="barra-resultado-contagem"></span>
   </div>
