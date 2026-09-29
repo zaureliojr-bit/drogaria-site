@@ -383,6 +383,7 @@ document.addEventListener("DOMContentLoaded", () => {
   iniciarBanner();
   girarAvisosDoCabecalho();
   carregarBanners();
+  carregarChamadaDoEncarte();
 });
 
 /* Chegou da landing (ou de um link compartilhado) pedindo uma categoria:
@@ -450,6 +451,33 @@ async function aplicarPromocoesDoPainel() {
     p.desconto = descontoPercent(p.precoOriginal, promo);
     p.promocaoDoPainel = true;
   });
+}
+
+/* =========================
+📰 CHAMADA DO ENCARTE NA HOME
+=========================
+O encarte tem página própria, mas ninguém digita /encarte: alguém
+precisa oferecer. Esta chamada só nasce quando há encarte publicado e
+dentro do prazo — encarte vencido no ar é propaganda de preço que a loja
+não pratica mais, e o cliente chega no balcão cobrando. */
+async function carregarChamadaDoEncarte() {
+  const link = el("chamadaEncarte");
+  if (!link || !API_PEDIDOS_D1) return;
+
+  try {
+    const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/encarte`, { cache: "no-cache" });
+    if (!resposta.ok) return;
+
+    const { encarte } = await resposta.json();
+    if (!encarte || !encarte.paginas || !encarte.paginas.length) return;
+
+    el("chamadaEncarteTitulo").textContent = encarte.titulo || "Encarte de promoções";
+    link.hidden = false;
+
+  } catch (e) {
+    // sem encarte a home segue igual; a chamada simplesmente não nasce
+    console.info("Sem encarte para anunciar.", e);
+  }
 }
 
 /* =========================

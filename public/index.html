@@ -169,6 +169,20 @@
      Nasce vazio. Quem o preenche é o banners.json, que a loja edita
      direto no GitHub — sem lista, sem banner no prazo ou sem o arquivo,
      esta seção se remove sozinha em vez de deixar um buraco. -->
+<!-- 📰 CHAMADA DO ENCARTE
+     Só aparece quando há encarte publicado e dentro do prazo. Fica
+     colada na faixa de promoções porque as duas respondem a mesma
+     pergunta — "o que está em oferta?" —, e separá-las faria o cliente
+     descobrir uma e não a outra. -->
+<a id="chamadaEncarte" class="chamada-encarte" href="encarte.html" hidden>
+  <span class="chamada-encarte-icone">📰</span>
+  <span class="chamada-encarte-texto">
+    <strong id="chamadaEncarteTitulo">Encarte de promoções</strong>
+    <small>Veja todas as ofertas do mês</small>
+  </span>
+  <svg class="ic" width="16" height="16" aria-hidden="true"><use href="#ic-chevron-right"></use></svg>
+</a>
+
 <section id="promos" class="promos" aria-label="Promoções e parceiros" hidden></section>
 
 <!-- 🗂️ SEÇÕES POR FAMÍLIA (home) -->

@@ -297,6 +297,37 @@
   @media (max-width: 860px) { .promo-filtros { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 560px) { .promo-filtros { grid-template-columns: 1fr; } }
 
+
+  /* ========== ENCARTE ========== */
+  .encarte-fila { display: grid; gap: 8px; }
+  .encarte-fila-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--papel); border: 1px solid var(--linha);
+    border-radius: var(--raio-sm); padding: 8px 10px;
+  }
+  .encarte-fila-item img { width: 54px; height: 54px; object-fit: cover; border-radius: var(--raio-sm); background: var(--branco); flex-shrink: 0; }
+  .encarte-fila-item span { flex: 1; font-size: 12.5px; color: var(--tinta-suave); min-width: 0; }
+  .encarte-fila-item button {
+    border: 1.5px solid var(--linha); background: var(--branco); color: var(--marca-escura);
+    width: 30px; height: 30px; border-radius: var(--raio-sm); font-weight: 800; font-size: 13px;
+    font-family: var(--fonte-corpo); line-height: 1;
+  }
+  .encarte-fila-item button[disabled] { opacity: .35; cursor: not-allowed; }
+  .encarte-fila-item .perigo { color: var(--erro); border-color: var(--erro-clara); }
+
+  .encarte-linha {
+    background: var(--branco); border: 1px solid var(--linha);
+    border-left: 4px solid var(--linha);
+    border-radius: var(--raio-md); box-shadow: var(--sombra-sm);
+    display: flex; gap: 12px; align-items: center; padding: 10px 12px; flex-wrap: wrap;
+  }
+  .encarte-linha[data-estado="no-ar"]    { border-left-color: var(--ok); }
+  .encarte-linha[data-estado="agendado"] { border-left-color: #E0A800; }
+  .encarte-linha[data-estado="fora"]     { border-left-color: var(--linha); opacity: .72; }
+  .encarte-linha img { width: 46px; height: 60px; object-fit: cover; border-radius: var(--raio-sm); background: var(--papel); flex-shrink: 0; }
+  .encarte-linha-info { flex: 1; min-width: 160px; font-size: 13px; line-height: 1.45; }
+  .encarte-linha-info small { display: block; color: var(--tinta-suave); font-size: 11.5px; }
+
   /* ========== BANNERS ========== */
   .form-banner {
     background: var(--branco); border: 1px solid var(--linha);
@@ -387,6 +418,7 @@
       <button data-aba="fila" class="ativo">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
       <button data-aba="promocoes">Promoções</button>
       <button data-aba="banners">Banners</button>
+      <button data-aba="encarte">Encarte</button>
       <button data-aba="relatorios">Relatórios</button>
     </div>
 
@@ -554,6 +586,68 @@
       </form>
 
       <div class="fila" id="listaBanners"></div>
+
+    </div>
+
+    <!-- ===== ABA: ENCARTE ===== -->
+    <div id="abaEncarte" hidden>
+
+      <div class="fila-topo">
+        <span class="pedido-quando">O encarte do mês, com página própria no site e chamada na home.</span>
+        <button type="button" id="novoEncarte" class="btn-testar-som">+ Novo encarte</button>
+      </div>
+
+      <div id="avisoEncarte"></div>
+
+      <form id="formEncarte" class="form-banner" hidden>
+        <input type="hidden" id="encarteId">
+        <input type="hidden" id="encartePdfUrl">
+        <input type="hidden" id="encartePdfChave">
+
+        <label class="campo">
+          <span>Nome do encarte *</span>
+          <input type="text" id="encarteTitulo" maxlength="120" placeholder="Ex.: Encarte de outubro">
+        </label>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Começa em</span>
+            <input type="date" id="encarteInicio">
+            <small>Vazio = já vale.</small>
+          </label>
+          <label class="campo">
+            <span>Termina em</span>
+            <input type="date" id="encarteFim">
+            <small>Vazio = não expira. O último dia conta.</small>
+          </label>
+        </div>
+
+        <label class="campo">
+          <span>Páginas do encarte *</span>
+          <input type="file" id="encarteArquivos" accept="image/png,image/jpeg,image/webp" multiple>
+          <small>Pode escolher várias de uma vez. Elas entram na ordem em que você selecionar, e dá para reordenar depois. Até 3 MB cada.</small>
+        </label>
+
+        <div id="encarteFila" class="encarte-fila"></div>
+
+        <label class="campo">
+          <span>PDF para baixar (opcional)</span>
+          <input type="file" id="encarteArquivoPdf" accept="application/pdf">
+          <small id="encartePdfNome">Serve para o cliente imprimir. Quem manda na tela são as imagens acima.</small>
+        </label>
+
+        <label class="campo campo-linha">
+          <input type="checkbox" id="encarteAtivo" checked>
+          <span>Publicado</span>
+        </label>
+
+        <div class="pedido-acoes">
+          <button type="submit" class="principal" id="salvarEncarte">Salvar encarte</button>
+          <button type="button" id="cancelarEncarte">Cancelar</button>
+        </div>
+      </form>
+
+      <div class="fila" id="listaEncartes"></div>
 
     </div>
 
@@ -1729,6 +1823,261 @@ el("listaBanners").addEventListener("click", async (ev) => {
   }
 });
 
+
+/* =====================================================
+   ENCARTE DO MÊS
+   =====================================================
+   A loja já faz o encarte para o WhatsApp e para imprimir. Aqui ele
+   ganha lugar no site, com prazo — o de outubro entra e sai sozinho,
+   sem ninguém lembrar de tirar o de setembro. Encarte vencido no ar é
+   propaganda de preço que a loja não pratica mais, e o cliente chega no
+   balcão cobrando.
+   ===================================================== */
+
+let encartes = [];
+let paginasDoEncarte = [];   // [{ imagem, r2Chave, enviando }]
+
+function avisoEncarte(msg, tipo = "erro") {
+  el("avisoEncarte").innerHTML = msg
+    ? `<div class="${tipo === "ok" ? "aviso-ok" : "erro"}">${esc(msg)}</div>`
+    : "";
+}
+
+function estadoDoEncarte(e) {
+  if (!e.ativo) return { chave: "fora", rotulo: "não publicado" };
+  const hoje = new Date().toISOString().slice(0, 10);
+  if (e.inicio && hoje < e.inicio) return { chave: "agendado", rotulo: "começa em " + fmtData(e.inicio) };
+  if (e.fim && hoje > e.fim) return { chave: "fora", rotulo: "terminou em " + fmtData(e.fim) };
+  return { chave: "no-ar", rotulo: "no ar" };
+}
+
+async function carregarEncartes() {
+  const dados = await api("/encartes");
+  encartes = dados.encartes || [];
+  el("encarteArquivos").parentElement.hidden = !dados.podeEnviarArquivo;
+  el("encarteArquivoPdf").parentElement.hidden = !dados.podeEnviarArquivo;
+  pintarEncartes();
+}
+
+function pintarEncartes() {
+  const caixa = el("listaEncartes");
+
+  if (!encartes.length) {
+    caixa.innerHTML = `<div class="fila-vazia">Nenhum encarte cadastrado.<br>
+      Enquanto não houver um no ar, a chamada não aparece na home e a página do encarte
+      diz que não há encarte publicado.</div>`;
+    return;
+  }
+
+  /* Dois encartes no ar ao mesmo tempo é erro de cadastro, e o site
+     mostra só o mais recente. Avisar aqui é o que evita a loja publicar
+     o de novembro e ficar sem entender por que o de outubro sumiu. */
+  const noAr = encartes.filter(e => estadoDoEncarte(e).chave === "no-ar");
+  const alerta = noAr.length > 1
+    ? `<div class="erro">Há ${noAr.length} encartes no ar ao mesmo tempo. O site mostra só o mais recente — ajuste as datas ou despublique os outros.</div>`
+    : "";
+
+  caixa.innerHTML = alerta + encartes.map(e => {
+    const st = estadoDoEncarte(e);
+    const prazo = e.inicio || e.fim
+      ? `${fmtData(e.inicio) || "desde já"} até ${fmtData(e.fim) || "sem prazo"}`
+      : "sem prazo";
+    const capa = e.paginas?.[0]?.imagem;
+
+    return `
+      <div class="encarte-linha" data-estado="${st.chave}">
+        ${capa ? `<img src="${esc(capa)}" alt="" onerror="this.style.visibility='hidden'">` : ""}
+        <div class="encarte-linha-info">
+          <strong>${esc(e.titulo)}</strong>
+          <small>${esc(st.rotulo)} · ${esc(prazo)} · ${e.paginas?.length || 0} página(s)${e.pdf ? " · com PDF" : ""}</small>
+        </div>
+        <div class="banner-acoes">
+          <button type="button" data-editar-encarte="${e.id}">Editar</button>
+          <button type="button" class="perigo" data-excluir-encarte="${e.id}">Excluir</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+/* ---------- a fila de páginas, com reordenar ---------- */
+function pintarFilaDePaginas() {
+  el("encarteFila").innerHTML = paginasDoEncarte.map((pag, i) => `
+    <div class="encarte-fila-item">
+      ${pag.enviando
+        ? `<span style="width:54px;text-align:center">⏳</span>`
+        : `<img src="${esc(pag.imagem)}" alt="">`}
+      <span>Página ${i + 1}${pag.enviando ? " — enviando…" : ""}</span>
+      <button type="button" data-subir="${i}" ${i === 0 ? "disabled" : ""} title="Subir">↑</button>
+      <button type="button" data-descer="${i}" ${i === paginasDoEncarte.length - 1 ? "disabled" : ""} title="Descer">↓</button>
+      <button type="button" class="perigo" data-tirar="${i}" title="Tirar esta página">×</button>
+    </div>
+  `).join("");
+}
+
+async function enviarArquivo(arquivo, pasta) {
+  const r = await fetch(`${API.replace(/\/+$/, "")}/arquivos?pasta=${pasta}`, {
+    method: "POST",
+    headers: { "Content-Type": arquivo.type, "X-Painel-Key": senha },
+    body: arquivo
+  });
+  const dados = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+  return dados;
+}
+
+/* Sobem uma a uma, e não todas em paralelo: um encarte de oito páginas
+   grandes disparado de uma vez estoura a conexão de quem está no 4G do
+   balcão, e o navegador começa a cancelar as do meio. */
+el("encarteArquivos").addEventListener("change", async (ev) => {
+  const arquivos = [...(ev.target.files || [])];
+  ev.target.value = "";
+  if (!arquivos.length) return;
+
+  avisoEncarte("");
+
+  for (const arquivo of arquivos) {
+    if (arquivo.size > 3 * 1024 * 1024) {
+      avisoEncarte(`"${arquivo.name}" tem mais de 3 MB. Reduza e tente de novo.`);
+      continue;
+    }
+
+    const espaco = { imagem: "", r2Chave: null, enviando: true };
+    paginasDoEncarte.push(espaco);
+    pintarFilaDePaginas();
+
+    try {
+      const enviado = await enviarArquivo(arquivo, "encarte");
+      espaco.imagem = enviado.url;
+      espaco.r2Chave = enviado.chave;
+      espaco.enviando = false;
+    } catch (e) {
+      paginasDoEncarte = paginasDoEncarte.filter(p => p !== espaco);
+      avisoEncarte(`Não consegui enviar "${arquivo.name}": ${e.message}`);
+    }
+    pintarFilaDePaginas();
+  }
+});
+
+el("encarteArquivoPdf").addEventListener("change", async (ev) => {
+  const arquivo = ev.target.files?.[0];
+  if (!arquivo) return;
+  try {
+    avisoEncarte("");
+    el("encartePdfNome").textContent = "Enviando o PDF…";
+    const enviado = await enviarArquivo(arquivo, "encarte");
+    el("encartePdfUrl").value = enviado.url;
+    el("encartePdfChave").value = enviado.chave;
+    el("encartePdfNome").textContent = `PDF enviado: ${arquivo.name}`;
+  } catch (e) {
+    el("encartePdfNome").textContent = "Serve para o cliente imprimir.";
+    avisoEncarte("Não consegui enviar o PDF: " + e.message);
+  }
+});
+
+el("encarteFila").addEventListener("click", (ev) => {
+  const btn = ev.target.closest("[data-subir], [data-descer], [data-tirar]");
+  if (!btn) return;
+
+  const troca = (a, b) => { [paginasDoEncarte[a], paginasDoEncarte[b]] = [paginasDoEncarte[b], paginasDoEncarte[a]]; };
+
+  if (btn.dataset.subir  !== undefined) troca(Number(btn.dataset.subir), Number(btn.dataset.subir) - 1);
+  if (btn.dataset.descer !== undefined) troca(Number(btn.dataset.descer), Number(btn.dataset.descer) + 1);
+  if (btn.dataset.tirar  !== undefined) paginasDoEncarte.splice(Number(btn.dataset.tirar), 1);
+
+  pintarFilaDePaginas();
+});
+
+/* ---------- formulário ---------- */
+function abrirFormularioEncarte(e) {
+  el("formEncarte").hidden = false;
+  el("encarteId").value = e?.id || "";
+  el("encarteTitulo").value = e?.titulo || "";
+  el("encarteInicio").value = e?.inicio || "";
+  el("encarteFim").value = e?.fim || "";
+  el("encarteAtivo").checked = e ? !!e.ativo : true;
+  el("encartePdfUrl").value = e?.pdf || "";
+  el("encartePdfChave").value = e?.pdf_chave || "";
+  el("encartePdfNome").textContent = e?.pdf ? "PDF já enviado. Escolher outro substitui." : "Serve para o cliente imprimir. Quem manda na tela são as imagens acima.";
+  paginasDoEncarte = (e?.paginas || []).map(p => ({ imagem: p.imagem, r2Chave: p.r2_chave, enviando: false }));
+  pintarFilaDePaginas();
+  avisoEncarte("");
+  el("formEncarte").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+el("novoEncarte").addEventListener("click", () => abrirFormularioEncarte(null));
+el("cancelarEncarte").addEventListener("click", () => { el("formEncarte").hidden = true; avisoEncarte(""); });
+
+el("formEncarte").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+
+  if (paginasDoEncarte.some(p => p.enviando)) return avisoEncarte("Espere as páginas terminarem de subir.");
+
+  const paginas = paginasDoEncarte.filter(p => p.imagem);
+  if (!el("encarteTitulo").value.trim()) return avisoEncarte("Dê um nome ao encarte.");
+  if (!paginas.length) return avisoEncarte("O encarte precisa de pelo menos uma página.");
+
+  const botao = el("salvarEncarte");
+  botao.disabled = true; botao.textContent = "Salvando…";
+
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/encartes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      body: JSON.stringify({
+        id: Number(el("encarteId").value) || 0,
+        titulo: el("encarteTitulo").value.trim(),
+        inicio: el("encarteInicio").value,
+        fim: el("encarteFim").value,
+        ativo: el("encarteAtivo").checked,
+        pdf: el("encartePdfUrl").value || "",
+        pdfChave: el("encartePdfChave").value || null,
+        paginas: paginas.map(p => ({ imagem: p.imagem, r2Chave: p.r2Chave }))
+      })
+    });
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+
+    el("formEncarte").hidden = true;
+    await carregarEncartes();
+    avisoEncarte(`Encarte salvo com ${dados.paginas} página(s).`, "ok");
+
+  } catch (e) {
+    avisoEncarte(e.message);
+  } finally {
+    botao.disabled = false; botao.textContent = "Salvar encarte";
+  }
+});
+
+el("listaEncartes").addEventListener("click", async (ev) => {
+  const editar = ev.target.closest("[data-editar-encarte]");
+  if (editar) {
+    const e = encartes.find(x => String(x.id) === editar.dataset.editarEncarte);
+    if (e) abrirFormularioEncarte(e);
+    return;
+  }
+
+  const excluir = ev.target.closest("[data-excluir-encarte]");
+  if (!excluir) return;
+
+  const e = encartes.find(x => String(x.id) === excluir.dataset.excluirEncarte);
+  if (!e || !confirm(`Excluir "${e.titulo}" e as ${e.paginas?.length || 0} página(s)? Isso não tem volta.`)) return;
+
+  excluir.disabled = true;
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/encartes/excluir`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      body: JSON.stringify({ id: e.id })
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    await carregarEncartes();
+    avisoEncarte("Encarte excluído.", "ok");
+  } catch (err) {
+    avisoEncarte("Não consegui excluir. Tente de novo.");
+    excluir.disabled = false;
+  }
+});
+
 el("abas").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-aba]");
   if (!btn) return;
@@ -1737,6 +2086,7 @@ el("abas").addEventListener("click", (ev) => {
   el("abaFila").hidden = aba !== "fila";
   el("abaPromocoes").hidden = aba !== "promocoes";
   el("abaBanners").hidden = aba !== "banners";
+  el("abaEncarte").hidden = aba !== "encarte";
   el("abaRelatorios").hidden = aba !== "relatorios";
 
   // Relatório e banners só são buscados quando alguém abre a aba. O
@@ -1746,6 +2096,7 @@ el("abas").addEventListener("click", (ev) => {
   if (aba === "relatorios") carregar().catch(() => tentar());
   if (aba === "banners") carregarBanners().catch(e => avisoBanner("Não consegui carregar os banners: " + e.message));
   if (aba === "promocoes") carregarPromocoes().catch(e => avisoPromo("Não consegui carregar as promoções: " + e.message));
+  if (aba === "encarte") carregarEncartes().catch(e => avisoEncarte("Não consegui carregar os encartes: " + e.message));
 });
 
 tentar();
