@@ -2716,3 +2716,53 @@ body.sem-barra-carrinho .carrinho { display: none; }
   .lp-topo-whats { padding: 10px 12px; min-height: 38px; }
   .lp-ofertas { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ========================= */
+/* 📣 PROMOÇÕES E PARCEIROS  */
+/* ========================= */
+/* Faixa de promoção e parceiro, entre os destaques e as categorias.
+   Um banner ocupa a largura toda; dois ou mais viram uma fileira que
+   rola de lado no celular — empilhar três banners seria enterrar as
+   categorias embaixo de publicidade. */
+.promos {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 4px 14px 18px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.promos::-webkit-scrollbar { display: none; }
+
+/* Filho único ocupa tudo e não rola: sem isto ele herdaria a largura de
+   coluna do carrossel e sobraria um empurrãozinho lateral sem motivo. */
+.promos:has(.promo-item:only-child) { overflow-x: visible; }
+
+.promo-item {
+  display: block;
+  scroll-snap-align: start;
+  border-radius: var(--raio-md);
+  overflow: hidden;
+  background: var(--papel-forte);
+  line-height: 0;
+  box-shadow: var(--sombra-sm);
+}
+
+/* A proporção é fixa e a imagem preenche cortando o excesso. Sem isto,
+   banner de parceiro em tamanho imprevisto empurra a página para baixo
+   enquanto carrega, e o cliente perde o lugar onde estava lendo. */
+.promo-item img {
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+@media (max-width: 480px) {
+  .promos { padding: 2px 12px 14px; }
+  .promo-item img { aspect-ratio: 2 / 1; }
+}

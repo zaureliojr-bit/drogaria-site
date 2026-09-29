@@ -1,0 +1,35 @@
+{
+  "_leia_antes": [
+    "Banners de promoção e de parceiros da Drogaria Mais Barato.",
+    "",
+    "COMO MEXER: edite este arquivo aqui mesmo no GitHub (botão do lápis),",
+    "salve, e em poucos minutos o site atualiza. Não precisa mexer em código.",
+    "",
+    "Cada banner tem:",
+    "  ativo    true para aparecer, false para guardar sem apagar",
+    "  imagem   endereço da imagem (https://...). Use 1200x400 ou parecido,",
+    "           deitada. Foto em pé fica cortada.",
+    "  alt      o que a imagem diz, escrito. Aparece se a imagem não carregar",
+    "           e é o que o leitor de tela fala. Não deixe vazio.",
+    "  link     para onde o clique leva. Deixe \"\" para o banner não ser",
+    "           clicável.",
+    "  inicio   aaaa-mm-dd. O banner só aparece a partir deste dia. \"\" = já.",
+    "  fim      aaaa-mm-dd. O banner some DEPOIS deste dia. \"\" = não expira.",
+    "",
+    "DUAS REGRAS QUE NÃO SÃO DE GOSTO:",
+    "",
+    "1. Não anuncie medicamento de venda sob prescrição (tarja vermelha ou",
+    "   preta). A RDC 96/2008 da Anvisa só permite divulgá-los a médico e",
+    "   farmacêutico, nunca ao público. Isento de prescrição, perfumaria,",
+    "   higiene e suplemento podem.",
+    "",
+    "2. Propaganda de medicamento isento ainda precisa da advertência da",
+    "   Anvisa na peça (\"SE PERSISTIREM OS SINTOMAS...\"). Se o banner veio",
+    "   pronto do parceiro, confira se ela está lá antes de publicar.",
+    "",
+    "Com a lista vazia, ou com todos fora do prazo, o espaço simplesmente",
+    "não aparece no site — não fica buraco nem moldura vazia."
+  ],
+
+  "banners": []
+}

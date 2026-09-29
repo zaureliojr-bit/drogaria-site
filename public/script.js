@@ -448,6 +448,7 @@ document.addEventListener("DOMContentLoaded", () => {
   toggleEndereco();
   iniciarBanner();
   girarAvisosDoCabecalho();
+  carregarBanners();
 });
 
 /* Chegou da landing (ou de um link compartilhado) pedindo uma categoria:
@@ -467,6 +468,87 @@ document.addEventListener("produtosProntos", (ev) => {
   filtrarCategoria(familia);
   history.replaceState(null, "", location.pathname);
 });
+
+/* =========================
+📣 BANNERS DE PROMOÇÃO E PARCEIROS
+=========================
+A loja publica banner editando o banners.json direto no GitHub, sem
+mexer em código e sem esperar por mim. É o mesmo caminho que ela já usa
+para o catálogo, então não é ferramenta nova para aprender.
+
+A seção só existe se houver banner válido hoje. Espaço publicitário
+vazio numa loja pequena não passa despercebido: passa a impressão de
+loja parada, que é pior do que não ter o espaço. */
+
+const BANNERS_JSON = "banners.json";
+
+/* aaaa-mm-dd comparado como texto, não como Date.
+
+   Date("2026-10-01") é meia-noite em UTC, que no Brasil ainda é o dia 30
+   às 21h — um banner com fim em 30/09 sumiria três horas antes da hora
+   no fuso de quem está olhando. Comparando a data local formatada como
+   texto, "hoje" é o dia do cliente, e o banner vale o dia inteiro. */
+function hojeISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function bannerNoPrazo(b, hoje) {
+  const inicio = String(b.inicio || "").trim();
+  const fim = String(b.fim || "").trim();
+  if (inicio && hoje < inicio) return false;
+  if (fim && hoje > fim) return false;
+  return true;
+}
+
+function bannerHTML(b) {
+  const img = `<img src="${esc(b.imagem)}" alt="${esc(b.alt || "")}"
+                    loading="lazy" decoding="async">`;
+
+  /* Link de parceiro sai com rel="sponsored nofollow noopener": o
+     primeiro é o que o Google pede para publicidade paga, e sem ele a
+     loja empresta reputação de busca para o parceiro sem querer. */
+  return b.link
+    ? `<a class="promo-item" href="${esc(b.link)}" target="_blank"
+          rel="sponsored nofollow noopener">${img}</a>`
+    : `<div class="promo-item">${img}</div>`;
+}
+
+async function carregarBanners() {
+  const caixa = el("promos");
+  if (!caixa) return;
+
+  try {
+    const resposta = await fetch(BANNERS_JSON, { cache: "no-cache" });
+    if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+
+    const dados = await resposta.json();
+    const hoje = hojeISO();
+
+    const validos = (dados.banners || [])
+      .filter(b => b && b.ativo && b.imagem && bannerNoPrazo(b, hoje));
+
+    if (!validos.length) return;   // segue oculto
+
+    caixa.innerHTML = validos.map(bannerHTML).join("");
+    caixa.hidden = false;
+
+    /* Uma imagem quebrada aqui é pior do que banner nenhum: a moldura
+       fica, o alt aparece solto e a home parece defeituosa. Some o item
+       inteiro, e se não sobrar nenhum some a seção. */
+    caixa.querySelectorAll("img").forEach(img => {
+      img.addEventListener("error", () => {
+        img.closest(".promo-item")?.remove();
+        if (!caixa.querySelector(".promo-item")) caixa.hidden = true;
+      }, { once: true });
+    });
+
+  } catch (e) {
+    // sem arquivo, com o arquivo escrito errado ou sem rede: a home
+    // continua inteira, só sem a faixa
+    console.info("Sem banners para mostrar.", e);
+  }
+}
 
 /* =========================
 📣 RECADOS DO CABEÇALHO
