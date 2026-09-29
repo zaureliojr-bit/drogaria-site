@@ -231,6 +231,60 @@
   .pedido-acoes .perigo:hover { background: var(--erro-clara); }
   .pedido-acoes button[disabled] { opacity: .45; cursor: not-allowed; }
 
+
+  /* ========== BANNERS ========== */
+  .form-banner {
+    background: var(--branco); border: 1px solid var(--linha);
+    border-radius: var(--raio-md); padding: 16px; margin: 12px 0 16px;
+    display: grid; gap: 12px; box-shadow: var(--sombra-sm);
+  }
+  .campo { display: grid; gap: 5px; }
+  .campo > span { font-size: 12.5px; font-weight: 700; color: var(--marca-escura); }
+  .campo small { font-size: 11.5px; color: var(--tinta-suave); line-height: 1.45; }
+  .campo input[type=text], .campo input[type=url], .campo input[type=date], .campo input[type=number] {
+    padding: 10px 12px; font-size: 14px; font-family: var(--fonte-corpo);
+    border: 1.5px solid var(--linha); border-radius: var(--raio-sm);
+    background: var(--papel); color: var(--tinta); outline: none; width: 100%;
+  }
+  .campo input:focus { border-color: var(--marca); box-shadow: 0 0 0 3px var(--marca-clara); }
+  .campo input[type=file] { font-size: 12.5px; }
+  .campo-duplo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .campo-linha { display: flex; align-items: center; gap: 8px; }
+  .campo-linha span { font-size: 13px; font-weight: 700; }
+
+  /* A prévia usa a mesma proporção da home. Ver aqui o corte que a
+     imagem vai sofrer evita publicar banner com o texto cortado. */
+  .banner-previa { border: 1px solid var(--linha); border-radius: var(--raio-md); overflow: hidden; line-height: 0; }
+  .banner-previa img { width: 100%; aspect-ratio: 3 / 1; object-fit: cover; display: block; }
+
+  .banner-linha {
+    background: var(--branco); border: 1px solid var(--linha);
+    border-left: 4px solid var(--linha);
+    border-radius: var(--raio-md); box-shadow: var(--sombra-sm);
+    display: flex; gap: 12px; align-items: center; padding: 10px 12px; flex-wrap: wrap;
+  }
+  .banner-linha[data-estado="no-ar"]   { border-left-color: var(--ok); }
+  .banner-linha[data-estado="agendado"]{ border-left-color: #E0A800; }
+  .banner-linha[data-estado="fora"]    { border-left-color: var(--linha); opacity: .72; }
+  .banner-linha img { width: 108px; height: 36px; object-fit: cover; border-radius: var(--raio-sm); background: var(--papel); flex-shrink: 0; }
+  .banner-linha-info { flex: 1; min-width: 160px; font-size: 13px; line-height: 1.45; }
+  .banner-linha-info small { display: block; color: var(--tinta-suave); font-size: 11.5px; }
+  .banner-acoes { display: flex; gap: 6px; }
+  .banner-acoes button {
+    border: 1.5px solid var(--linha); background: var(--branco); color: var(--marca-escura);
+    padding: 7px 12px; border-radius: var(--raio-botao); font-size: 12px; font-weight: 700;
+    font-family: var(--fonte-corpo);
+  }
+  .banner-acoes .perigo { color: var(--erro); border-color: var(--erro-clara); }
+  .banner-acoes .perigo:hover { background: var(--erro-clara); }
+
+  .aviso-ok {
+    background: #E6F4EC; border: 1px solid var(--ok); color: var(--ok);
+    padding: 10px 12px; border-radius: var(--raio-sm); font-size: 12.5px; margin-bottom: 12px;
+  }
+
+  @media (max-width: 560px) { .campo-duplo { grid-template-columns: 1fr; } }
+
   .fila-vazia {
     background: var(--branco); border: 1px dashed var(--linha); border-radius: var(--raio-md);
     padding: 40px 20px; text-align: center; color: var(--tinta-suave); font-size: 13.5px;
@@ -266,6 +320,7 @@
 
     <div class="abas" id="abas">
       <button data-aba="fila" class="ativo">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
+      <button data-aba="banners">Banners</button>
       <button data-aba="relatorios">Relatórios</button>
     </div>
 
@@ -290,6 +345,82 @@
       </div>
 
       <div class="fila" id="fila"></div>
+
+    </div>
+
+    <!-- ===== ABA: BANNERS ===== -->
+    <div id="abaBanners" hidden>
+
+      <div class="fila-topo">
+        <span class="pedido-quando">Aparecem na home, entre os destaques e as categorias.</span>
+        <button type="button" id="novoBanner" class="btn-testar-som">+ Novo banner</button>
+      </div>
+
+      <div id="avisoBanner"></div>
+
+      <form id="formBanner" class="form-banner" hidden>
+        <input type="hidden" id="bannerId">
+        <input type="hidden" id="bannerR2">
+
+        <label class="campo">
+          <span>Imagem</span>
+          <input type="file" id="bannerArquivo" accept="image/png,image/jpeg,image/webp,image/gif,image/avif">
+          <small id="bannerArquivoAjuda">Escolha a imagem do banner. Deitada, tipo 1200 × 400. Até 3 MB.</small>
+        </label>
+
+        <label class="campo">
+          <span>Ou cole o endereço de uma imagem já publicada</span>
+          <input type="url" id="bannerImagem" placeholder="https://..." autocomplete="off">
+        </label>
+
+        <div id="bannerPreviaCaixa" class="banner-previa" hidden>
+          <img id="bannerPrevia" alt="Prévia do banner">
+        </div>
+
+        <label class="campo">
+          <span>O que a imagem diz, escrito *</span>
+          <input type="text" id="bannerAlt" maxlength="200"
+                 placeholder="Ex.: Semana da vitamina — 20% na linha Lavitan">
+          <small>Aparece se a imagem não carregar, e é o que o leitor de tela fala.</small>
+        </label>
+
+        <label class="campo">
+          <span>Link ao clicar (opcional)</span>
+          <input type="url" id="bannerLink" placeholder="https://... (vazio = não clicável)">
+        </label>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Começa em</span>
+            <input type="date" id="bannerInicio">
+            <small>Vazio = já vale.</small>
+          </label>
+          <label class="campo">
+            <span>Termina em</span>
+            <input type="date" id="bannerFim">
+            <small>Vazio = não expira. O último dia conta.</small>
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo campo-linha">
+            <input type="checkbox" id="bannerAtivo" checked>
+            <span>No ar</span>
+          </label>
+          <label class="campo">
+            <span>Ordem</span>
+            <input type="number" id="bannerOrdem" value="0" min="0" max="99">
+            <small>Menor aparece primeiro.</small>
+          </label>
+        </div>
+
+        <div class="pedido-acoes">
+          <button type="submit" class="principal" id="salvarBanner">Salvar banner</button>
+          <button type="button" id="cancelarBanner">Cancelar</button>
+        </div>
+      </form>
+
+      <div class="fila" id="listaBanners"></div>
 
     </div>
 
@@ -910,16 +1041,239 @@ el("somLigado").addEventListener("change", () => {
   ajustarAlarme();
 });
 
+
+/* =====================================================
+   BANNERS DA HOME
+   =====================================================
+   A loja publica e tira banner daqui, sem tocar em código nem em
+   arquivo. Antes era um JSON no GitHub: funcionava, mas só para quem
+   sabe o que é um repositório, e uma vírgula fora do lugar derrubava a
+   faixa inteira sem ninguém perceber.
+   ===================================================== */
+
+let bannersDaLoja = [];
+let podeEnviarArquivo = false;
+
+const fmtData = d => d ? d.split("-").reverse().join("/") : "";
+
+/* Em que pé está o banner HOJE. É o que a loja quer saber olhando a
+   lista, e não dá para deduzir só do "ativo": um banner ligado mas com
+   início na semana que vem não está no ar, e dizer que está seria
+   mentir para quem confia na tela. */
+function estadoDoBanner(b) {
+  if (!b.ativo) return { chave: "fora", rotulo: "desligado" };
+  const hoje = new Date().toISOString().slice(0, 10);
+  if (b.inicio && hoje < b.inicio) return { chave: "agendado", rotulo: "começa em " + fmtData(b.inicio) };
+  if (b.fim && hoje > b.fim) return { chave: "fora", rotulo: "terminou em " + fmtData(b.fim) };
+  return { chave: "no-ar", rotulo: "no ar" };
+}
+
+function avisoBanner(msg, tipo = "erro") {
+  el("avisoBanner").innerHTML = msg
+    ? `<div class="${tipo === "ok" ? "aviso-ok" : "erro"}">${esc(msg)}</div>`
+    : "";
+}
+
+function pintarBanners() {
+  const caixa = el("listaBanners");
+
+  if (!bannersDaLoja.length) {
+    caixa.innerHTML = `<div class="fila-vazia">Nenhum banner cadastrado.<br>
+      Enquanto não houver nenhum no ar, a faixa simplesmente não aparece na home.</div>`;
+    return;
+  }
+
+  caixa.innerHTML = bannersDaLoja.map(b => {
+    const e = estadoDoBanner(b);
+    const prazo = b.inicio || b.fim
+      ? `${fmtData(b.inicio) || "desde já"} até ${fmtData(b.fim) || "sem prazo"}`
+      : "sem prazo";
+
+    return `
+      <div class="banner-linha" data-estado="${e.chave}">
+        <img src="${esc(b.imagem)}" alt="" onerror="this.style.visibility='hidden'">
+        <div class="banner-linha-info">
+          <strong>${esc(b.alt)}</strong>
+          <small>${esc(e.rotulo)} · ${esc(prazo)} · ordem ${b.ordem}${b.link ? " · com link" : ""}</small>
+        </div>
+        <div class="banner-acoes">
+          <button type="button" data-editar="${b.id}">Editar</button>
+          <button type="button" class="perigo" data-excluir="${b.id}">Excluir</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+async function carregarBanners() {
+  const dados = await api("/banners/todos");
+  bannersDaLoja = dados.banners || [];
+  podeEnviarArquivo = !!dados.podeEnviarArquivo;
+
+  /* Sem o balde do R2 ligado, o seletor de arquivo some. Deixá-lo na
+     tela para dar erro ao enviar é pior do que não oferecer: a pessoa
+     tenta, falha, e conclui que o painel está quebrado. */
+  el("bannerArquivo").parentElement.hidden = !podeEnviarArquivo;
+
+  pintarBanners();
+}
+
+function abrirFormulario(b) {
+  el("formBanner").hidden = false;
+  el("bannerId").value = b?.id || "";
+  el("bannerR2").value = b?.r2_chave || "";
+  el("bannerImagem").value = b?.imagem || "";
+  el("bannerAlt").value = b?.alt || "";
+  el("bannerLink").value = b?.link || "";
+  el("bannerInicio").value = b?.inicio || "";
+  el("bannerFim").value = b?.fim || "";
+  el("bannerAtivo").checked = b ? !!b.ativo : true;
+  el("bannerOrdem").value = b?.ordem ?? 0;
+  el("bannerArquivo").value = "";
+  mostrarPrevia(b?.imagem || "");
+  avisoBanner("");
+  el("formBanner").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function fecharFormulario() {
+  el("formBanner").hidden = true;
+  avisoBanner("");
+}
+
+function mostrarPrevia(url) {
+  const caixa = el("bannerPreviaCaixa");
+  if (!url) { caixa.hidden = true; return; }
+  el("bannerPrevia").src = url;
+  caixa.hidden = false;
+}
+
+el("novoBanner").addEventListener("click", () => abrirFormulario(null));
+el("cancelarBanner").addEventListener("click", fecharFormulario);
+el("bannerImagem").addEventListener("input", e => mostrarPrevia(e.target.value.trim()));
+
+/* Prévia local antes de enviar: a loja vê o corte que a home vai fazer
+   sem gastar uma subida de arquivo para descobrir que o texto ficou
+   fora do quadro. */
+el("bannerArquivo").addEventListener("change", e => {
+  const arquivo = e.target.files?.[0];
+  if (!arquivo) return;
+  if (arquivo.size > 3 * 1024 * 1024) {
+    avisoBanner("Essa imagem tem mais de 3 MB. Reduza antes de enviar.");
+    e.target.value = "";
+    return;
+  }
+  avisoBanner("");
+  mostrarPrevia(URL.createObjectURL(arquivo));
+});
+
+async function enviarArquivoDoBanner(arquivo) {
+  const r = await fetch(`${API.replace(/\/+$/, "")}/banners/imagem`, {
+    method: "POST",
+    headers: { "Content-Type": arquivo.type, "X-Painel-Key": senha },
+    body: arquivo
+  });
+  const dados = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+  return dados;   // { url, chave }
+}
+
+el("formBanner").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+
+  const botao = el("salvarBanner");
+  botao.disabled = true;
+  botao.textContent = "Salvando…";
+
+  try {
+    let imagem = el("bannerImagem").value.trim();
+    let r2Chave = el("bannerR2").value || null;
+
+    const arquivo = el("bannerArquivo").files?.[0];
+    if (arquivo) {
+      botao.textContent = "Enviando a imagem…";
+      const enviado = await enviarArquivoDoBanner(arquivo);
+      imagem = enviado.url;
+      r2Chave = enviado.chave;
+    }
+
+    if (!imagem) throw new Error("Escolha uma imagem ou cole o endereço de uma.");
+    if (!el("bannerAlt").value.trim()) throw new Error("Escreva o que a imagem diz.");
+
+    const r = await fetch(`${API.replace(/\/+$/, "")}/banners`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      body: JSON.stringify({
+        id: Number(el("bannerId").value) || 0,
+        imagem,
+        alt: el("bannerAlt").value.trim(),
+        link: el("bannerLink").value.trim(),
+        inicio: el("bannerInicio").value,
+        fim: el("bannerFim").value,
+        ativo: el("bannerAtivo").checked,
+        ordem: Number(el("bannerOrdem").value) || 0,
+        r2Chave
+      })
+    });
+
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+
+    fecharFormulario();
+    await carregarBanners();
+    avisoBanner("Banner salvo. A home atualiza na próxima vez que alguém abrir.", "ok");
+
+  } catch (e) {
+    avisoBanner(e.message);
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Salvar banner";
+  }
+});
+
+el("listaBanners").addEventListener("click", async (ev) => {
+  const editar = ev.target.closest("[data-editar]");
+  if (editar) {
+    const b = bannersDaLoja.find(x => String(x.id) === editar.dataset.editar);
+    if (b) abrirFormulario(b);
+    return;
+  }
+
+  const excluir = ev.target.closest("[data-excluir]");
+  if (!excluir) return;
+
+  const b = bannersDaLoja.find(x => String(x.id) === excluir.dataset.excluir);
+  if (!b || !confirm(`Excluir o banner "${b.alt}"? Isso não tem volta.`)) return;
+
+  excluir.disabled = true;
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/banners/excluir`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      body: JSON.stringify({ id: b.id })
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    await carregarBanners();
+    avisoBanner("Banner excluído.", "ok");
+  } catch (e) {
+    avisoBanner("Não consegui excluir. Tente de novo.");
+    excluir.disabled = false;
+  }
+});
+
 el("abas").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-aba]");
   if (!btn) return;
   document.querySelectorAll("#abas button").forEach(b => b.classList.toggle("ativo", b === btn));
-  const ehFila = btn.dataset.aba === "fila";
-  el("abaFila").hidden = !ehFila;
-  el("abaRelatorios").hidden = ehFila;
-  // os relatórios só são calculados quando alguém pede: são consultas
-  // pesadas, e a fila fica aberta o dia inteiro
-  if (!ehFila) carregar().catch(() => tentar());
+  const aba = btn.dataset.aba;
+  el("abaFila").hidden = aba !== "fila";
+  el("abaBanners").hidden = aba !== "banners";
+  el("abaRelatorios").hidden = aba !== "relatorios";
+
+  // Relatório e banners só são buscados quando alguém abre a aba. O
+  // relatório porque são consultas pesadas; os banners porque a fila
+  // fica aberta o dia inteiro e não precisa recarregá-los a cada
+  // atualização dela.
+  if (aba === "relatorios") carregar().catch(() => tentar());
+  if (aba === "banners") carregarBanners().catch(e => avisoBanner("Não consegui carregar os banners: " + e.message));
 });
 
 tentar();

@@ -514,19 +514,56 @@ function bannerHTML(b) {
     : `<div class="promo-item">${img}</div>`;
 }
 
+/* De onde vêm os banners, em ordem de preferência:
+
+   1. O painel da loja (worker + D1). É o caminho normal: a loja cadastra
+      pela tela, com formulário e prévia, e o worker já devolve a lista
+      filtrada por data — o site não precisa saber a regra.
+
+   2. O banners.json do repositório. Ficou como rede de segurança para
+      quando o worker estiver fora do ar ou ainda não tiver a rota. Sem
+      ela, um worker indisponível apagaria a faixa da home inteira.
+
+   O primeiro que responder com banner ganha. */
+async function buscarBannersDoPainel() {
+  if (!API_PEDIDOS_D1) return null;
+
+  const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/banners`, { cache: "no-cache" });
+  if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+
+  const dados = await resposta.json();
+
+  // já vem filtrado por data e por ativo lá do worker
+  return (dados.banners || []).filter(b => b && b.imagem);
+}
+
+async function buscarBannersDoArquivo() {
+  const resposta = await fetch(BANNERS_JSON, { cache: "no-cache" });
+  if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+
+  const dados = await resposta.json();
+  const hoje = hojeISO();
+
+  return (dados.banners || [])
+    .filter(b => b && b.ativo && b.imagem && bannerNoPrazo(b, hoje));
+}
+
 async function carregarBanners() {
   const caixa = el("promos");
   if (!caixa) return;
 
   try {
-    const resposta = await fetch(BANNERS_JSON, { cache: "no-cache" });
-    if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+    let validos = null;
 
-    const dados = await resposta.json();
-    const hoje = hojeISO();
+    try {
+      validos = await buscarBannersDoPainel();
+    } catch (e) {
+      console.info("Painel de banners indisponível; tentando o arquivo.", e);
+    }
 
-    const validos = (dados.banners || [])
-      .filter(b => b && b.ativo && b.imagem && bannerNoPrazo(b, hoje));
+    if (!validos || !validos.length) {
+      validos = await buscarBannersDoArquivo();
+    }
 
     if (!validos.length) return;   // segue oculto
 
