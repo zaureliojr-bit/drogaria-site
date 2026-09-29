@@ -397,6 +397,7 @@ document.addEventListener("DOMContentLoaded", () => {
   _atualizarBarraFiltros = ligarBarraFiltros();
   toggleEndereco();
   iniciarBanner();
+  vigiarTetoGrudado();
   girarAvisosDoCabecalho();
   carregarBanners();
   carregarChamadaDoEncarte();
@@ -1276,8 +1277,91 @@ function filtrarCategoria(familiaId) {
   aplicarFiltro();
 
   if (categoriaAtual !== "todas") {
-    el("produtos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    rolarParaResultados();
   }
+}
+
+/* Quanto do topo da tela está coberto por barra grudada.
+
+   São três, empilhadas: o cabeçalho, a busca e os filtros. O
+   scrollIntoView alinha o elemento no topo ABSOLUTO da janela, que fica
+   atrás das três — medido, entrar numa categoria deixava a barra
+   "N produtos" 87px acima da tela e a primeira fileira de cards
+   escondida atrás do cabeçalho. Quem entrava via o meio da lista e
+   pensava que a página tinha aberto rolada.
+
+   Medido a cada uso, e não guardado numa constante, porque a altura
+   muda: o cabeçalho tem 92px no celular e 62px no computador, e a barra
+   de filtros cresce quando os chips quebram em duas linhas. */
+function alturaGrudada() {
+  return [".header", ".busca-container", ".filtros-wrap"]
+    .map(sel => document.querySelector(sel))
+    .filter(e => e && getComputedStyle(e).position === "sticky")
+    .reduce((soma, e) => soma + e.getBoundingClientRect().height, 0);
+}
+
+/* Publica a medida para o CSS, que precisa dela para grudar a barra de
+   resultado no lugar certo.
+
+   Não basta medir uma vez no carregamento: naquele instante a barra de
+   filtros ainda está VAZIA, porque os chips só nascem depois de o
+   catálogo chegar. Medindo cedo, a barra de resultado grudava acima de
+   onde devia e ficava por baixo dos filtros — visível na tela e
+   impossível de clicar, que é o pior dos dois mundos.
+
+   Por isso um observador de tamanho na barra de filtros: ele pega o
+   nascimento dos chips, a quebra em duas linhas e o giro do aparelho,
+   sem precisar adivinhar quando cada um acontece. */
+function publicarTetoGrudado() {
+  document.documentElement.style.setProperty("--teto-grudado", Math.round(alturaGrudada()) + "px");
+}
+
+function vigiarTetoGrudado() {
+  publicarTetoGrudado();
+
+  if (typeof ResizeObserver === "function") {
+    const olho = new ResizeObserver(publicarTetoGrudado);
+    [".header", ".busca-container", ".filtros-wrap"].forEach(sel => {
+      const e = document.querySelector(sel);
+      if (e) olho.observe(e);
+    });
+  }
+
+  // navegador sem ResizeObserver ainda acerta nestes dois momentos
+  window.addEventListener("resize", publicarTetoGrudado);
+  window.addEventListener("orientationchange", publicarTetoGrudado);
+}
+
+/* Leva o cliente ao COMEÇO do resultado, e não ao começo do grid.
+
+   A barra "N produtos em Medicamentos" fica acima do grid e é ela que
+   responde "onde eu estou". Sem ela na tela, a lista filtrada e a lista
+   inteira parecem a mesma coisa. */
+function rolarParaResultados() {
+  const grid = el("produtos");
+  if (!grid) return;
+
+  const barra = el("barraResultado");
+  const temBarra = barra && barra.offsetParent;
+
+  /* A conta sai do GRID, e não da barra de resultado, porque a barra é
+     grudada: quando ela já está presa no topo, o getBoundingClientRect
+     devolve a posição presa e não a de origem — e o destino calculado
+     dali não sai do lugar. Foi o que aconteceu ao entrar por "Ver tudo"
+     de um bloco lá embaixo: a barra ficava certa e a primeira fileira de
+     cards terminava 84px acima da tela.
+
+     O grid não gruda, então a posição dele é sempre a de verdade. Daí
+     subimos o que está preso no topo mais a altura da própria barra, que
+     vai ficar presa logo acima dos cards. */
+  const alturaBarra = temBarra ? barra.getBoundingClientRect().height : 0;
+  const destino = grid.getBoundingClientRect().top + window.scrollY
+                  - alturaGrudada() - alturaBarra - 8;
+
+  window.scrollTo({
+    top: Math.max(0, Math.round(destino)),
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+  });
 }
 
 /* volta da tela de resultado para a vitrine: limpa categoria, busca e
@@ -1308,7 +1392,7 @@ function verOfertas() {
 
   marcarChipAtivo("ofertas");
   aplicarFiltro();
-  el("produtos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  rolarParaResultados();
 }
 
 /* =========================
@@ -1321,7 +1405,7 @@ function buscar() {
   aplicarFiltro();
   // tocar em Buscar é o cliente dizendo que terminou de digitar
   enviarBuscaPendente();
-  el("produtos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  rolarParaResultados();
 }
 
 function ordenar(lista) {

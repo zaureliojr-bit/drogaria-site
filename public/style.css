@@ -850,13 +850,29 @@ h1, h2 { font-family: var(--fonte-titulo); }
 /* ========================= */
 /* 📊 BARRA DE RESULTADO     */
 /* ========================= */
+/* Gruda logo abaixo do cabeçalho, da busca e dos filtros.
+
+   Esta barra diz onde o cliente está ("47 produtos em Medicamentos") e
+   guarda o ← que volta para a vitrine. Solta, ela some assim que a
+   pessoa começa a rolar: medido, com a página em 900px o ← ficava em
+   -440px. O botão funcionava; era inalcançável, que na prática é a
+   mesma coisa.
+
+   O --teto-grudado é medido pelo script, porque a soma muda: o
+   cabeçalho tem 92px no celular e 62px no computador, e a barra de
+   filtros cresce quando os chips quebram em duas linhas. */
 .barra-resultado {
+  position: sticky;
+  top: var(--teto-grudado, 215px);
+  z-index: 997;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 16px 14px 0;
+  padding: 10px 14px;
+  background: var(--papel);
+  border-bottom: 1px solid var(--linha);
 }
 
 .barra-resultado-info {
