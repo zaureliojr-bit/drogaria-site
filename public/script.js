@@ -340,6 +340,22 @@ function atualizarStatusLoja() {
 /* =========================
 🚀 INIT
 ========================= */
+
+/* O navegador devolve o cliente para onde ele estava ao recarregar. Numa
+   página comum isso é bom; aqui é o contrário.
+
+   O catálogo chega depois do HTML: no instante em que o navegador
+   restaura a rolagem a página tem 1.500px, e um segundo depois tem
+   3.300px. Ele acerta uma posição que já não quer dizer nada — medido,
+   quem estava em 900px voltava em 529px, no meio da lista e abaixo das
+   ofertas do dia, sem ter rolado.
+
+   Abrir a loja é abrir a vitrine: começa do começo, sempre. O
+   scrollTo(0,0) vai junto porque o Safari às vezes já restaurou antes de
+   este script rodar, e aí só desligar não desfaz o que ele fez. */
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+window.addEventListener("pageshow", () => window.scrollTo(0, 0));
+
 document.addEventListener("DOMContentLoaded", () => {
   carregar();
 
