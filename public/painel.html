@@ -232,6 +232,71 @@
   .pedido-acoes button[disabled] { opacity: .45; cursor: not-allowed; }
 
 
+
+  /* ========== PROMOÇÕES ========== */
+  .promo-filtros { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 8px; padding: 14px 0 10px; }
+  .promo-filtros input, .promo-filtros select {
+    padding: 9px 11px; font-size: 13px; font-family: var(--fonte-corpo);
+    border: 1.5px solid var(--linha); border-radius: var(--raio-sm);
+    background: var(--branco); color: var(--tinta); outline: none; min-width: 0;
+  }
+  .promo-filtros input:focus, .promo-filtros select:focus { border-color: var(--marca); box-shadow: 0 0 0 3px var(--marca-clara); }
+
+  .promo-barra {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--marca-clara); border: 1px solid var(--marca);
+    border-radius: var(--raio-md); padding: 12px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .promo-barra strong { font-size: 13px; color: var(--marca-escura); }
+  .promo-barra select, .promo-barra input {
+    padding: 8px 10px; font-size: 13px; font-family: var(--fonte-corpo);
+    border: 1.5px solid var(--linha); border-radius: var(--raio-sm);
+    background: var(--branco); color: var(--tinta); outline: none;
+  }
+  .promo-barra input[type=number] { width: 92px; }
+  .promo-barra input[type=text] { width: 200px; }
+  .promo-barra button {
+    border: 1.5px solid var(--marca); background: var(--branco); color: var(--marca-escura);
+    padding: 9px 15px; border-radius: var(--raio-botao); font-size: 13px; font-weight: 700;
+    font-family: var(--fonte-corpo);
+  }
+  .promo-barra .principal { background: var(--marca); color: var(--branco); }
+  .promo-barra .principal:hover { background: var(--marca-escura); }
+  .promo-barra .perigo { color: var(--erro); border-color: var(--erro); }
+  .promo-barra .perigo:hover { background: var(--erro-clara); }
+
+  .promo-lotes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .promo-lote {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--branco); border: 1.5px solid var(--linha);
+    border-radius: var(--raio-lg); padding: 6px 8px 6px 13px; font-size: 12.5px;
+  }
+  .promo-lote button {
+    border: none; background: var(--erro-clara); color: var(--erro);
+    width: 22px; height: 22px; border-radius: 50%; font-weight: 800; font-size: 13px;
+    font-family: var(--fonte-corpo); line-height: 1;
+  }
+
+  #promoTabela td { vertical-align: middle; }
+  #promoTabela input[type=checkbox] { width: 17px; height: 17px; }
+  .promo-preco-novo { color: var(--ok); font-weight: 700; }
+  .promo-sem { color: var(--tinta-suave); }
+  /* Promoção que não desconta nada: acontece quando a planilha é
+     reexportada com preço menor e ninguém revê a promoção antiga. O site
+     já protege o cliente (leva o menor), mas a loja precisa ver. */
+  .promo-inutil { color: #B36B00; font-weight: 700; }
+
+  .promo-rodape { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 4px; font-size: 12.5px; color: var(--tinta-suave); }
+  .promo-rodape button {
+    border: 1.5px solid var(--linha); background: var(--branco); color: var(--marca-escura);
+    padding: 8px 16px; border-radius: var(--raio-botao); font-size: 12.5px; font-weight: 700;
+    font-family: var(--fonte-corpo);
+  }
+
+  @media (max-width: 860px) { .promo-filtros { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .promo-filtros { grid-template-columns: 1fr; } }
+
   /* ========== BANNERS ========== */
   .form-banner {
     background: var(--branco); border: 1px solid var(--linha);
@@ -320,6 +385,7 @@
 
     <div class="abas" id="abas">
       <button data-aba="fila" class="ativo">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
+      <button data-aba="promocoes">Promoções</button>
       <button data-aba="banners">Banners</button>
       <button data-aba="relatorios">Relatórios</button>
     </div>
@@ -345,6 +411,73 @@
       </div>
 
       <div class="fila" id="fila"></div>
+
+    </div>
+
+    <!-- ===== ABA: PROMOÇÕES ===== -->
+    <div id="abaPromocoes" hidden>
+
+      <div class="promo-filtros">
+        <input type="search" id="promoBusca" placeholder="Buscar por nome ou código">
+        <select id="promoGrupo" aria-label="Grupo"><option value="">Todos os grupos</option></select>
+        <select id="promoClasse" aria-label="Classe"><option value="">Todas as classes</option></select>
+        <select id="promoMarca" aria-label="Marca"><option value="">Todas as marcas</option></select>
+        <select id="promoSituacao" aria-label="Situação">
+          <option value="">Todos</option>
+          <option value="com">Só com promoção</option>
+          <option value="sem">Só sem promoção</option>
+          <option value="estoque">Só com estoque</option>
+        </select>
+      </div>
+
+      <div id="avisoPromo"></div>
+
+      <!-- A barra de aplicar só aparece com algo marcado: sem seleção
+           ela seria um formulário sem alvo, e o primeiro reflexo de quem
+           vê um formulário é preencher. -->
+      <div id="promoBarra" class="promo-barra" hidden>
+        <strong id="promoSelecionados"></strong>
+
+        <label class="campo-linha">
+          <select id="promoTipo">
+            <option value="percentual">Desconto de</option>
+            <option value="fixo">Preço fixo de</option>
+          </select>
+          <input type="number" id="promoValor" step="0.01" min="0" placeholder="0">
+          <span id="promoUnidade">%</span>
+        </label>
+
+        <label class="campo-linha"><span>De</span><input type="date" id="promoInicio"></label>
+        <label class="campo-linha"><span>Até</span><input type="date" id="promoFim"></label>
+        <input type="text" id="promoLote" maxlength="60" placeholder="Nome da campanha (opcional)">
+
+        <button type="button" id="promoAplicar" class="principal">Aplicar</button>
+        <button type="button" id="promoTirar" class="perigo">Tirar promoção</button>
+      </div>
+
+      <div id="promoLotes" class="promo-lotes"></div>
+
+      <div class="tabela-wrap">
+        <table id="promoTabela">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="promoTodos" aria-label="Marcar todos os visíveis"></th>
+              <th class="larga">Produto</th>
+              <th>Grupo</th>
+              <th class="num-col">Tabela</th>
+              <th class="num-col">Promoção</th>
+              <th class="num-col">Desconto</th>
+              <th>Prazo</th>
+            </tr>
+          </thead>
+          <tbody id="promoCorpo"></tbody>
+        </table>
+      </div>
+
+      <div class="promo-rodape">
+        <span id="promoContagem"></span>
+        <button type="button" id="promoMais" hidden>Mostrar mais</button>
+      </div>
 
     </div>
 
@@ -472,6 +605,10 @@
 
 </div>
 
+<!-- As famílias de categoria, compartilhadas com o site: é como o
+     filtro de grupo das promoções sabe que "SHAMPOO" é Cabelo. -->
+<script src="familias.js"></script>
+
 <script>
 /* Endereço do worker de pedidos. Precisa ser o mesmo valor que está em
    API_PEDIDOS_D1 no script.js — sem ele o painel não tem de onde ler. */
@@ -483,6 +620,15 @@ const esc = t => String(t ?? "").replace(/[&<>"']/g, c =>
 const dinheiro = v => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = ms => new Date(ms).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const dataCurta = ms => new Date(ms).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+
+/* A planilha do PDV escreve preço como "1.234,56". Number() disso dá
+   NaN, e NaN vira R$ 0,00 na tela — um produto de R$ 1.234 apareceria
+   como de graça. */
+const numeroBR = v => {
+  if (typeof v === "number") return v;
+  const n = Number(String(v ?? "").trim().replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+};
 
 // A senha fica só nesta aba: fechou, sai. Não é "lembrar de mim" de
 // propósito — é o painel do faturamento da loja.
@@ -746,7 +892,20 @@ async function carregarCatalogo() {
     const dados = await r.json();
     for (const p of (dados.produtos || [])) {
       if (!p || !p.codigo) continue;
-      catalogo.set(String(p.codigo), { imagem: p.imagem || "", nome: p.descricao || "" });
+      /* A fila precisa só de foto e nome; a aba de promoções precisa de
+         preço, grupo e marca para filtrar e para calcular o desconto.
+         Uma passada só, guardando o que as duas usam — o catálogo tem
+         seis mil linhas e não vale baixar duas vezes. */
+      catalogo.set(String(p.codigo), {
+        codigo: String(p.codigo),
+        imagem: p.imagem || "",
+        nome: p.descricao || "",
+        categoria: (p.categoria || "").trim().toUpperCase(),
+        marca: (p.marca || p.laboratorio || "").trim(),
+        preco: numeroBR(p.precoVenda),
+        promoPlanilha: numeroBR(p.precoPromocao),
+        estoque: numeroBR(p.estoque)
+      });
     }
   } catch (e) {
     // sem catálogo a fila continua: some a foto, fica o nome e a quantidade,
@@ -1043,6 +1202,317 @@ el("somLigado").addEventListener("change", () => {
 
 
 /* =====================================================
+   PROMOÇÕES
+   =====================================================
+   O preço normal vem da planilha do PDV. A promoção é uma CAMADA por
+   cima, guardada no D1 — porque a planilha é reexportada toda semana e
+   sobrescreve tudo: promoção que morasse lá sumiria no meio da campanha.
+
+   A conta do desconto é feita aqui, e o worker recebe preços prontos.
+   É de propósito: a loja vê na tela o preço que vai valer, item por
+   item, antes de confirmar. Se o worker recalculasse, existiria um
+   segundo lugar onde o número poderia sair diferente do que foi
+   mostrado — e aí ninguém sabe qual está certo.
+   ===================================================== */
+
+const PROMO_POR_PAGINA = 60;
+const PROMO_MAX_LOTE = 500;
+
+let promocoes = new Map();     // codigo -> { preco, inicio, fim, ativo, lote }
+let lotesDePromocao = [];
+let promoFiltrados = [];
+let promoMostrando = PROMO_POR_PAGINA;
+let promoMarcados = new Set();
+
+function avisoPromo(msg, tipo = "erro") {
+  el("avisoPromo").innerHTML = msg
+    ? `<div class="${tipo === "ok" ? "aviso-ok" : "erro"}">${esc(msg)}</div>`
+    : "";
+}
+
+async function carregarPromocoes() {
+  await carregarCatalogo();
+
+  const dados = await api("/promocoes/todas");
+  promocoes = new Map((dados.promocoes || []).map(p => [String(p.codigo), p]));
+  lotesDePromocao = dados.lotes || [];
+
+  montarFiltrosDePromocao();
+  pintarLotes();
+  filtrarPromocoes();
+}
+
+/* Os filtros são montados a partir do catálogo de verdade, e não de uma
+   lista escrita à mão: grupo que não tem produto não aparece, e
+   categoria nova que a loja criar no PDV entra sozinha. */
+function montarFiltrosDePromocao() {
+  const grupos = new Map();
+  const classes = new Set();
+  const marcas = new Set();
+
+  for (const p of catalogo.values()) {
+    const f = familiaDe(p.categoria);
+    grupos.set(f.id, f.nome);
+    if (p.categoria) classes.add(p.categoria);
+    if (p.marca) marcas.add(p.marca);
+  }
+
+  const encher = (id, itens, rotuloTodos) => {
+    const sel = el(id);
+    const escolhido = sel.value;
+    sel.innerHTML = `<option value="">${rotuloTodos}</option>` +
+      itens.map(([v, r]) => `<option value="${esc(v)}">${esc(r)}</option>`).join("");
+    sel.value = escolhido;
+  };
+
+  encher("promoGrupo", [...grupos].sort((a, b) => a[1].localeCompare(b[1], "pt-BR")), "Todos os grupos");
+  encher("promoClasse", [...classes].sort((a, b) => a.localeCompare(b, "pt-BR")).map(c => [c, c]), "Todas as classes");
+  encher("promoMarca", [...marcas].sort((a, b) => a.localeCompare(b, "pt-BR")).map(m => [m, m]), "Todas as marcas");
+}
+
+const semAcento = t => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+function filtrarPromocoes() {
+  const termo = semAcento(el("promoBusca").value.trim());
+  const grupo = el("promoGrupo").value;
+  const classe = el("promoClasse").value;
+  const marca = el("promoMarca").value;
+  const situacao = el("promoSituacao").value;
+
+  promoFiltrados = [...catalogo.values()].filter(p => {
+    if (termo && !semAcento(p.nome + " " + p.codigo).includes(termo)) return false;
+    if (grupo && familiaDe(p.categoria).id !== grupo) return false;
+    if (classe && p.categoria !== classe) return false;
+    if (marca && p.marca !== marca) return false;
+
+    const tem = promocoes.has(p.codigo);
+    if (situacao === "com" && !tem) return false;
+    if (situacao === "sem" && tem) return false;
+    if (situacao === "estoque" && !(p.estoque > 0)) return false;
+
+    return true;
+  }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+  promoMostrando = PROMO_POR_PAGINA;
+  pintarPromocoes();
+}
+
+function precoValendo(p) {
+  const promo = promocoes.get(p.codigo);
+  if (promo && promo.ativo) return promo.preco;
+  return p.promoPlanilha > 0 && p.promoPlanilha < p.preco ? p.promoPlanilha : null;
+}
+
+function pintarPromocoes() {
+  const corpo = el("promoCorpo");
+  const visiveis = promoFiltrados.slice(0, promoMostrando);
+
+  corpo.innerHTML = visiveis.map(p => {
+    const promo = promocoes.get(p.codigo);
+    const valendo = precoValendo(p);
+
+    let celulaPromo = `<span class="promo-sem">—</span>`;
+    let celulaDesconto = `<span class="promo-sem">—</span>`;
+
+    if (valendo != null) {
+      /* Promoção que não desconta nada precisa aparecer diferente: o
+         site protege o cliente servindo o menor preço, mas a loja pensa
+         que está com promoção no ar e não está. */
+      const inutil = valendo >= p.preco;
+      const pct = inutil ? 0 : Math.round((1 - valendo / p.preco) * 100);
+      celulaPromo = `<span class="${inutil ? "promo-inutil" : "promo-preco-novo"}">${dinheiro(valendo)}</span>`;
+      celulaDesconto = inutil
+        ? `<span class="promo-inutil">não desconta</span>`
+        : `<span class="promo-preco-novo">−${pct}%</span>`;
+    }
+
+    const prazo = promo && (promo.inicio || promo.fim)
+      ? `${promo.inicio ? promo.inicio.split("-").reverse().join("/") : "já"} → ${promo.fim ? promo.fim.split("-").reverse().join("/") : "sem fim"}`
+      : promo ? "sem prazo" : (valendo != null ? "da planilha" : "—");
+
+    return `
+      <tr>
+        <td><input type="checkbox" data-codigo="${esc(p.codigo)}" ${promoMarcados.has(p.codigo) ? "checked" : ""}></td>
+        <td class="larga">${esc(p.nome)}<br><small style="color:var(--tinta-suave)">cód. ${esc(p.codigo)}${p.estoque > 0 ? "" : " · sem estoque"}</small></td>
+        <td>${esc(familiaDe(p.categoria).nome)}</td>
+        <td class="num-col">${dinheiro(p.preco)}</td>
+        <td class="num-col">${celulaPromo}</td>
+        <td class="num-col">${celulaDesconto}</td>
+        <td>${esc(prazo)}</td>
+      </tr>`;
+  }).join("") || `<tr><td colspan="7"><div class="vazio">Nenhum produto com esses filtros.</div></td></tr>`;
+
+  el("promoContagem").textContent =
+    `${visiveis.length} de ${promoFiltrados.length} produto(s)` +
+    (promoMarcados.size ? ` · ${promoMarcados.size} marcado(s)` : "");
+
+  el("promoMais").hidden = promoMostrando >= promoFiltrados.length;
+  el("promoTodos").checked = visiveis.length > 0 && visiveis.every(p => promoMarcados.has(p.codigo));
+
+  atualizarBarraDePromocao();
+}
+
+function atualizarBarraDePromocao() {
+  const barra = el("promoBarra");
+  barra.hidden = promoMarcados.size === 0;
+  el("promoSelecionados").textContent = `${promoMarcados.size} produto(s) marcado(s)`;
+}
+
+function pintarLotes() {
+  el("promoLotes").innerHTML = lotesDePromocao.map(l => `
+    <span class="promo-lote">
+      ${esc(l.lote)} · ${l.itens} item(ns)
+      <button type="button" data-lote="${esc(l.lote)}" title="Desfazer este lote">×</button>
+    </span>
+  `).join("");
+}
+
+/* ---------- eventos dos filtros ---------- */
+let promoTimeout;
+el("promoBusca").addEventListener("input", () => {
+  clearTimeout(promoTimeout);
+  promoTimeout = setTimeout(filtrarPromocoes, 250);
+});
+["promoGrupo", "promoClasse", "promoMarca", "promoSituacao"].forEach(id =>
+  el(id).addEventListener("change", filtrarPromocoes));
+
+el("promoMais").addEventListener("click", () => {
+  promoMostrando += PROMO_POR_PAGINA;
+  pintarPromocoes();
+});
+
+el("promoTodos").addEventListener("change", (ev) => {
+  const visiveis = promoFiltrados.slice(0, promoMostrando);
+  visiveis.forEach(p => ev.target.checked ? promoMarcados.add(p.codigo) : promoMarcados.delete(p.codigo));
+  pintarPromocoes();
+});
+
+el("promoCorpo").addEventListener("change", (ev) => {
+  const cx = ev.target.closest("input[type=checkbox][data-codigo]");
+  if (!cx) return;
+  cx.checked ? promoMarcados.add(cx.dataset.codigo) : promoMarcados.delete(cx.dataset.codigo);
+  el("promoContagem").textContent =
+    `${Math.min(promoMostrando, promoFiltrados.length)} de ${promoFiltrados.length} produto(s) · ${promoMarcados.size} marcado(s)`;
+  atualizarBarraDePromocao();
+});
+
+el("promoTipo").addEventListener("change", () => {
+  el("promoUnidade").textContent = el("promoTipo").value === "percentual" ? "%" : "R$";
+});
+
+/* ---------- aplicar ---------- */
+el("promoAplicar").addEventListener("click", async () => {
+  const marcados = [...promoMarcados];
+  if (!marcados.length) return;
+
+  const tipo = el("promoTipo").value;
+  const valor = Number(el("promoValor").value);
+
+  if (!(valor > 0)) return avisoPromo("Informe o desconto ou o preço.");
+  if (tipo === "percentual" && valor >= 100) return avisoPromo("O desconto tem que ser menor que 100%.");
+
+  if (marcados.length > PROMO_MAX_LOTE) {
+    return avisoPromo(`São ${marcados.length} produtos. O máximo por vez é ${PROMO_MAX_LOTE} — use os filtros para dividir.`);
+  }
+
+  /* Preço final calculado aqui, item por item, e arredondado ao centavo.
+     Em percentual cada produto sai de um preço diferente; em preço fixo
+     todos recebem o mesmo número. */
+  const itens = [];
+  for (const codigo of marcados) {
+    const p = catalogo.get(codigo);
+    if (!p) continue;
+    const preco = tipo === "percentual"
+      ? Math.round(p.preco * (1 - valor / 100) * 100) / 100
+      : Math.round(valor * 100) / 100;
+    if (preco > 0) itens.push({ codigo, preco });
+  }
+
+  if (!itens.length) return avisoPromo("Nenhum produto válido na seleção.");
+
+  const acimaDaTabela = itens.filter(i => i.preco >= catalogo.get(i.codigo).preco).length;
+  const resumo = tipo === "percentual"
+    ? `${valor}% de desconto em ${itens.length} produto(s)`
+    : `preço fixo de ${dinheiro(valor)} em ${itens.length} produto(s)`;
+
+  if (!confirm(`Aplicar ${resumo}?` +
+      (acimaDaTabela ? `\n\nAtenção: ${acimaDaTabela} ficariam com preço igual ou maior que o de tabela, e o site vai continuar cobrando o de tabela.` : ""))) return;
+
+  const botao = el("promoAplicar");
+  botao.disabled = true; botao.textContent = "Aplicando…";
+
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/promocoes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      body: JSON.stringify({
+        itens,
+        inicio: el("promoInicio").value,
+        fim: el("promoFim").value,
+        lote: el("promoLote").value.trim() || null,
+        ativo: true
+      })
+    });
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+
+    promoMarcados.clear();
+    el("promoValor").value = "";
+    await carregarPromocoes();
+    avisoPromo(`${dados.gravados} promoção(ões) aplicadas. A vitrine mostra na próxima vez que alguém abrir.`, "ok");
+  } catch (e) {
+    avisoPromo("Não consegui aplicar: " + e.message);
+  } finally {
+    botao.disabled = false; botao.textContent = "Aplicar";
+  }
+});
+
+/* ---------- tirar ---------- */
+el("promoTirar").addEventListener("click", async () => {
+  const marcados = [...promoMarcados].filter(c => promocoes.has(c));
+  if (!marcados.length) return avisoPromo("Nenhum dos marcados tem promoção do painel. (Promoção que veio da planilha se tira na planilha.)");
+  if (!confirm(`Tirar a promoção de ${marcados.length} produto(s)?`)) return;
+
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/promocoes/excluir`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      body: JSON.stringify({ codigos: marcados })
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    promoMarcados.clear();
+    await carregarPromocoes();
+    avisoPromo("Promoções removidas.", "ok");
+  } catch (e) {
+    avisoPromo("Não consegui remover: " + e.message);
+  }
+});
+
+/* ---------- desfazer um lote inteiro ---------- */
+el("promoLotes").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("[data-lote]");
+  if (!btn) return;
+  const lote = btn.dataset.lote;
+  if (!confirm(`Desfazer a campanha "${lote}" inteira?`)) return;
+
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/promocoes/excluir`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      body: JSON.stringify({ lote })
+    });
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    await carregarPromocoes();
+    avisoPromo(`Campanha "${lote}" desfeita: ${dados.apagados} produto(s) voltaram ao preço de tabela.`, "ok");
+  } catch (e) {
+    avisoPromo("Não consegui desfazer o lote.");
+    btn.disabled = false;
+  }
+});
+
+/* =====================================================
    BANNERS DA HOME
    =====================================================
    A loja publica e tira banner daqui, sem tocar em código nem em
@@ -1265,6 +1735,7 @@ el("abas").addEventListener("click", (ev) => {
   document.querySelectorAll("#abas button").forEach(b => b.classList.toggle("ativo", b === btn));
   const aba = btn.dataset.aba;
   el("abaFila").hidden = aba !== "fila";
+  el("abaPromocoes").hidden = aba !== "promocoes";
   el("abaBanners").hidden = aba !== "banners";
   el("abaRelatorios").hidden = aba !== "relatorios";
 
@@ -1274,6 +1745,7 @@ el("abas").addEventListener("click", (ev) => {
   // atualização dela.
   if (aba === "relatorios") carregar().catch(() => tentar());
   if (aba === "banners") carregarBanners().catch(e => avisoBanner("Não consegui carregar os banners: " + e.message));
+  if (aba === "promocoes") carregarPromocoes().catch(e => avisoPromo("Não consegui carregar as promoções: " + e.message));
 });
 
 tentar();

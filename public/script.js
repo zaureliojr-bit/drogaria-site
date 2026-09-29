@@ -218,77 +218,11 @@ const LOJA_LAT = -23.7092450;
 const LOJA_LNG = -46.5251954;
 const RAIO_MAX_KM = 8;
 
-/* =========================
-🏷️ FAMÍLIAS DE CATEGORIA
-O FarmaxPDV exporta 51 categorias internas ("ETICO", "GENER/SIMILAR S/GT",
-"PRESTOBARBA"...). Elas viram um punhado de famílias com nome de gente,
-que é o que aparece nos filtros e nas seções da home.
-Categoria nova que não estiver aqui cai em "Outros" — é só acrescentar.
-========================= */
-function chaveCategoria(cat) {
-  return (cat || "").trim().toUpperCase().replace(/\s+/g, " ");
-}
-
-/* "medicamento: true" faz a família usar a caixa genérica da loja quando o
-   produto não tem foto. "receita: true" tira o produto do carrinho e manda
-   o cliente falar com a farmacêutica. */
-const FAMILIAS = [
-  { id: "medicamentos", nome: "Medicamentos", medicamento: true,
-    cats: ["ETICO", "GENERICO", "SIMILAR", "GENER/SIMILAR S/GT", "CARTELADOS"] },
-
-  { id: "receita", nome: "Exigem receita", receita: true, medicamento: true,
-    cats: ["ETICO CONTROLADO"] },
-
-  { id: "anticoncepcional", nome: "Anticoncepcionais", medicamento: true,
-    cats: ["ANTICONCEPCIONAL"] },
-
-  { id: "vitaminas", nome: "Vitaminas e Suplementos",
-    cats: ["VITAMINAS", "SUPLEMENTO"] },
-
-  { id: "cabelo", nome: "Cabelo",
-    cats: ["SHAMPOO", "CONDICIONADOR", "CREME PENTEAR", "CREME TRATAMENTO", "OLEO CAPILAR",
-           "GEL FIXADOR CABELO", "TINTURA", "CR ALIS E MATIZADOR", "KIT SHAMPO/COND",
-           "ESCOVA DE CABELO", "PENTE E ESCOVA"] },
-
-  { id: "pele", nome: "Cuidados com a Pele",
-    cats: ["DERMOCOSMETICO", "HIDRATANTE", "PROTETOR SOLAR", "OLEO CORPORAL",
-           "LOÇAO FACIAL", "LOCAO FACIAL", "SABONETE LIQUIDO", "SABONETE BARRA"] },
-
-  { id: "perfumaria", nome: "Perfumaria",
-    cats: ["PERFUME", "DESODORANTE", "TALCO"] },
-
-  { id: "higiene", nome: "Higiene Pessoal",
-    cats: ["HIGIENE BUCAL", "HIGIENE PESSOAL", "ABSORVENTE", "PRESERVATIVO",
-           "PRESTOBARBA", "DEPILATORIO"] },
-
-  { id: "beleza", nome: "Beleza e Maquiagem",
-    cats: ["ESMALTES", "MAQUIAGEM"] },
-
-  { id: "infantil", nome: "Infantil",
-    cats: ["LINHA INFANTIL", "FR INFANTIL", "FORMULA LEITE"] },
-
-  { id: "saude", nome: "Saúde e Bem-estar",
-    cats: ["FR GERIATRICA", "ORTOPED", "LUVAS", "PERF/APLIC/AFERICAO", "REPELENTE",
-           "TESOURA", "OFICINAL HOSPITALAR"] },
-
-  { id: "conveniencia", nome: "Conveniência",
-    cats: ["CONVENIENCIA", "DIVERSOS", "VAREJO", "PREMIUM 10", "HAVAIANA"] }
-];
-
-const FAMILIA_OUTROS = { id: "outros", nome: "Outros", cats: [] };
-
-const _indiceFamilia = new Map();
-FAMILIAS.forEach(f => f.cats.forEach(c => _indiceFamilia.set(chaveCategoria(c), f)));
-
-function familiaDe(categoria) {
-  return _indiceFamilia.get(chaveCategoria(categoria)) || FAMILIA_OUTROS;
-}
-
-function nomeFamilia(id) {
-  if (id === "ofertas") return "Ofertas";
-  const f = FAMILIAS.find(x => x.id === id);
-  return f ? f.nome : FAMILIA_OUTROS.nome;
-}
+/* As famílias de categoria moram no familias.js, carregado antes
+   deste arquivo. Saíram daqui quando o painel da loja passou a
+   precisar delas para filtrar promoções por grupo: duas cópias da
+   mesma lista é a receita para o site e o painel discordarem sobre
+   onde um produto está. */
 
 const FAIXAS_FRETE = [
   { ate: 3.9, valor: 3.00 },
@@ -468,6 +402,55 @@ document.addEventListener("produtosProntos", (ev) => {
   filtrarCategoria(familia);
   history.replaceState(null, "", location.pathname);
 });
+
+/* =========================
+🏷️ PROMOÇÕES FEITAS NO PAINEL
+=========================
+O preço normal vem da planilha do PDV, reexportada toda semana. A
+promoção vem do painel e vive no D1 — porque reexportação sobrescreve o
+catálogo inteiro, e promoção que morasse lá sumiria na importação
+seguinte, no meio da campanha.
+
+Aqui elas se encontram: o catálogo manda no preço de tabela, o painel
+manda no preço promocional enquanto a promoção estiver valendo. */
+async function aplicarPromocoesDoPainel() {
+  if (!API_PEDIDOS_D1) return;
+
+  let promocoes;
+  try {
+    const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/promocoes`, { cache: "no-cache" });
+    if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+    promocoes = (await resposta.json()).promocoes || [];
+  } catch (e) {
+    /* Sem o painel, vale o que veio da planilha. Preço de tabela é o
+       preço certo; o cliente paga mais caro do que poderia, o que é
+       ruim — mas mostrar um preço promocional que a loja não consegue
+       mais confirmar seria pior. */
+    console.info("Promoções do painel indisponíveis; valendo o preço da planilha.", e);
+    return;
+  }
+
+  if (!promocoes.length) return;
+
+  const porCodigo = new Map(promocoes.map(p => [String(p.codigo), Number(p.preco)]));
+
+  produtos.forEach(p => {
+    const promo = porCodigo.get(String(p.codigo));
+    if (!(promo > 0)) return;
+
+    /* A promoção do painel vale por cima da que veio da planilha, mas
+       nunca para ENCARECER: se o preço de tabela já está mais barato
+       que a promoção cadastrada, o cliente leva o mais barato. Acontece
+       quando a planilha é reexportada com preço menor e ninguém lembra
+       de rever a promoção antiga. */
+    if (promo >= p.precoOriginal) return;
+
+    p.preco = promo;
+    p.emOferta = true;
+    p.desconto = descontoPercent(p.precoOriginal, promo);
+    p.promocaoDoPainel = true;
+  });
+}
 
 /* =========================
 📣 BANNERS DE PROMOÇÃO E PARCEIROS
@@ -903,6 +886,17 @@ async function carregar() {
 
     produtos = lista;
     if (!produtos.length) throw new Error("Lista de produtos vazia");
+
+    /* A camada de promoção entra DEPOIS do cache, e não dentro dele.
+
+       O cache guarda o catálogo já mapeado, para a navegação não baixar
+       seis mil produtos a cada página. Se a promoção fosse aplicada
+       antes de gravar, ela ficaria congelada junto: a loja tiraria uma
+       promoção no painel e o cliente continuaria vendo o preço velho
+       até o cache vencer. Aplicando por cima a cada carregamento, o
+       preço promocional é sempre o de agora, e o cache continua
+       poupando o download. */
+    await aplicarPromocoesDoPainel();
 
     reconciliarCarrinho();
 
