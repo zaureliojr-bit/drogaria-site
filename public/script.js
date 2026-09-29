@@ -559,6 +559,79 @@ async function buscarBannersDoArquivo() {
     .filter(b => b && b.ativo && b.imagem && bannerNoPrazo(b, hoje));
 }
 
+/* Gira os banners a cada sete segundos.
+
+   Rola o próprio carrossel em vez de trocar o conteúdo: o arrastar com o
+   dedo continua funcionando, o scroll-snap alinha sozinho, e quem chega
+   de teclado ou leitor de tela não perde o que estava lendo.
+
+   PARA em três situações, e as três importam mais do que o giro:
+
+   - aba em segundo plano, para não gastar bateria girando o que ninguém
+     vê;
+   - dedo ou mouse em cima, porque avançar enquanto a pessoa está
+     olhando é o que faz carrossel virar motivo de raiva;
+   - depois de o cliente arrastar, por trinta segundos. Ele escolheu qual
+     quer ver; puxar de volta seria discordar dele. */
+const BANNER_SEGUNDOS = 7;
+const BANNER_PAUSA_APOS_TOQUE = 30000;
+
+function girarBanners(caixa) {
+  const itens = [...caixa.querySelectorAll(".promo-item")];
+  if (itens.length < 2) return;
+
+  const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let timer = null;
+  let pausadoAte = 0;
+  let sobre = false;
+
+  const atual = () => Math.round(caixa.scrollLeft / caixa.clientWidth);
+
+  const avancar = () => {
+    if (sobre || Date.now() < pausadoAte || document.visibilityState === "hidden") return;
+    const proximo = (atual() + 1) % itens.length;
+    caixa.scrollTo({ left: proximo * caixa.clientWidth, behavior: suave ? "smooth" : "auto" });
+    marcarPonto(proximo);
+  };
+
+  /* Pontinhos: com o giro ligado, sem eles o cliente não tem como saber
+     que existe mais de um banner nem em qual está. */
+  const pontos = document.createElement("div");
+  pontos.className = "promos-pontos";
+  pontos.innerHTML = itens.map((_, i) =>
+    `<button type="button" class="promo-ponto${i === 0 ? " ativo" : ""}"
+             aria-label="Ver o banner ${i + 1} de ${itens.length}"></button>`).join("");
+  caixa.after(pontos);
+
+  function marcarPonto(i) {
+    pontos.querySelectorAll(".promo-ponto").forEach((p, j) => p.classList.toggle("ativo", j === i));
+  }
+
+  pontos.addEventListener("click", (ev) => {
+    const alvo = [...pontos.children].indexOf(ev.target.closest(".promo-ponto"));
+    if (alvo < 0) return;
+    pausadoAte = Date.now() + BANNER_PAUSA_APOS_TOQUE;
+    caixa.scrollTo({ left: alvo * caixa.clientWidth, behavior: suave ? "smooth" : "auto" });
+    marcarPonto(alvo);
+  });
+
+  caixa.addEventListener("scroll", () => marcarPonto(atual()), { passive: true });
+
+  ["pointerenter", "focusin"].forEach(e => caixa.addEventListener(e, () => { sobre = true; }));
+  ["pointerleave", "focusout"].forEach(e => caixa.addEventListener(e, () => { sobre = false; }));
+  ["touchstart", "wheel"].forEach(e =>
+    caixa.addEventListener(e, () => { pausadoAte = Date.now() + BANNER_PAUSA_APOS_TOQUE; }, { passive: true }));
+
+  const ligar = () => { if (!timer) timer = setInterval(avancar, BANNER_SEGUNDOS * 1000); };
+  const desligar = () => { if (timer) { clearInterval(timer); timer = null; } };
+
+  document.addEventListener("visibilitychange", () =>
+    document.visibilityState === "hidden" ? desligar() : ligar());
+
+  ligar();
+}
+
 async function carregarBanners() {
   const caixa = el("promos");
   if (!caixa) return;
@@ -580,6 +653,8 @@ async function carregarBanners() {
 
     caixa.innerHTML = validos.map(bannerHTML).join("");
     caixa.hidden = false;
+
+    girarBanners(caixa);
 
     /* Uma imagem quebrada aqui é pior do que banner nenhum: a moldura
        fica, o alt aparece solto e a home parece defeituosa. Some o item

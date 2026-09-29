@@ -2742,6 +2742,32 @@ body.sem-barra-carrinho .carrinho { display: none; }
    coluna do carrossel e sobraria um empurrãozinho lateral sem motivo. */
 .promos:has(.promo-item:only-child) { overflow-x: visible; }
 
+/* Pontinhos do giro. Só existem quando há mais de um banner — quem os
+   cria é o script, junto com a rotação. Ficam discretos: são para
+   orientar ("tem mais, e eu estou no segundo"), não para competir com o
+   banner logo acima. */
+.promos-pontos {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin: -8px auto 16px;
+  padding: 0 14px;
+}
+
+.promo-ponto {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--papel-forte);
+  transition: background 0.25s, width 0.25s;
+}
+
+/* O ativo vira um traço em vez de só mudar de cor: quem enxerga mal
+   distingue forma antes de distinguir tom. */
+.promo-ponto.ativo { width: 20px; border-radius: 4px; background: var(--marca); }
+
 .promo-item {
   display: block;
   scroll-snap-align: start;
