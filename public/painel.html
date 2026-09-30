@@ -420,6 +420,7 @@
       <button data-aba="banners">Banners</button>
       <button data-aba="encarte">Encarte</button>
       <button data-aba="relatorios">Relatórios</button>
+      <button data-aba="catalogo">Catálogo</button>
     </div>
 
     <!-- ===== ABA: FILA DE PEDIDOS ===== -->
@@ -695,6 +696,20 @@
 
     </div><!-- /abaRelatorios -->
 
+    <!-- ===== ABA: CATÁLOGO ===== -->
+    <div id="abaCatalogo" hidden>
+
+      <div class="fila-topo">
+        <span class="pedido-quando">Recebe a extração do Firebird e atualiza o catálogo do site sozinho.</span>
+        <button type="button" id="verificarCatalogo" class="btn-testar-som">Verificar agora</button>
+      </div>
+
+      <div id="avisoCatalogo"></div>
+
+      <div id="statusCatalogo" class="vazio">Ainda não verificado nesta sessão.</div>
+
+    </div><!-- /abaCatalogo -->
+
   </div>
 
 </div>
@@ -839,6 +854,13 @@ async function abrirPainel() {
   el("conteudo").style.display = "";
   ligarPolling();
   carregarCatalogo().then(() => { if (fila.length) pintarFila(); });
+
+  // Verifica e publica sozinho ao abrir o painel, e depois a cada 10
+  // minutos enquanto a aba ficar aberta - assim uma extração que chega
+  // enquanto o painel já está aberto não espera a próxima vez que
+  // alguém recarregar a página.
+  verificarEPublicarCatalogo();
+  setInterval(verificarEPublicarCatalogo, 10 * 60 * 1000);
 }
 
 async function tentar() {
@@ -2078,6 +2100,70 @@ el("listaEncartes").addEventListener("click", async (ev) => {
   }
 });
 
+/* ===== Catálogo: recebe a extração do Firebird e publica sozinho =====
+   O bundle (importador-automatico.js) roda a MESMA padronização do
+   padronizador (CMED, distribuidora, correções, famílias) - ver
+   frontend/src/headless/importarEPublicar.js no repo FarmaTech-
+   Padronizador. Ele já sabe onde buscar cada coisa (mesmos workers
+   imagens-proxy/publish-proxy); aqui só chama e mostra o resultado. */
+const URL_IMPORTADOR = "https://farmatech-padronizador.zaureliojr.workers.dev/importador-automatico.js";
+
+function avisoCatalogo(msg, tipo = "erro") {
+  el("avisoCatalogo").innerHTML = msg
+    ? `<div class="${tipo === "ok" ? "aviso-ok" : "erro"}">${esc(msg)}</div>`
+    : "";
+}
+
+let verificandoCatalogo = false;
+
+async function verificarEPublicarCatalogo() {
+
+  if (verificandoCatalogo) return;
+  verificandoCatalogo = true;
+  el("verificarCatalogo").disabled = true;
+  avisoCatalogo("");
+
+  try {
+
+    const { importarEPublicarExtracao } = await import(URL_IMPORTADOR);
+    const resultado = await importarEPublicarExtracao();
+
+    if (!resultado) {
+      el("statusCatalogo").textContent = `Nada pendente — última verificação às ${dataHora(Date.now())}.`;
+      return;
+    }
+
+    const faltando = [];
+    if (!resultado.usouCmed) faltando.push("lista da CMED");
+    if (!resultado.usouDistribuidor) faltando.push("lista da distribuidora");
+
+    el("statusCatalogo").innerHTML =
+      `Catálogo atualizado às ${dataHora(Date.now())} — ` +
+      `${resultado.totalProdutos} produtos na extração, ${resultado.publicados} publicados.`;
+
+    if (faltando.length) {
+      avisoCatalogo(
+        `Publicado sem ${faltando.join(" e sem ")} (carregue a lista no padronizador pra completar) — ` +
+        "produtos sem essa referência foram pros ar com os dados brutos da extração.",
+        "erro"
+      );
+    }
+
+  } catch (erro) {
+
+    avisoCatalogo("Não consegui importar/publicar sozinho: " + erro.message);
+
+  } finally {
+
+    verificandoCatalogo = false;
+    el("verificarCatalogo").disabled = false;
+
+  }
+
+}
+
+el("verificarCatalogo").addEventListener("click", verificarEPublicarCatalogo);
+
 el("abas").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-aba]");
   if (!btn) return;
@@ -2088,6 +2174,7 @@ el("abas").addEventListener("click", (ev) => {
   el("abaBanners").hidden = aba !== "banners";
   el("abaEncarte").hidden = aba !== "encarte";
   el("abaRelatorios").hidden = aba !== "relatorios";
+  el("abaCatalogo").hidden = aba !== "catalogo";
 
   // Relatório e banners só são buscados quando alguém abre a aba. O
   // relatório porque são consultas pesadas; os banners porque a fila
