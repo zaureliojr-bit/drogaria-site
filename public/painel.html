@@ -118,6 +118,15 @@
 
   .vazio { padding: 26px 16px; text-align: center; color: var(--tinta-suave); font-size: 13px; }
 
+  .iframe-padronizador {
+    width: 100%;
+    height: calc(100vh - 190px);
+    min-height: 500px;
+    border: 1px solid var(--borda, #e2e2e2);
+    border-radius: var(--raio, 8px);
+    margin-top: 14px;
+  }
+
   /* ========== ABAS ========== */
   .abas { display: flex; gap: 6px; padding: 14px 0 0; }
   .abas button {
@@ -421,6 +430,7 @@
       <button data-aba="encarte">Encarte</button>
       <button data-aba="relatorios">Relatórios</button>
       <button data-aba="catalogo">Catálogo</button>
+      <button data-aba="padronizador">Padronizador</button>
     </div>
 
     <!-- ===== ABA: FILA DE PEDIDOS ===== -->
@@ -712,6 +722,15 @@
       <div class="tabela-wrap" id="semImagem"></div>
 
     </div><!-- /abaCatalogo -->
+
+    <!-- ===== ABA: PADRONIZADOR (embutido) ===== -->
+    <div id="abaPadronizador" hidden>
+      <!-- src fica vazio até a aba abrir pela primeira vez (ver
+           abas.addEventListener) - sem isso o app React inteiro
+           carregaria toda vez que alguém abre o painel, mesmo que
+           nunca clique nesta aba. -->
+      <iframe id="iframePadronizador" class="iframe-padronizador" title="Padronizador"></iframe>
+    </div><!-- /abaPadronizador -->
 
   </div>
 
@@ -2208,6 +2227,13 @@ el("abas").addEventListener("click", (ev) => {
   el("abaEncarte").hidden = aba !== "encarte";
   el("abaRelatorios").hidden = aba !== "relatorios";
   el("abaCatalogo").hidden = aba !== "catalogo";
+  el("abaPadronizador").hidden = aba !== "padronizador";
+
+  // O iframe só ganha "src" na primeira vez que a aba abre - antes
+  // disso fica sem carregar o app React inteiro à toa.
+  if (aba === "padronizador" && !el("iframePadronizador").src) {
+    el("iframePadronizador").src = "https://farmatech-padronizador.zaureliojr.workers.dev/";
+  }
 
   // Relatório e banners só são buscados quando alguém abre a aba. O
   // relatório porque são consultas pesadas; os banners porque a fila
