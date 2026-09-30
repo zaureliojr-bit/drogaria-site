@@ -708,6 +708,9 @@
 
       <div id="statusCatalogo" class="vazio">Ainda não verificado nesta sessão.</div>
 
+      <h2 style="margin-top:22px">Produtos sem imagem <small id="contagemSemImagem"></small></h2>
+      <div class="tabela-wrap" id="semImagem"></div>
+
     </div><!-- /abaCatalogo -->
 
   </div>
@@ -853,7 +856,7 @@ async function abrirPainel() {
   el("login").style.display = "none";
   el("conteudo").style.display = "";
   ligarPolling();
-  carregarCatalogo().then(() => { if (fila.length) pintarFila(); });
+  carregarCatalogo().then(() => { if (fila.length) pintarFila(); renderizarSemImagem(); });
 
   // Verifica e publica sozinho ao abrir o painel, e depois a cada 10
   // minutos enquanto a aba ficar aberta - assim uma extração que chega
@@ -2149,6 +2152,12 @@ async function verificarEPublicarCatalogo() {
       );
     }
 
+    // Acabou de publicar - o catálogo em cache (carregarCatalogo) ainda
+    // é o de antes da publicação. Força buscar de novo pra lista de
+    // "sem imagem" não ficar mostrando dado velho.
+    catalogo = null;
+    await renderizarSemImagem();
+
   } catch (erro) {
 
     avisoCatalogo("Não consegui importar/publicar sozinho: " + erro.message);
@@ -2158,6 +2167,30 @@ async function verificarEPublicarCatalogo() {
     verificandoCatalogo = false;
     el("verificarCatalogo").disabled = false;
 
+  }
+
+}
+
+// Só consulta - a troca/busca de imagem continua no padronizador.
+// "Sem imagem" é o mesmo catálogo publicado que a fila/promoções já
+// usam (carregarCatalogo), então não custa uma busca extra.
+async function renderizarSemImagem() {
+
+  const cat = await carregarCatalogo();
+  const semImagem = [...cat.values()].filter(p => !p.imagem);
+
+  el("contagemSemImagem").textContent = semImagem.length ? `(${semImagem.length})` : "";
+
+  const LIMITE = 300;
+
+  el("semImagem").innerHTML = tabela(
+    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }],
+    semImagem.slice(0, LIMITE).map(p => [esc(p.codigo), esc(p.nome), esc(p.marca)]),
+    "Nenhum produto sem imagem 🎉"
+  );
+
+  if (semImagem.length > LIMITE) {
+    el("semImagem").innerHTML += `<div class="vazio">Mostrando os primeiros ${LIMITE} de ${semImagem.length}.</div>`;
   }
 
 }
@@ -2184,6 +2217,7 @@ el("abas").addEventListener("click", (ev) => {
   if (aba === "banners") carregarBanners().catch(e => avisoBanner("Não consegui carregar os banners: " + e.message));
   if (aba === "promocoes") carregarPromocoes().catch(e => avisoPromo("Não consegui carregar as promoções: " + e.message));
   if (aba === "encarte") carregarEncartes().catch(e => avisoEncarte("Não consegui carregar os encartes: " + e.message));
+  if (aba === "catalogo") renderizarSemImagem().catch(() => {});
 });
 
 tentar();
