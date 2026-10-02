@@ -769,6 +769,19 @@ let dias = 30;
 async function api(rota) {
   const r = await fetch(`${API.replace(/\/+$/, "")}${rota}`, { headers: { "X-Painel-Key": senha } });
   if (r.status === 401) throw new Error("SENHA");
+  /* 429 é o limite de tentativas do worker. Sem este caso a tela diria
+     "não consegui falar com o servidor", e quem errou a senha cinco
+     vezes ia procurar defeito no Cloudflare em vez de esperar.
+
+     A mensagem vai crua em .message, e o aviso fica numa propriedade:
+     as outras telas mostram "não consegui carregar X: " + e.message, e
+     um prefixo tipo "ESPERA:" apareceria ali no meio da frase. */
+  if (r.status === 429) {
+    const corpo = await r.json().catch(() => null);
+    const erro = new Error(corpo?.erro || "Tentativas demais. Espere alguns minutos.");
+    erro.espera = true;
+    throw erro;
+  }
   // 404 aqui quase sempre quer dizer worker desatualizado: a senha passou,
   // então o problema não é permissão — é que a rota não existe naquela
   // versão. Vale a mensagem específica, senão vira caça ao tesouro.
@@ -896,10 +909,17 @@ async function tentar() {
   try {
     await abrirPainel();
   } catch (erro) {
-    sessionStorage.removeItem("painelKey");
-    senha = "";
+    /* No bloqueio a senha não chega a ser conferida, então não dá para
+       dizer que estava errada — e apagar a guardada só obrigaria a
+       digitar de novo depois da espera. */
+    if (!erro.espera) {
+      sessionStorage.removeItem("painelKey");
+      senha = "";
+    }
     let recado;
-    if (erro.message === "SENHA") {
+    if (erro.espera) {
+      recado = erro.message;
+    } else if (erro.message === "SENHA") {
       recado = "Senha incorreta.";
     } else if (erro.message.startsWith("ROTA:")) {
       recado = `O worker de pedidos ainda não tem a rota ${erro.message.slice(5)}. ` +
