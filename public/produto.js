@@ -207,10 +207,15 @@ function renderProdutoDetalhe(p) {
 
     ${fichaTecnicaHTML(p)}
 
-    <div class="produto-meta">
-      <span>Cód. ${codigo}</span>
-    </div>
+    <!-- O código interno saiu daqui. Ele é da loja, não do cliente: serve
+         para a farmacêutica achar o item na prateleira e para casar o
+         pedido com a planilha do PDV. Na tela só ocupava espaço e dava
+         ao cliente um número que ele não sabe para que serve.
 
+         Continua indo inteiro no pedido, na mensagem do WhatsApp e no
+         histórico gravado no painel. O que a pessoa precisa para
+         identificar o produto é o código de barras, e esse está na ficha
+         técnica acima. -->
     <p class="produto-aviso-legal">
       Este site não substitui orientação médica. Não pratique automedicação.
     </p>
