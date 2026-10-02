@@ -2896,3 +2896,89 @@ body.sem-barra-carrinho .carrinho { display: none; }
   .encarte-topo h1 { font-size: 19px; }
   .btn-encarte-whats, .btn-encarte-pdf { flex: 1; justify-content: center; }
 }
+
+/* ========================= */
+/* 🧪 FICHA TÉCNICA          */
+/* ========================= */
+/* Informação de bula, não propaganda. Fica abaixo do botão de comprar
+   porque quem já decidiu não precisa dela — e quem está em dúvida rola
+   atrás justamente disto. */
+.ficha-tecnica {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--linha);
+}
+
+.ficha-tecnica h2 {
+  font-family: var(--fonte-titulo);
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+/* Lista de descrição em duas colunas: o rótulo alinhado à esquerda e o
+   valor à direita, como ficha de produto de farmácia impressa. Vira uma
+   coluna só no celular, onde "Princípio ativo" e um nome de substância
+   comprido não cabem lado a lado sem quebrar feio. */
+.ficha-tecnica dl {
+  display: grid;
+  gap: 1px;
+  background: var(--linha);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-md);
+  overflow: hidden;
+}
+
+.ficha-tecnica dl > div {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 12px;
+  background: var(--branco);
+  padding: 10px 14px;
+}
+
+.ficha-tecnica dt {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--tinta-suave);
+}
+
+.ficha-tecnica dd {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
+.btn-bula {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1.5px solid var(--marca-clara);
+  border-radius: var(--raio-botao);
+  background: var(--branco);
+  color: var(--marca);
+  font-family: var(--fonte-titulo);
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.btn-bula:hover { background: var(--marca-clara); }
+
+/* De onde veio o dado. Numa farmácia isso não é rodapé burocrático: é a
+   diferença entre informação conferível e texto que alguém escreveu. */
+.ficha-fonte {
+  margin-top: 10px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--tinta-suave);
+}
+
+@media (max-width: 480px) {
+  .ficha-tecnica dl > div { grid-template-columns: 1fr; gap: 2px; }
+  .ficha-tecnica dt { font-size: 11.5px; }
+}

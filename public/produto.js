@@ -205,9 +205,9 @@ function renderProdutoDetalhe(p) {
       <div id="acoesDetalhe">${acoesDoDetalheHTML(p, qtd)}</div>
     `}
 
+    ${fichaTecnicaHTML(p)}
+
     <div class="produto-meta">
-      ${p.tarjaNome ? `<span>${esc(p.tarjaNome)}</span>` : ""}
-      ${p.ean ? `<span>EAN ${esc(p.ean)}</span>` : ""}
       <span>Cód. ${codigo}</span>
     </div>
 
@@ -247,6 +247,76 @@ function adicionarAoCarrinhoDetalhe(codigo) {
   if (p && !(typeof BLOQUEAR_CONTROLADOS !== "undefined" && BLOQUEAR_CONTROLADOS && p.exigeReceita)) {
     toast(`${p.nome} adicionado`);
   }
+}
+
+/* O que o cliente chama de "genérico ou de marca".
+
+   Sai da categoria do PDV, que é onde a loja já classifica. "GENER/
+   SIMILAR S/GT" é a categoria que a farmácia usa quando o item é
+   genérico OU similar e ela não separou — então o site diz as duas, em
+   vez de escolher uma e errar metade das vezes. */
+const TIPO_DE_MEDICAMENTO = {
+  "GENERICO": "Genérico",
+  "SIMILAR": "Similar",
+  "GENER/SIMILAR S/GT": "Genérico ou similar",
+  "ETICO": "Medicamento de referência",
+  "ETICO CONTROLADO": "Medicamento de referência",
+  "ANTICONCEPCIONAL": "Anticoncepcional"
+};
+
+/* O Bulário Eletrônico da Anvisa, pelo número de registro.
+
+   Link, e não cópia hospedada aqui. A bula muda quando o laboratório
+   altera o produto, e uma bula velha no site de uma farmácia é pior do
+   que bula nenhuma: o cliente lê posologia que já não vale. Linkando, a
+   fonte é sempre a oficial e não há nada para manter. */
+function linkDaBula(registro) {
+  const numero = String(registro || "").replace(/\D/g, "");
+  if (numero.length < 9) return "";
+  return `https://consultas.anvisa.gov.br/#/bulario/q/?numeroRegistro=${numero}`;
+}
+
+/* Ficha técnica: só as linhas que existem para ESTE produto.
+
+   Uma tabela com "Classe: —" em metade das linhas parece cadastro mal
+   feito. Shampoo não tem princípio ativo nem registro na Anvisa, e para
+   ele a ficha inteira simplesmente não aparece. */
+function fichaTecnicaHTML(p) {
+  const linhas = [
+    ["Princípio ativo", p.substancia],
+    ["Classe", p.classeTerapeutica],
+    ["Tipo", TIPO_DE_MEDICAMENTO[(p.categoria || "").trim().toUpperCase()]],
+    ["Laboratório", p.laboratorio || p.marca],
+    ["Tarja", p.tarjaNome],
+    ["Registro Anvisa", p.registroAnvisa],
+    ["Código de barras", p.ean]
+  ].filter(([, valor]) => String(valor || "").trim());
+
+  if (linhas.length < 2) return "";
+
+  const bula = linkDaBula(p.registroAnvisa);
+
+  return `
+    <section class="ficha-tecnica" aria-label="Ficha técnica">
+      <h2>Ficha técnica</h2>
+      <dl>
+        ${linhas.map(([rotulo, valor]) => `
+          <div>
+            <dt>${esc(rotulo)}</dt>
+            <dd>${esc(String(valor).trim())}</dd>
+          </div>`).join("")}
+      </dl>
+
+      ${bula ? `
+        <a class="btn-bula" href="${esc(bula)}" target="_blank" rel="noopener">
+          ${icone("receita", 15)}Ler a bula no site da Anvisa
+        </a>
+        <p class="ficha-fonte">
+          Dados da lista de preços da CMED/Anvisa. A bula abre no portal oficial,
+          sempre na versão vigente.
+        </p>` : `
+        <p class="ficha-fonte">Dados da lista de preços da CMED/Anvisa.</p>`}
+    </section>`;
 }
 
 /* A mesma lógica do botão do card, no tamanho da página de produto.

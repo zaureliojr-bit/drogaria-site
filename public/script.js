@@ -58,7 +58,7 @@ const SECOES_INICIAIS = 4;
    Foi exatamente o que faltou quando temEstoque entrou: quem tinha a aba
    aberta continuou lendo produtos mapeados pelo código anterior, sem o
    campo, e a vitrine inteira apareceu como "Indisponível no momento". */
-const CACHE_CHAVE = "catalogo_v9";
+const CACHE_CHAVE = "catalogo_v10";
 const CACHE_MINUTOS = 30;
 
 /* =========================
@@ -927,6 +927,14 @@ function mapearProduto(p) {
     confirmarReceita,
     controleEspecial: p.controleEspecial || "",
     tipoReceita: p.tipoReceita || "",
+
+    /* Ficha técnica. Tudo isto já vinha da CMED pelo padronizador e
+       parava no arquivo sem ninguém mostrar — é informação de bula, não
+       propaganda, e é o que separa uma farmácia de uma loja qualquer
+       vendendo caixa. */
+    substancia: p.substancia || "",
+    classeTerapeutica: p.classeTerapeutica || "",
+    registroAnvisa: p.registroAnvisa || "",
     ehMedicamento: !!familia.medicamento,
     temSeloGenerico: CATS_COM_SELO_GENERICO.includes(chaveCategoria(p.categoria)),
 
