@@ -1,0 +1,43 @@
+# Cabeçalhos de segurança, aplicados pela Cloudflare Pages.
+#
+# A Pages já manda nosniff e referrer-policy sozinha. O que falta, e que
+# este arquivo acrescenta, é dizer DE ONDE a página pode carregar coisa
+# e QUEM pode colocá-la dentro de um quadro.
+#
+# Sobre o 'unsafe-inline' em script-src: as páginas da vitrine não têm
+# nenhum <script> inline, mas ainda há 13 handlers escritos no HTML
+# (onclick="buscar()", oninput="mascaraTelefone(this)" e companhia). O
+# CSP não sabe separar um desses de um script injetado, então enquanto
+# eles existirem o 'unsafe-inline' tem de ficar. Trocá-los por
+# addEventListener é o que permite tirar — vale fazer, mas é mudança de
+# comportamento, não de cabeçalho.
+#
+# Mesmo com essa folga o CSP paga: bloqueia <script src> de host não
+# listado, bloqueia plugin e <base> injetados, prende o fetch nas APIs
+# que a loja realmente usa, e o frame-ancestors acaba com o risco de a
+# tela ser embutida num site falso.
+#
+# ATENÇÃO ao editar: host que não estiver aqui simplesmente não carrega,
+# e o site quebra em silêncio no navegador do cliente. A lista abaixo
+# saiu de varredura do código E dos dados (as imagens de produto vêm do
+# imagens-proxy, que não aparece em nenhum .js — está no produtos.json).
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://viacep.com.br https://nominatim.openstreetmap.org https://script.google.com https://cloudflareinsights.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+
+# O painel precisa de duas folgas que a vitrine não precisa, e por isso
+# tem regra própria: ele carrega o importador do padronizador como
+# script e mostra o padronizador inteiro num iframe. Dar essas duas
+# folgas à vitrine toda seria alargar o CSP de 6.800 páginas de produto
+# para atender uma tela que só a loja abre.
+/painel.html
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
