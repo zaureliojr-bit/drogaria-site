@@ -60,7 +60,6 @@
    ===================================================================== */
 
 const LOJA = "Drogaria Mais Barato";
-const PROXY_IMAGENS = "https://farmatech-imagens-proxy.zaureliojr.workers.dev";
 
 /* Quanto o Google mostra de uma descrição antes de cortar. Montar já no
    tamanho certo é melhor que entregar um parágrafo e deixar a busca
@@ -181,14 +180,20 @@ export async function onRequest({ request, env, params }) {
        endereço é o que evita o Google tratar como páginas diferentes. */
     const canonico = ean ? `${origem}/produto/${slug ? slug + "-" : ""}${ean}` : `${origem}/produto`;
 
-    /* Duas og:image, nesta ordem: a foto do produto e, atrás dela, a
-       caixa neutra. 220 dos 6.785 produtos não têm foto no acervo, e
-       nesses o endereço do proxy responde 404 — sem a segunda linha o
-       link no WhatsApp sairia sem imagem nenhuma. Os leitores de OG
-       usam a primeira que carrega. */
-    const imagens = ean
-        ? [`${PROXY_IMAGENS}/${ean}`, `${origem}/sem-imagem.webp`]
-        : [`${origem}/logo.png`];
+    /* UMA og:image só, e ela nunca falha.
+
+       A primeira versão declarava duas — a foto no proxy e, atrás dela,
+       a caixa genérica, para os 220 produtos sem foto no acervo (o proxy
+       responde 404 neles). A suposição era que o leitor usasse a
+       primeira que carregasse. Mandei um link de Aspirina no WhatsApp e
+       veio a caixa genérica, com a foto no ar e perfeita: o leitor
+       escolheu a outra. "Primeira que carrega" não é regra do protocolo,
+       era chute meu.
+
+       O /og/<ean> (functions/og/[ean].js) resolve isso no servidor:
+       devolve a foto quando existe, a caixa quando não existe, e o
+       leitor não tem o que escolher. */
+    const imagens = ean ? [`${origem}/og/${ean}`] : [`${origem}/logo.png`];
 
     const trilha = {
         "@context": "https://schema.org",
