@@ -30,28 +30,30 @@
   Cross-Origin-Opener-Policy: same-origin
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://viacep.com.br https://nominatim.openstreetmap.org https://script.google.com https://cloudflareinsights.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
-# O painel precisa de duas folgas que a vitrine não precisa, e por isso
-# tem regra própria: ele carrega o importador do padronizador como
-# script e mostra o padronizador inteiro num iframe. Dar essas duas
-# folgas à vitrine toda seria alargar o CSP de 6.800 páginas de produto
+# O painel precisa de duas folgas que a vitrine não precisa: ele carrega
+# o importador do padronizador como script e mostra o padronizador num
+# quadro. Dar isso ao /* seria alargar o CSP de 6.800 páginas de produto
 # para atender uma tela que só a loja abre.
 #
-# A regra fica em /painel, e não em /painel.html: a Pages redireciona
-# painel.html para /painel com 308, então a requisição que chega aqui é
-# sempre a da URL curta. Com a regra escrita no nome do arquivo, ela
-# nunca casava e o painel caía no CSP da vitrine — que bloqueia o
-# padronizador. O .html fica logo abaixo só por garantia, para o caso de
-# alguém chegar pelo endereço antigo sem seguir o redirecionamento.
+# O "!" apaga o CSP que o /* já definiu, e é obrigatório: quando duas
+# regras definem o MESMO cabeçalho, a Pages NÃO substitui — ela junta os
+# dois valores. E dois CSP não se somam, se acumulam: o navegador exige
+# que o recurso passe em TODOS. Sem o "!", a regra restritiva do /*
+# continuava valendo e o padronizador seguia bloqueado, mesmo com a
+# regra de baixo autorizando.
+#
+# A regra fica em /painel, e não em /painel.html, porque a Pages
+# redireciona o .html para a URL curta com 308 — a requisição que chega
+# aqui é sempre /painel. O .html fica repetido por garantia, para quem
+# vier pelo endereço antigo.
+#
+# Só o CSP é trocado. Os outros cabeçalhos vêm do /* e não precisam ser
+# repetidos — repetir criaria "DENY, DENY" e companhia.
+
 /painel
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  ! Content-Security-Policy
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 /painel.html
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  ! Content-Security-Policy
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
