@@ -39,6 +39,8 @@ const LOJAS = [
       uf: "SP", ativo: 0, tem_senha: 0, banco: null, prefixo_r2: null }
 ];
 
+const conferencias = {};
+
 let falhas = 0;
 function conferir(descricao, condicao, detalhe = "") {
     if (condicao) console.log(`  ok   ${descricao}`);
@@ -88,12 +90,59 @@ async function abrirPainel({ dono }) {
             const loja = LOJAS.find((l) => l.slug === slug) || LOJAS[0];
             return responder({ dono, loja: { slug: loja.slug, nome: loja.nome, temSenhaPropria: !!loja.tem_senha } });
         }
-        if (url.pathname === "/lojas") {
+        /* O método importa: /lojas é GET para listar e POST para
+           cadastrar. Sem conferir, o POST caía na listagem e respondia
+           200 com a lista — e a tela, sem o "faltaFazer" na resposta,
+           mostrava o passo a passo pela metade em vez de falhar. Levou
+           um bom tempo para eu perceber que o defeito era deste
+           arquivo, e não do painel. */
+        if (url.pathname === "/lojas" && pedido.method() === "GET") {
             if (!dono) return responder({ erro: "Só o dono da plataforma vê a lista de lojas." }, 403);
             return responder({ lojas: LOJAS });
         }
         if (url.pathname === "/loja/senha") {
             return responder({ ok: true, loja: JSON.parse(pedido.postData() || "{}").slug });
+        }
+        if (url.pathname === "/lojas" && pedido.method() === "POST") {
+            const corpo = JSON.parse(pedido.postData() || "{}");
+            const slug = corpo.slug;
+            if (LOJAS.some((l) => l.slug === slug)) {
+                return responder({ erro: `Já existe uma filial com o apelido "${slug}".` }, 409);
+            }
+            const banco = "DB_" + String(slug).replace(/-/g, "_").toUpperCase();
+            LOJAS.push({ slug, nome: corpo.nome, cidade: corpo.cidade, uf: corpo.uf,
+                         ativo: 0, tem_senha: 0, banco, prefixo_r2: slug });
+            return responder({ sucesso: true, slug, banco, prefixo: slug,
+                faltaFazer: { bancoD1: "farmatech-" + slug, binding: banco, schema: "pedidos-proxy/schema.sql" } });
+        }
+        const conferindo = url.pathname.match(/^\/lojas\/([a-z0-9-]+)\/conferir$/);
+        if (conferindo) {
+            /* Primeira conferência reprova; a segunda aprova — é o que
+               acontece de verdade quando a pessoa vai à Cloudflare e
+               cria o banco entre uma e outra. */
+            conferencias[conferindo[1]] = (conferencias[conferindo[1]] || 0) + 1;
+            const pronta = conferencias[conferindo[1]] > 1;
+            const loja = LOJAS.find((l) => l.slug === conferindo[1]) || {};
+            return responder({
+                slug: conferindo[1], nome: loja.nome, ativo: !!loja.ativo, podeLigar: pronta,
+                conferencias: [
+                    { o: "cadastro", ok: true, recado: "Está na tabela de lojas." },
+                    { o: "horário", ok: true, recado: "7 faixas cadastradas." },
+                    { o: "banco cadastrado", ok: true, recado: `Aponta para ${loja.banco}.` },
+                    { o: "binding ligado ao worker", ok: pronta,
+                      recado: pronta ? "Ligado e respondendo."
+                                     : `O binding ${loja.banco} não existe neste worker.` },
+                    { o: "tabelas de operação", ok: pronta, recado: pronta ? "Tem as tabelas." : "Sem as tabelas." },
+                    { o: "banco separado do principal", ok: pronta, recado: pronta ? "É só desta filial." : "—" },
+                    { o: "senha", ok: false, recado: "Ainda sem senha própria." }
+                ]
+            });
+        }
+        const ligando = url.pathname.match(/^\/lojas\/([a-z0-9-]+)\/ativo$/);
+        if (ligando) {
+            const loja = LOJAS.find((l) => l.slug === ligando[1]);
+            if (loja) loja.ativo = JSON.parse(pedido.postData() || "{}").ativo === false ? 0 : 1;
+            return responder({ sucesso: true, slug: ligando[1], ativo: !!(loja && loja.ativo) });
         }
         if (url.pathname === "/fila") return responder({ pedidos: [], abertos: ["novo"] });
         if (url.pathname === "/resumo") {
@@ -175,7 +224,13 @@ let chamadasDoDono;
     const botoes = await pagina.$$eval("[data-ir-para]", (bs) => bs.map((b) => b.dataset.irPara));
     conferir("a filial desligada não oferece o botão de operar",
         !botoes.includes("farma-parada"), botoes.join(","));
-    conferir("e diz por quê", /ligue a filial/.test(texto), texto.replace(/\s+/g, " ").slice(0, 120));
+    /* No lugar do botão de entrar, a filial desligada oferece terminar o
+       cadastro — que é o que falta de verdade. Uma filial fica desligada
+       porque o cadastro está pela metade, e mandar a pessoa "ligar" sem
+       dizer o que falta só adia a descoberta. */
+    const terminar = await pagina.$$eval("[data-terminar]", (bs) => bs.map((b) => b.dataset.terminar));
+    conferir("e oferece terminar o cadastro dela",
+        terminar.includes("farma-parada"), terminar.join(","));
 
     /* Banco em branco só é certo na primeira linha. Em qualquer outra é
        cadastro pela metade, e o worker recusa a filial com 503 — melhor
@@ -247,6 +302,78 @@ console.log("\n3. trocar de filial: o cabeçalho acompanha TUDO");
         ["/fila", "/resumo", "/banners/todos", "/promocoes/todas", "/encartes"]
             .every((c) => caminhos.includes(c)),
         caminhos.join(","));
+
+    await contexto.close();
+}
+
+/* ---- 3b. cadastrar uma filial pela tela ----------------------------- */
+console.log("\n3b. cadastrar filial sem escrever uma linha de SQL");
+{
+    const { pagina, contexto, chamadas } = await abrirPainel({ dono: true });
+    await entrar(pagina, "chave-de-dono");
+    await pagina.click("#botaoAbaLojas");
+    await pagina.waitForSelector("#listaLojas table", { timeout: 15000 });
+
+    /* O apelido é sugerido a partir do nome, e não imposto: ele vai no
+       endereço da vitrine e no nome do banco, então quem cadastra tem de
+       poder encurtar. */
+    await pagina.fill("#novaNome", "Drogaria São José");
+    await pagina.waitForTimeout(200);
+    const sugerido = await pagina.inputValue("#novaSlug");
+    conferir("sugere o apelido a partir do nome, sem acento",
+        sugerido === "drogaria-sao-jose", sugerido);
+
+    await pagina.fill("#novaSlug", "sao-jose");
+    await pagina.fill("#novaCidade", "Osasco");
+    await pagina.fill("#novaUf", "SP");
+    await pagina.fill("#novaWhats", "(11) 95555-4444");
+    await pagina.fill("#novaFarmaceutico", "Dr. Pedro Alves");
+    await pagina.fill("#novaCrf", "112233");
+    await pagina.selectOption("#novaRotulo", "Farmacêutico responsável");
+
+    await pagina.click("#btnCriarFilial");
+    await pagina.waitForSelector("#passosFilial:not([hidden])", { timeout: 15000 });
+
+    const envio = chamadas.find((c) => c.caminho === "/lojas" && c.metodo === "POST");
+    conferir("manda o cadastro ao worker", !!envio);
+    const corpoEnviado = JSON.parse(envio.corpo);
+    conferir("com o apelido que a pessoa escolheu, não o sugerido",
+        corpoEnviado.slug === "sao-jose", corpoEnviado.slug);
+    conferir("e com o rótulo do responsável escolhido à mão",
+        corpoEnviado.rotuloResponsavel === "Farmacêutico responsável", corpoEnviado.rotuloResponsavel);
+
+    const passos = await pagina.textContent("#passosFilial");
+    conferir("mostra o nome do banco D1 a criar", /farmatech-sao-jose/.test(passos), passos.slice(0, 160));
+    conferir("e o nome do binding a ligar", /DB_SAO_JOSE/.test(passos), passos.slice(0, 160));
+
+    /* A conferência é a trava: enquanto o banco não existe, não há botão
+       de ligar. É o que impede uma filial meio cadastrada chegar ao
+       cliente e mostrar 503 — ou, pior, a fila da farmácia errada. */
+    await pagina.click("#btnConferirFilial");
+    await pagina.waitForSelector("#resultadoConferencia .conferencia", { timeout: 15000 });
+
+    const semBanco = await pagina.textContent("#resultadoConferencia");
+    conferir("reprova enquanto o binding não existe", /não existe neste worker/.test(semBanco),
+        semBanco.replace(/\s+/g, " ").slice(0, 140));
+    conferir("e não oferece o botão de ligar", !(await pagina.isVisible("#btnLigarFilial")));
+
+    /* Agora o banco existe (o worker de mentira aprova na segunda). */
+    await pagina.click("#btnConferirFilial");
+    await pagina.waitForSelector("#btnLigarFilial", { timeout: 15000 });
+    conferir("depois de criado o banco, aparece o botão de ligar", true);
+
+    await pagina.click("#btnLigarFilial");
+    await pagina.waitForTimeout(1200);
+
+    const ligou = chamadas.find((c) => c.caminho === "/lojas/sao-jose/ativo");
+    conferir("liga a filial", !!ligou && JSON.parse(ligou.corpo).ativo === true, ligou && ligou.corpo);
+
+    const lista = await pagina.textContent("#listaLojas");
+    conferir("e ela entra na lista", /São José|Drogaria São José|sao-jose/.test(lista),
+        lista.replace(/\s+/g, " ").slice(0, 160));
+
+    const aviso = await pagina.textContent("#avisoLojas");
+    conferir("lembrando que falta a senha dela", /senha/.test(aviso || ""), aviso);
 
     await contexto.close();
 }

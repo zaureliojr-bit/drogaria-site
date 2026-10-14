@@ -400,6 +400,14 @@
   #abaLojas .aqui { font-size: 12px; color: var(--marca); font-weight: 700; }
   #abaLojas .desligada { font-size: 12px; color: var(--tinta-suave); font-style: italic; }
   #abaLojas .falta { font-size: 12px; color: var(--erro); font-weight: 700; }
+  #abaLojas .passos { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 10px; }
+  #abaLojas .passos li { font-size: 13px; line-height: 1.55; }
+  #abaLojas .conferencia { list-style: none; margin: 14px 0; padding: 0; display: grid; gap: 6px; }
+  #abaLojas .conferencia li { font-size: 12.5px; line-height: 1.5; padding-left: 22px; position: relative; }
+  #abaLojas .conferencia li::before { position: absolute; left: 0; font-weight: 700; }
+  #abaLojas .conferencia .passou::before { content: "\2713"; color: var(--ok); }
+  #abaLojas .conferencia .falhou::before { content: "\2715"; color: var(--erro); }
+  #abaLojas .conferencia .falhou { color: var(--erro); }
 
   .aviso-ok {
     background: #E6F4EC; border: 1px solid var(--ok); color: var(--ok);
@@ -526,12 +534,141 @@
         <button type="button" id="btnSalvarSenhaLoja" class="principal">Salvar senha da filial</button>
       </div>
 
-      <p class="lojas-explica">
-        Para incluir uma filial nova no sistema ainda é preciso um
-        <code>INSERT</code> na tabela <code>lojas</code> pelo console do
-        D1, mais o banco de dados dela e o binding no worker. A tela de
-        cadastro completo vem junto com o painel de operador.
-      </p>
+      <div class="form-banner" style="margin-top:20px;">
+        <strong>Cadastrar uma filial nova</strong>
+
+        <p class="lojas-explica" style="margin:0;">
+          Preencha e salve. A filial nasce desligada; depois disso faltam
+          dois cliques no painel da Cloudflare — criar o banco de dados
+          dela e ligá-lo a este worker —, e esta tela confere se você fez
+          certo antes de deixar ligar.
+        </p>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Nome da farmácia</span>
+            <input type="text" id="novaNome" maxlength="120" placeholder="Farmácia do Centro">
+          </label>
+          <label class="campo">
+            <span>Apelido</span>
+            <input type="text" id="novaSlug" maxlength="60" placeholder="farma-centro"
+                   autocomplete="off" spellcheck="false">
+            <small>Vai no endereço da vitrine, no nome do banco e na pasta
+                   dos arquivos. Só letra minúscula, número e hífen —
+                   trocar depois dá trabalho.</small>
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Razão social</span>
+            <input type="text" id="novaRazao" maxlength="120">
+          </label>
+          <label class="campo">
+            <span>CNPJ</span>
+            <input type="text" id="novaCnpj" maxlength="20" placeholder="00.000.000/0001-00">
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Rua</span>
+            <input type="text" id="novaLogradouro" maxlength="120">
+          </label>
+          <label class="campo">
+            <span>Número e complemento</span>
+            <span class="campo-linha">
+              <input type="text" id="novaNumero" maxlength="20" placeholder="nº" style="max-width:90px;">
+              <input type="text" id="novaComplemento" maxlength="60" placeholder="Loja 1 (opcional)">
+            </span>
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Bairro</span>
+            <input type="text" id="novaBairro" maxlength="80">
+          </label>
+          <label class="campo">
+            <span>Cidade, UF e CEP</span>
+            <span class="campo-linha">
+              <input type="text" id="novaCidade" maxlength="80" placeholder="Cidade">
+              <input type="text" id="novaUf" maxlength="2" placeholder="UF" style="max-width:60px;">
+              <input type="text" id="novaCep" maxlength="12" placeholder="00000-000" style="max-width:120px;">
+            </span>
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>WhatsApp da loja</span>
+            <input type="text" id="novaWhats" maxlength="24" placeholder="(11) 90000-0000">
+            <small>É para onde vão os pedidos dessa filial.</small>
+          </label>
+          <label class="campo">
+            <span>Fuso horário</span>
+            <select id="novaFuso">
+              <option value="America/Sao_Paulo">Brasília (SP, RJ, MG, Sul, Nordeste…)</option>
+              <option value="America/Cuiaba">Cuiabá (MT, MS)</option>
+              <option value="America/Manaus">Manaus (AM, RO, RR)</option>
+              <option value="America/Belem">Belém (PA, AP)</option>
+              <option value="America/Rio_Branco">Rio Branco (AC)</option>
+              <option value="America/Noronha">Fernando de Noronha</option>
+            </select>
+            <small>O indicador de Aberto/Fechado usa o relógio da loja,
+                   não o de quem está olhando.</small>
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Responsável técnico</span>
+            <input type="text" id="novaFarmaceutico" maxlength="120" placeholder="Dra. Maria Silva">
+          </label>
+          <label class="campo">
+            <span>CRF e como se identifica</span>
+            <span class="campo-linha">
+              <input type="text" id="novaCrf" maxlength="20" placeholder="CRF" style="max-width:110px;">
+              <select id="novaRotulo">
+                <option value="Farmacêutica responsável">Farmacêutica responsável</option>
+                <option value="Farmacêutico responsável">Farmacêutico responsável</option>
+                <option value="Farmacêutico(a) responsável">Farmacêutico(a) responsável</option>
+              </select>
+            </span>
+            <small>Vai impresso no rodapé de todas as páginas, ao lado do
+                   CRF. Por isso é escolhido, e não deduzido do nome.</small>
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Autorização de funcionamento</span>
+            <input type="text" id="novaAutorizacao" maxlength="120" placeholder="Processo 00000.000000/0000-00">
+          </label>
+          <label class="campo">
+            <span>Licença MS</span>
+            <input type="text" id="novaLicenca" maxlength="60" placeholder="MS 0.00000-0">
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Raio de entrega (km)</span>
+            <input type="number" id="novaRaio" min="0" step="0.5" value="8">
+          </label>
+          <label class="campo">
+            <span>Frete grátis acima de (R$)</span>
+            <input type="number" id="novaFreteGratis" min="0" step="1" value="0">
+            <small>Zero desliga a promessa de frete grátis.</small>
+          </label>
+        </div>
+
+        <button type="button" id="btnCriarFilial" class="principal">Cadastrar filial</button>
+      </div>
+
+      <!-- O passo a passo do que falta, preenchido pelo worker depois do
+           cadastro. Fica escondido até existir uma filial sendo montada. -->
+      <div id="passosFilial" hidden></div>
 
     </div>
 
@@ -2454,7 +2591,7 @@ async function carregarLojas() {
       l.slug === lojaAtual
         ? '<span class="aqui">você está aqui</span>'
         : !l.ativo
-          ? '<span class="desligada">ligue a filial para entrar nela</span>'
+          ? `<button type="button" class="btn-operar" data-terminar="${esc(l.slug)}">Terminar cadastro</button>`
           : `<button type="button" class="btn-operar" data-ir-para="${esc(l.slug)}">Operar nesta</button>`
     ]),
     "Nenhuma filial cadastrada."
@@ -2535,6 +2672,194 @@ async function salvarSenhaDaLoja() {
 }
 
 el("btnSalvarSenhaLoja").addEventListener("click", salvarSenhaDaLoja);
+
+/* ---------- cadastrar filial nova ---------- */
+
+/* "Farmácia do Centro" -> "farmacia-do-centro".
+
+   Sugerido enquanto se digita o nome, e não imposto: o apelido vai no
+   endereço da vitrine e no nome do banco, então quem cadastra tem de
+   poder encurtar. Só preenche enquanto ninguém mexeu no campo. */
+el("novaNome").addEventListener("input", () => {
+  const campo = el("novaSlug");
+  if (campo.dataset.mexido) return;
+  campo.value = (el("novaNome").value || "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+});
+el("novaSlug").addEventListener("input", () => { el("novaSlug").dataset.mexido = "1"; });
+
+async function criarFilial() {
+  const slug = (el("novaSlug").value || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+  const nome = (el("novaNome").value || "").trim();
+
+  if (!nome) return avisoLojas("Escreva o nome da farmácia.");
+  if (!slug) return avisoLojas("Escolha o apelido da filial.");
+
+  const botao = el("btnCriarFilial");
+  botao.disabled = true;
+
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/lojas`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        slug, nome,
+        razaoSocial: el("novaRazao").value,
+        cnpj: el("novaCnpj").value,
+        logradouro: el("novaLogradouro").value,
+        numeroEndereco: el("novaNumero").value,
+        complemento: el("novaComplemento").value,
+        bairro: el("novaBairro").value,
+        cidade: el("novaCidade").value,
+        uf: el("novaUf").value,
+        cep: el("novaCep").value,
+        whatsapp: el("novaWhats").value,
+        farmaceutico: el("novaFarmaceutico").value,
+        crf: el("novaCrf").value,
+        rotuloResponsavel: el("novaRotulo").value,
+        autorizacao: el("novaAutorizacao").value,
+        licencaMs: el("novaLicenca").value,
+        raioEntregaKm: el("novaRaio").value,
+        freteGratisAcima: el("novaFreteGratis").value,
+        fuso: el("novaFuso").value
+      })
+    });
+
+    const corpo = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(corpo.erro || `HTTP ${r.status}`);
+
+    await carregarLojas();
+    avisoLojas(`${nome} cadastrada, e desligada. Faltam os dois passos abaixo.`, false);
+    await mostrarPassos(slug, corpo);
+
+    document.querySelectorAll('[id^="nova"]').forEach(c => {
+      if (c.tagName === "INPUT" && c.type !== "number") c.value = "";
+    });
+    el("novaSlug").dataset.mexido = "";
+
+  } catch (erro) {
+    avisoLojas("Não consegui cadastrar: " + erro.message);
+  } finally {
+    botao.disabled = false;
+  }
+}
+
+el("btnCriarFilial").addEventListener("click", criarFilial);
+
+/* ---------- o que falta fazer, e a conferência ---------- */
+
+/* A parte que o worker NÃO pode fazer sozinho: criar o banco D1 e ligar
+   o binding. Isso exigiria um token de API da Cloudflare guardado dentro
+   deste worker — e o token capaz de mexer em binding de worker é capaz
+   de reescrever o próprio worker. Guardar aqui a chave que abre a casa,
+   para economizar dois cliques por cliente novo, não paga.
+
+   Então a tela faz a outra metade: diz exatamente o que fazer, e confere
+   se foi feito antes de deixar ligar a filial. */
+async function mostrarPassos(slug, cadastro) {
+  const caixa = el("passosFilial");
+  caixa.hidden = false;
+  caixa.dataset.slug = slug;
+
+  const banco = (cadastro && cadastro.faltaFazer) || {};
+
+  caixa.innerHTML = `
+    <div class="form-banner">
+      <strong>Faltam dois passos na Cloudflare — filial <code>${esc(slug)}</code></strong>
+
+      <ol class="passos">
+        <li>
+          <b>Criar o banco de dados dela.</b>
+          Cloudflare &rarr; D1 &rarr; <em>Create database</em>, com o nome
+          <code>${esc(banco.bancoD1 || ("farmatech-" + slug))}</code>.
+          Abra o console dele e rode o <code>${esc(banco.schema || "pedidos-proxy/schema.sql")}</code>.
+        </li>
+        <li>
+          <b>Ligar o banco a este worker.</b>
+          Workers &rarr; farmatech-pedidos-proxy &rarr; Settings &rarr; Bindings &rarr; Add &rarr;
+          D1 database, com o nome de variável
+          <code>${esc(banco.binding || "")}</code> apontando para o banco
+          que você acabou de criar. Depois, <em>Deploy</em>.
+        </li>
+      </ol>
+
+      <button type="button" id="btnConferirFilial" class="principal">Já fiz — conferir</button>
+
+      <div id="resultadoConferencia"></div>
+    </div>
+  `;
+
+  el("btnConferirFilial").addEventListener("click", () => conferirFilial(slug));
+}
+
+async function conferirFilial(slug) {
+  const area = el("resultadoConferencia");
+  if (!area) return;
+  area.innerHTML = "<p class='lojas-explica'>conferindo…</p>";
+
+  try {
+    const r = await api(`/lojas/${encodeURIComponent(slug)}/conferir`);
+
+    area.innerHTML = `
+      <ul class="conferencia">
+        ${r.conferencias.map(c => `
+          <li class="${c.ok ? "passou" : "falhou"}">
+            <b>${esc(c.o)}</b> — ${esc(c.recado)}
+          </li>`).join("")}
+      </ul>
+      ${r.podeLigar
+        ? `<button type="button" id="btnLigarFilial" class="principal">Ligar a filial ${esc(r.nome)}</button>`
+        : "<p class='lojas-explica'>Resolva o que está em vermelho e confira de novo.</p>"}
+    `;
+
+    if (r.podeLigar) {
+      el("btnLigarFilial").addEventListener("click", () => ligarFilial(slug));
+    }
+
+  } catch (erro) {
+    area.innerHTML = "";
+    avisoLojas("Não consegui conferir: " + erro.message);
+  }
+}
+
+async function ligarFilial(slug) {
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/lojas/${encodeURIComponent(slug)}/ativo`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ ativo: true })
+    });
+
+    const corpo = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(corpo.erro || `HTTP ${r.status}`);
+
+    el("passosFilial").hidden = true;
+    el("passosFilial").innerHTML = "";
+
+    await carregarLojas();
+    avisoLojas(
+      "Filial no ar. Falta cadastrar a senha dela aqui em cima — sem isso ela " +
+      "entra com a chave antiga do worker.", false);
+
+  } catch (erro) {
+    avisoLojas("Não consegui ligar: " + erro.message);
+  }
+}
+
+/* Uma filial cadastrada e desligada é cadastro pela metade esperando
+   alguém terminar. O botão na lista reabre o passo a passo dela. */
+el("listaLojas").addEventListener("click", (ev) => {
+  const botao = ev.target.closest("[data-terminar]");
+  if (!botao) return;
+  const slug = botao.dataset.terminar;
+  const loja = lojasDaPlataforma.find(l => l.slug === slug) || {};
+  mostrarPassos(slug, { faltaFazer: {
+    bancoD1: "farmatech-" + slug,
+    binding: loja.banco || "",
+    schema: "pedidos-proxy/schema.sql"
+  } }).then(() => conferirFilial(slug));
+});
 
 el("listaLojas").addEventListener("click", (ev) => {
   const botao = ev.target.closest("[data-ir-para]");
