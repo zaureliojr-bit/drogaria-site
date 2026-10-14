@@ -399,6 +399,7 @@
   #abaLojas .btn-operar:hover { border-color: var(--marca); color: var(--marca); }
   #abaLojas .aqui { font-size: 12px; color: var(--marca); font-weight: 700; }
   #abaLojas .desligada { font-size: 12px; color: var(--tinta-suave); font-style: italic; }
+  #abaLojas .falta { font-size: 12px; color: var(--erro); font-weight: 700; }
 
   .aviso-ok {
     background: #E6F4EC; border: 1px solid var(--ok); color: var(--ok);
@@ -2424,14 +2425,25 @@ async function carregarLojas() {
   el("listaLojas").innerHTML = tabela(
     [{ titulo: "Filial", larga: true }, { titulo: "Apelido" }, { titulo: "Cidade" },
      { titulo: "Senha própria" }, { titulo: "Banco" }, { titulo: "No ar" }, { titulo: "" }],
-    lojasDaPlataforma.map(l => [
+    lojasDaPlataforma.map((l, i) => [
       esc(l.nome),
       `<code>${esc(l.slug)}</code>`,
       esc([l.cidade, l.uf].filter(Boolean).join("/")),
       l.tem_senha ? "sim" : "<em>ainda não</em>",
-      /* Banco em branco é a farmácia que divide o banco original — o
-         caso da primeira, e não um erro de cadastro. */
-      l.banco ? `<code>${esc(l.banco)}</code>` : "<em>o principal</em>",
+      /* Banco em branco só é certo na PRIMEIRA linha — a farmácia que
+         existia antes da plataforma e cujos dados estão no banco
+         original. A lista vem ordenada por data de cadastro, então a
+         primeira linha é ela.
+
+         Em qualquer outra, banco em branco é cadastro pela metade: o
+         worker recusa a filial com 503, e é melhor ver o aviso aqui,
+         enquanto se cadastra, do que descobrir quando a dona da farmácia
+         tentar entrar. */
+      l.banco
+        ? `<code>${esc(l.banco)}</code>`
+        : i === 0
+          ? "<em>o principal</em>"
+          : '<span class="falta">falta o banco próprio</span>',
       l.ativo ? "sim" : "<em>desligada</em>",
       /* Filial desligada não oferece o botão. O worker só autentica em
          loja com ativo = 1, então clicar devolveria 401 — e o painel,

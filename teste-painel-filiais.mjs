@@ -177,6 +177,15 @@ let chamadasDoDono;
         !botoes.includes("farma-parada"), botoes.join(","));
     conferir("e diz por quê", /ligue a filial/.test(texto), texto.replace(/\s+/g, " ").slice(0, 120));
 
+    /* Banco em branco só é certo na primeira linha. Em qualquer outra é
+       cadastro pela metade, e o worker recusa a filial com 503 — melhor
+       ver o aviso aqui, cadastrando, do que quando a dona tentar entrar. */
+    conferir("avisa qual filial está sem banco próprio",
+        /falta o banco próprio/.test(texto), texto.replace(/\s+/g, " ").slice(0, 160));
+    conferir("e não acusa a primeira, que usa o banco original de direito",
+        (texto.match(/falta o banco próprio/g) || []).length === 1,
+        String((texto.match(/falta o banco próprio/g) || []).length));
+
     /* Cadastrar a senha de uma filial. */
     await pagina.selectOption("#senhaLojaAlvo", "farma-centro");
     await pagina.fill("#senhaLojaNova", "senha-boa-da-filial");
