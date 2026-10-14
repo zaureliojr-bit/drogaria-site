@@ -383,6 +383,22 @@
   .banner-acoes .perigo { color: var(--erro); border-color: var(--erro-clara); }
   .banner-acoes .perigo:hover { background: var(--erro-clara); }
 
+  /* A aba de filiais. Pouca regra de propósito: ela reaproveita
+     .form-banner, .campo e .tabela-wrap, que já existem — tela de
+     administração não precisa de linguagem visual própria. */
+  #abaLojas .lojas-explica {
+    font-size: 12.5px; color: var(--tinta-suave); line-height: 1.5;
+    max-width: 70ch; margin: 10px 0 14px;
+  }
+  #abaLojas .principal { background: var(--marca); border-color: var(--marca); color: var(--branco); }
+  #abaLojas code { font-size: 12px; background: var(--fundo); padding: 1px 5px; border-radius: 4px; }
+  #abaLojas .btn-operar {
+    font-size: 12px; padding: 4px 10px; border: 1px solid var(--linha);
+    border-radius: var(--raio-sm); background: var(--branco); cursor: pointer;
+  }
+  #abaLojas .btn-operar:hover { border-color: var(--marca); color: var(--marca); }
+  #abaLojas .aqui { font-size: 12px; color: var(--marca); font-weight: 700; }
+
   .aviso-ok {
     background: #E6F4EC; border: 1px solid var(--ok); color: var(--ok);
     padding: 10px 12px; border-radius: var(--raio-sm); font-size: 12.5px; margin-bottom: 12px;
@@ -414,10 +430,14 @@
 
   <div id="login" class="entrar" style="display:none;">
     <h2>Painel da loja</h2>
-    <p>Digite a senha do painel. Ela é a mesma que está no
-       <code>PAINEL_KEY</code> do worker de pedidos.</p>
+    <p>Digite a senha do painel.</p>
     <div id="erroLogin"></div>
     <input type="password" id="senha" placeholder="Senha do painel" autocomplete="current-password">
+    <!-- Em branco é a farmácia principal, que é o caso de quem tem uma
+         loja só. Quem administra a rede põe o apelido da filial aqui, ou
+         entra em qualquer uma e troca depois pela aba Lojas. -->
+    <input type="text" id="lojaLogin" placeholder="Filial (deixe em branco para a principal)"
+           autocomplete="off" spellcheck="false">
     <button id="btnEntrar">Entrar</button>
   </div>
 
@@ -431,6 +451,10 @@
       <button data-aba="relatorios">Relatórios</button>
       <button data-aba="catalogo">Catálogo</button>
       <button data-aba="padronizador">Padronizador</button>
+      <!-- Só aparece para quem entrou com a chave de dono da plataforma.
+           Esconder o botão não é a permissão: o worker recusa /lojas a
+           quem não é dono, e é lá que a conta é feita. -->
+      <button data-aba="lojas" id="botaoAbaLojas" hidden>Filiais</button>
     </div>
 
     <!-- ===== ABA: FILA DE PEDIDOS ===== -->
@@ -454,6 +478,58 @@
       </div>
 
       <div class="fila" id="fila"></div>
+
+    </div>
+
+    <!-- ===== ABA: FILIAIS (só para o dono da plataforma) ===== -->
+    <div id="abaLojas" hidden>
+
+      <div id="avisoLojas"></div>
+
+      <p class="lojas-explica">
+        Cada farmácia tem a senha dela. A sua — a chave de dono — abre
+        todas, e é a única que faz isso. Serve para cadastrar a senha de
+        uma filial nova e para dar suporte sem precisar pedir a senha de
+        ninguém.
+      </p>
+
+      <div class="tabela-wrap" id="listaLojas"></div>
+
+      <div class="form-banner" style="margin-top:20px;">
+        <strong>Cadastrar ou trocar a senha de uma filial</strong>
+
+        <p class="lojas-explica" style="margin:0;">
+          Enquanto uma filial não tem senha própria, ela entra com a
+          chave antiga do worker. Depois de cadastrada, só a senha dela
+          abre aquele painel — e a sua, de dono, continua abrindo.
+        </p>
+
+        <label class="campo">
+          <span>Filial</span>
+          <select id="senhaLojaAlvo"></select>
+        </label>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Senha nova</span>
+            <input type="password" id="senhaLojaNova" autocomplete="new-password"
+                   placeholder="pelo menos 8 caracteres">
+          </label>
+          <label class="campo">
+            <span>Repita a senha</span>
+            <input type="password" id="senhaLojaConfirma" autocomplete="new-password">
+          </label>
+        </div>
+
+        <button type="button" id="btnSalvarSenhaLoja" class="principal">Salvar senha da filial</button>
+      </div>
+
+      <p class="lojas-explica">
+        Para incluir uma filial nova no sistema ainda é preciso um
+        <code>INSERT</code> na tabela <code>lojas</code> pelo console do
+        D1, mais o banco de dados dela e o binding no worker. A tela de
+        cadastro completo vem junto com o painel de operador.
+      </p>
 
     </div>
 
@@ -766,8 +842,36 @@ const numeroBR = v => {
 let senha = sessionStorage.getItem("painelKey") || "";
 let dias = 30;
 
+/* Em qual farmácia este painel está operando.
+
+   Vazio quer dizer "a principal", que é o caso de quem tem uma loja só —
+   e é o que mantém este painel funcionando exatamente como antes.
+
+   Quem administra a plataforma (a chave DONO_KEY do worker) troca de
+   loja pela aba Lojas, e aí este valor muda. Cada chamada carrega o slug
+   no cabeçalho, e o worker confere a senha CONTRA AQUELA loja: mandar o
+   slug de outra farmácia com a senha errada não entra. */
+let lojaAtual = sessionStorage.getItem("painelLoja") || "";
+
+/* Verdadeiro quando quem entrou é o dono da plataforma. Serve só para
+   mostrar a aba Lojas — a permissão de verdade é do worker, que recusa
+   /lojas para quem não é dono. Esconder botão não é segurança. */
+let souDono = false;
+
+/* Todo pedido ao worker passa por aqui, para nenhum esquecer de dizer em
+   qual farmácia está. Antes eram doze objetos de cabeçalho soltos pelo
+   arquivo, e um esquecido significaria o painel do dono salvando banner
+   na loja errada. */
+function cabecalhos(extra = {}) {
+  return {
+    "X-Painel-Key": senha,
+    ...(lojaAtual ? { "X-Painel-Loja": lojaAtual } : {}),
+    ...extra
+  };
+}
+
 async function api(rota) {
-  const r = await fetch(`${API.replace(/\/+$/, "")}${rota}`, { headers: { "X-Painel-Key": senha } });
+  const r = await fetch(`${API.replace(/\/+$/, "")}${rota}`, { headers: cabecalhos() });
   if (r.status === 401) throw new Error("SENHA");
   /* 429 é o limite de tentativas do worker. Sem este caso a tela diria
      "não consegui falar com o servidor", e quem errou a senha cinco
@@ -887,6 +991,7 @@ async function abrirPainel() {
   await carregarFila();          // falha aqui = senha errada ou servidor fora, e cai no catch de tentar()
   el("login").style.display = "none";
   el("conteudo").style.display = "";
+  await carregarSessao();
   ligarPolling();
   carregarCatalogo().then(() => { if (fila.length) pintarFila(); renderizarSemImagem(); });
 
@@ -915,6 +1020,12 @@ async function tentar() {
     if (!erro.espera) {
       sessionStorage.removeItem("painelKey");
       senha = "";
+      /* Também solta a filial: o 401 pode ser "essa farmácia não existe"
+         tanto quanto "senha errada" — o worker responde igual para os
+         dois de propósito. Sem soltar, quem digitou o apelido errado
+         ficaria preso tentando a senha certa para sempre. */
+      sessionStorage.removeItem("painelLoja");
+      lojaAtual = "";
     }
     let recado;
     if (erro.espera) {
@@ -935,6 +1046,13 @@ el("btnEntrar").addEventListener("click", () => {
   senha = el("senha").value.trim();
   if (!senha) return;
   sessionStorage.setItem("painelKey", senha);
+
+  /* O apelido da filial, se quem entrou digitou um. Vazio volta para a
+     principal — senão, quem errou o apelido ficaria preso numa filial
+     inexistente sem entender por que a senha "parou de funcionar". */
+  lojaAtual = (el("lojaLogin").value || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+  if (lojaAtual) sessionStorage.setItem("painelLoja", lojaAtual);
+  else sessionStorage.removeItem("painelLoja");
 
   /* Aqui, e só aqui, porque os dois exigem um gesto do usuário: o
      navegador não deixa tocar som nem pedir permissão de aviso sem um
@@ -1264,7 +1382,7 @@ function ligarPolling() {
 async function mudarStatus(ref, status) {
   const r = await fetch(`${API.replace(/\/+$/, "")}/status`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+    headers: cabecalhos({ "Content-Type": "application/json" }),
     body: JSON.stringify({ ref, status })
   });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1602,7 +1720,7 @@ el("promoAplicar").addEventListener("click", async () => {
   try {
     const r = await fetch(`${API.replace(/\/+$/, "")}/promocoes`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      headers: cabecalhos({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         itens,
         inicio: el("promoInicio").value,
@@ -1634,7 +1752,7 @@ el("promoTirar").addEventListener("click", async () => {
   try {
     const r = await fetch(`${API.replace(/\/+$/, "")}/promocoes/excluir`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      headers: cabecalhos({ "Content-Type": "application/json" }),
       body: JSON.stringify({ codigos: marcados })
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1657,7 +1775,7 @@ el("promoLotes").addEventListener("click", async (ev) => {
   try {
     const r = await fetch(`${API.replace(/\/+$/, "")}/promocoes/excluir`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      headers: cabecalhos({ "Content-Type": "application/json" }),
       body: JSON.stringify({ lote })
     });
     const dados = await r.json().catch(() => ({}));
@@ -1796,7 +1914,7 @@ el("bannerArquivo").addEventListener("change", e => {
 async function enviarArquivoDoBanner(arquivo) {
   const r = await fetch(`${API.replace(/\/+$/, "")}/banners/imagem`, {
     method: "POST",
-    headers: { "Content-Type": arquivo.type, "X-Painel-Key": senha },
+    headers: cabecalhos({ "Content-Type": arquivo.type }),
     body: arquivo
   });
   const dados = await r.json().catch(() => ({}));
@@ -1828,7 +1946,7 @@ el("formBanner").addEventListener("submit", async (ev) => {
 
     const r = await fetch(`${API.replace(/\/+$/, "")}/banners`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      headers: cabecalhos({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         id: Number(el("bannerId").value) || 0,
         imagem,
@@ -1875,7 +1993,7 @@ el("listaBanners").addEventListener("click", async (ev) => {
   try {
     const r = await fetch(`${API.replace(/\/+$/, "")}/banners/excluir`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      headers: cabecalhos({ "Content-Type": "application/json" }),
       body: JSON.stringify({ id: b.id })
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1981,7 +2099,7 @@ function pintarFilaDePaginas() {
 async function enviarArquivo(arquivo, pasta) {
   const r = await fetch(`${API.replace(/\/+$/, "")}/arquivos?pasta=${pasta}`, {
     method: "POST",
-    headers: { "Content-Type": arquivo.type, "X-Painel-Key": senha },
+    headers: cabecalhos({ "Content-Type": arquivo.type }),
     body: arquivo
   });
   const dados = await r.json().catch(() => ({}));
@@ -2086,7 +2204,7 @@ el("formEncarte").addEventListener("submit", async (ev) => {
   try {
     const r = await fetch(`${API.replace(/\/+$/, "")}/encartes`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      headers: cabecalhos({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         id: Number(el("encarteId").value) || 0,
         titulo: el("encarteTitulo").value.trim(),
@@ -2130,7 +2248,7 @@ el("listaEncartes").addEventListener("click", async (ev) => {
   try {
     const r = await fetch(`${API.replace(/\/+$/, "")}/encartes/excluir`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Painel-Key": senha },
+      headers: cabecalhos({ "Content-Type": "application/json" }),
       body: JSON.stringify({ id: e.id })
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -2261,6 +2379,147 @@ async function renderizarSemImagem() {
 
 el("verificarCatalogo").addEventListener("click", verificarEPublicarCatalogo);
 
+/* =====================================================
+🏪 FILIAIS — só para quem entrou com a chave de dono
+===================================================== */
+
+let lojasDaPlataforma = [];
+
+function avisoLojas(msg, erro = true) {
+  el("avisoLojas").innerHTML = msg
+    ? `<div class="${erro ? "erro" : "aviso-ok"}">${esc(msg)}</div>` : "";
+}
+
+/* Quem sou eu e em qual farmácia estou.
+
+   Chamado logo depois do login. Se o worker for antigo e não tiver a
+   rota, segue como estava: painel de uma loja só, sem aba de filiais —
+   publicar o painel antes do worker não pode travar o balcão. */
+async function carregarSessao() {
+  try {
+    const s = await api("/sessao");
+    souDono = !!s.dono;
+    if (s.loja && s.loja.slug) lojaAtual = s.loja.slug;
+    el("botaoAbaLojas").hidden = !souDono;
+
+    /* O nome da filial no cabeçalho é o que evita o erro mais caro
+       deste painel: o dono mexer na loja errada achando que está na
+       dele. Aparece só quando há mais de uma possibilidade. */
+    if (souDono && s.loja && s.loja.nome) {
+      el("atualizado").textContent = `${s.loja.nome} · ` + el("atualizado").textContent;
+    }
+  } catch (erro) {
+    if (String(erro.message).startsWith("ROTA:")) return;   // worker antigo
+    throw erro;
+  }
+}
+
+async function carregarLojas() {
+  avisoLojas("");
+
+  const dados = await api("/lojas");
+  lojasDaPlataforma = dados.lojas || [];
+
+  el("listaLojas").innerHTML = tabela(
+    [{ titulo: "Filial", larga: true }, { titulo: "Apelido" }, { titulo: "Cidade" },
+     { titulo: "Senha própria" }, { titulo: "Banco" }, { titulo: "No ar" }, { titulo: "" }],
+    lojasDaPlataforma.map(l => [
+      esc(l.nome),
+      `<code>${esc(l.slug)}</code>`,
+      esc([l.cidade, l.uf].filter(Boolean).join("/")),
+      l.tem_senha ? "sim" : "<em>ainda não</em>",
+      /* Banco em branco é a farmácia que divide o banco original — o
+         caso da primeira, e não um erro de cadastro. */
+      l.banco ? `<code>${esc(l.banco)}</code>` : "<em>o principal</em>",
+      l.ativo ? "sim" : "<em>desligada</em>",
+      l.slug === lojaAtual
+        ? '<span class="aqui">você está aqui</span>' 
+        : `<button type="button" class="btn-operar" data-ir-para="${esc(l.slug)}">Operar nesta</button>`
+    ]),
+    "Nenhuma filial cadastrada."
+  );
+
+  const alvo = el("senhaLojaAlvo");
+  alvo.innerHTML = lojasDaPlataforma
+    .map(l => `<option value="${esc(l.slug)}">${esc(l.nome)} (${esc(l.slug)})</option>`)
+    .join("");
+}
+
+/* Troca a filial em que o painel está operando.
+
+   Recarrega a página de propósito, em vez de só trocar a variável: há
+   fila, banners, promoções, encartes e catálogo já carregados na tela, e
+   cada um teria de ser esvaziado e buscado de novo. Uma tela meio
+   trocada — fila da filial nova com os banners da antiga — é pior do que
+   dois segundos de espera, e é o tipo de erro que só aparece depois de
+   alguém publicar o banner errado. */
+function operarNaLoja(slug) {
+  sessionStorage.setItem("painelLoja", slug);
+  location.reload();
+}
+
+async function salvarSenhaDaLoja() {
+  const alvo = el("senhaLojaAlvo").value;
+  const nova = el("senhaLojaNova").value;
+  const confirma = el("senhaLojaConfirma").value;
+
+  if (!alvo) return avisoLojas("Escolha a filial.");
+  if (nova.length < 8) return avisoLojas("A senha precisa de pelo menos 8 caracteres.");
+  if (nova !== confirma) return avisoLojas("As duas senhas não são iguais.");
+
+  const botao = el("btnSalvarSenhaLoja");
+  botao.disabled = true;
+
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/loja/senha`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ slug: alvo, senha: nova })
+    });
+
+    const corpo = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(corpo.erro || `HTTP ${r.status}`);
+
+    /* Os campos são limpos na mesma hora, com ou sem erro depois: senha
+       digitada que fica na tela acaba num print de WhatsApp. */
+    el("senhaLojaNova").value = "";
+    el("senhaLojaConfirma").value = "";
+
+    const nome = (lojasDaPlataforma.find(l => l.slug === alvo) || {}).nome || alvo;
+
+    /* A lista é recarregada ANTES do aviso, e não depois: a
+       carregarLojas() começa limpando a área de avisos, e na primeira
+       versão ela apagava o "senha salva" meio segundo depois de ele
+       aparecer. Quem salvasse ficaria sem confirmação nenhuma e tentaria
+       de novo, achando que não tinha funcionado. */
+    await carregarLojas();
+
+    avisoLojas(`Senha de ${nome} salva. A partir de agora só ela abre o painel dessa filial.`, false);
+
+    /* Trocou a senha da filial em que você mesmo está, usando a senha
+       dela (e não a de dono)? Então a que está guardada nesta aba
+       deixou de valer. Melhor dizer agora do que na próxima chamada. */
+    if (!souDono && alvo === lojaAtual) {
+      avisoLojas("Senha trocada. Entre de novo com a senha nova.", false);
+      setTimeout(() => { sessionStorage.removeItem("painelKey"); location.reload(); }, 2500);
+    }
+
+  } catch (erro) {
+    el("senhaLojaNova").value = "";
+    el("senhaLojaConfirma").value = "";
+    avisoLojas("Não consegui salvar: " + erro.message);
+  } finally {
+    botao.disabled = false;
+  }
+}
+
+el("btnSalvarSenhaLoja").addEventListener("click", salvarSenhaDaLoja);
+
+el("listaLojas").addEventListener("click", (ev) => {
+  const botao = ev.target.closest("[data-ir-para]");
+  if (botao) operarNaLoja(botao.dataset.irPara);
+});
+
 el("abas").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-aba]");
   if (!btn) return;
@@ -2273,6 +2532,7 @@ el("abas").addEventListener("click", (ev) => {
   el("abaRelatorios").hidden = aba !== "relatorios";
   el("abaCatalogo").hidden = aba !== "catalogo";
   el("abaPadronizador").hidden = aba !== "padronizador";
+  el("abaLojas").hidden = aba !== "lojas";
 
   // O iframe só ganha "src" na primeira vez que a aba abre - antes
   // disso fica sem carregar o app React inteiro à toa.
@@ -2293,6 +2553,7 @@ el("abas").addEventListener("click", (ev) => {
   if (aba === "promocoes") carregarPromocoes().catch(e => avisoPromo("Não consegui carregar as promoções: " + e.message));
   if (aba === "encarte") carregarEncartes().catch(e => avisoEncarte("Não consegui carregar os encartes: " + e.message));
   if (aba === "catalogo") renderizarSemImagem().catch(() => {});
+  if (aba === "lojas") carregarLojas().catch(e => avisoLojas("Não consegui carregar as filiais: " + e.message));
 });
 
 tentar();
