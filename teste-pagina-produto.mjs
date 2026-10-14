@@ -153,7 +153,16 @@ console.log(`\n1. /produto/${SLUG.slice(0, 30)}…-${EAN}`);
 
     conferir("nada bloqueado pelo CSP", bloqueados.length === 0, bloqueados.slice(0, 3).join(" | "));
     conferir("nenhum arquivo do site faltou", quebrados.length === 0, quebrados.slice(0, 5).join(" | "));
-    conferir("sem erro de JavaScript", erros.length === 0, erros.slice(0, 3).join(" | "));
+    /* Um 401 em /loja tem causa conhecida: o worker publicado ainda não
+       tem a rota (Fase 2), então a chamada cai no porteiro do painel. O
+       site não perde nada — o rodapé já traz os dados —, mas o navegador
+       registra o erro. A asserção continua falhando de propósito: é
+       lembrete de que falta publicar o worker, e some sozinha quando ele
+       for. Se este texto ainda estiver aqui com o worker publicado, aí é
+       regressão de verdade. */
+    const aguardandoWorker = erros.length > 0 && erros.every((e) => /401/.test(e));
+    conferir("sem erro de JavaScript", erros.length === 0,
+        (aguardandoWorker ? "(worker ainda sem a rota /loja) " : "") + erros.slice(0, 3).join(" | "));
 
     await pagina.close();
 }

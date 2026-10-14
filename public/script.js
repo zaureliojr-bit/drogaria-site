@@ -17,7 +17,11 @@ const API_PEDIDOS =
    ar, algo como https://farmatech-pedidos-proxy.SEU-SUBDOMINIO.workers.dev */
 const API_PEDIDOS_D1 = "https://farmatech-pedidos-proxy.zaureliojr.workers.dev";
 
-const WHATS_LOJA = "5511925190101";
+/* `let`, e não `const`, porque o loja.js sobrescreve com o que vem da
+   tabela `lojas` no D1. O valor aqui é o da Drogaria Mais Barato e
+   continua valendo enquanto a API não responde — e se ela nunca
+   responder. */
+let WHATS_LOJA = "5511925190101";
 const POR_PAGINA = 12;
 
 /* Produtos das listas A/B da Portaria 344 (retenção de receita sempre
@@ -42,7 +46,7 @@ const API_TARJAS = "/tarjas.json";
 
 /* Frete grátis a partir de: use 0 para desativar.
    Enquanto for 0, o banner NÃO deve prometer frete grátis. */
-const FRETE_GRATIS_ACIMA_DE = 0;
+let FRETE_GRATIS_ACIMA_DE = 0;
 
 /* Quantas seções de categoria já vêm montadas na home. As demais
    são montadas conforme o cliente rola (IntersectionObserver). */
@@ -214,9 +218,9 @@ function imagemDe(p) {
 }
 
 /* FRETE — faixas fixas por distância */
-const LOJA_LAT = -23.7092450;
-const LOJA_LNG = -46.5251954;
-const RAIO_MAX_KM = 8;
+let LOJA_LAT = -23.7092450;
+let LOJA_LNG = -46.5251954;
+let RAIO_MAX_KM = 8;
 
 /* As famílias de categoria moram no familias.js, carregado antes
    deste arquivo. Saíram daqui quando o painel da loja passou a
@@ -323,15 +327,22 @@ function atualizarStatusLoja() {
   const statusEl = el("status");
   if (!statusEl) return;
 
-  const agora = new Date();
-  const dia = agora.getDay();
-  const minutos = agora.getHours() * 60 + agora.getMinutes();
+  /* O horário saiu daqui e foi para a tabela `lojas_horario` no D1: era
+     o último lugar do site que decidia sozinho quando a farmácia abre, e
+     numa rede cada unidade tem o seu. O loja.js responde, lendo o relógio
+     DA LOJA — não o de quem está olhando, que pode estar em outro fuso.
 
-  const domingo = dia === 0;
-  const abre = domingo ? 8 * 60 : 7 * 60;
-  const fecha = domingo ? 19 * 60 + 30 : 21 * 60 + 30;
-
-  const aberto = minutos >= abre && minutos < fecha;
+     Se o loja.js não tiver carregado, vale o horário de hoje, escrito
+     ali como padrão. */
+  const aberto = typeof lojaAbertaAgora === "function"
+    ? lojaAbertaAgora()
+    : (() => {
+        const agora = new Date();
+        const minutos = agora.getHours() * 60 + agora.getMinutes();
+        const domingo = agora.getDay() === 0;
+        return minutos >= (domingo ? 8 * 60 : 7 * 60)
+            && minutos <  (domingo ? 19 * 60 + 30 : 21 * 60 + 30);
+      })();
 
   statusEl.innerHTML = `<i class="status-dot" aria-hidden="true"></i>${aberto ? "Aberto" : "Fechado"}`;
   statusEl.className = aberto ? "status-aberto" : "status-fechado";

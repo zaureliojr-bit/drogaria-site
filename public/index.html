@@ -176,7 +176,7 @@
          É <a> com href de verdade, e não um botão que chama JavaScript:
          assim o cliente pode abrir em outra aba, copiar o link e mandar
          para alguém — e continua funcionando se o script falhar. -->
-    <a class="header-whats" href="https://wa.me/5511925190101?text=Ol%C3%A1!%20Quero%20fazer%20um%20pedido%20r%C3%A1pido%20pelo%20WhatsApp." target="_blank" rel="noopener"
+    <a data-loja="whatsapp" class="header-whats" href="https://wa.me/5511925190101?text=Ol%C3%A1!%20Quero%20fazer%20um%20pedido%20r%C3%A1pido%20pelo%20WhatsApp." target="_blank" rel="noopener"
        aria-label="Fazer um pedido rápido pelo WhatsApp">
       <svg class="ic" width="15" height="15" aria-hidden="true"><use href="#ic-whats"></use></svg>
       <span class="header-whats-texto">Pedido rápido</span>
@@ -341,10 +341,10 @@
 <!-- 📄 RODAPÉ -->
 <footer class="rodape" role="contentinfo">
   <div class="rodape-container">
-    <p><strong>Drogaria Mais Barato · CNPJ 37.925.108/0001-03</strong></p>
-    <p>Rua Almeida Leme 07 – Loja 1, Parque São Bernardo, São Bernardo do Campo – SP, CEP 09761-170</p>
-    <p>Farmacêutica responsável: Dra. Laís Carvalho da Silva – CRF 122886<br>
-       Autorização: Processo 25351.507967/2022-82 · MS 7.89888-2</p>
+    <p><strong data-loja="identificacao">Drogaria Mais Barato · CNPJ 37.925.108/0001-03</strong></p>
+    <p data-loja="endereco">Rua Almeida Leme 07 – Loja 1, Parque São Bernardo, São Bernardo do Campo – SP, CEP 09761-170</p>
+    <p><span data-loja="responsavel">Farmacêutica responsável: Dra. Laís Carvalho da Silva – CRF 122886</span><br>
+       <span data-loja="autorizacao">Autorização: Processo 25351.507967/2022-82 · MS 7.89888-2</span></p>
     <p>As informações deste site não substituem orientação médica e não devem ser usadas para automedicação.</p>
     <p>Fotos meramente ilustrativas. Preços sujeitos a alteração sem aviso prévio.</p>
     <p>Antibióticos e medicamentos controlados somente com receita — Portaria nº 344, Ministério da Saúde.</p>
@@ -362,5 +362,6 @@
 
 <script src="familias.js" defer></script>
 <script src="script.js" defer></script>
+<script src="loja.js" defer></script>
 </body>
 </html>

@@ -73,7 +73,7 @@
     <div class="encarte-topo">
       <h1 id="encarteTitulo"></h1>
       <div class="encarte-acoes">
-        <a class="btn-encarte-whats" href="https://wa.me/5511925190101?text=Ol%C3%A1!%20Vi%20o%20encarte%20e%20quero%20fazer%20um%20pedido." target="_blank" rel="noopener">
+        <a data-loja="whatsapp" class="btn-encarte-whats" href="https://wa.me/5511925190101?text=Ol%C3%A1!%20Vi%20o%20encarte%20e%20quero%20fazer%20um%20pedido." target="_blank" rel="noopener">
           <svg class="ic" width="16" height="16" aria-hidden="true"><use href="#ic-whats"></use></svg>
           Pedir pelo WhatsApp
         </a>
@@ -108,9 +108,9 @@
 
 <footer class="rodape" role="contentinfo">
   <div class="rodape-container">
-    <p><strong>Drogaria Mais Barato · CNPJ 37.925.108/0001-03</strong></p>
-    <p>Rua Almeida Leme 07 – Loja 1, Parque São Bernardo, São Bernardo do Campo – SP, CEP 09761-170</p>
-    <p>Farmacêutica responsável: Dra. Laís Carvalho da Silva – CRF 122886</p>
+    <p><strong data-loja="identificacao">Drogaria Mais Barato · CNPJ 37.925.108/0001-03</strong></p>
+    <p data-loja="endereco">Rua Almeida Leme 07 – Loja 1, Parque São Bernardo, São Bernardo do Campo – SP, CEP 09761-170</p>
+    <p data-loja="responsavel">Farmacêutica responsável: Dra. Laís Carvalho da Silva – CRF 122886</p>
     <p>Fotos meramente ilustrativas. Preços sujeitos a alteração sem aviso prévio.</p>
     <p>Antibióticos e medicamentos controlados somente com receita — Portaria nº 344, Ministério da Saúde.</p>
   </div>
@@ -118,6 +118,7 @@
 
 <script src="familias.js" defer></script>
 <script src="script.js" defer></script>
+<script src="loja.js" defer></script>
 <script src="encarte.js" defer></script>
 </body>
 </html>

@@ -40,13 +40,18 @@
 
   /* ---------- horário, escrito do jeito que se fala ---------- */
   function escreverHorario() {
-    const agora = new Date();
-    const domingo = agora.getDay() === 0;
-    const minutos = agora.getHours() * 60 + agora.getMinutes();
-
-    const abre = domingo ? 8 * 60 : 7 * 60;
-    const fecha = domingo ? 19 * 60 + 30 : 21 * 60 + 30;
-    const aberto = minutos >= abre && minutos < fecha;
+    /* Quem sabe o horário é o loja.js, que lê da tabela `lojas_horario`
+       e usa o relógio da loja. O cálculo que estava aqui era uma segunda
+       cópia das mesmas quatro horas, e duas cópias divergem. */
+    const domingo = new Date().getDay() === 0;
+    const aberto = typeof lojaAbertaAgora === "function"
+      ? lojaAbertaAgora()
+      : (() => {
+          const agora = new Date();
+          const minutos = agora.getHours() * 60 + agora.getMinutes();
+          return minutos >= (domingo ? 8 * 60 : 7 * 60)
+              && minutos <  (domingo ? 19 * 60 + 30 : 21 * 60 + 30);
+        })();
 
     const selo = document.getElementById("lpStatus");
     if (selo) {
@@ -62,11 +67,18 @@
     /* Fechado, a promessa de duas horas não vale — e prometer o que não
        se cumpre custa mais caro do que não prometer. Então a frase muda:
        o pedido pode ser feito agora e sai quando a loja abrir. */
+    /* "Abrimos às 7h" sai do horário cadastrado, e não de um texto
+       fixo: a frase precisa mudar junto com a tabela, senão a loja
+       muda de horário e o site segue prometendo o antigo. */
+    const abertura = typeof proximaAberturaDeHoje === "function"
+      ? proximaAberturaDeHoje()
+      : (domingo ? "8h" : "7h");
+
     linha.textContent = aberto
       ? "Aberto agora. Pedidos feitos até as 20h saem no mesmo dia."
-      : domingo
-        ? "Fechado agora. Abrimos domingo às 8h — pode deixar o pedido pronto."
-        : "Fechado agora. Abrimos às 7h — pode deixar o pedido pronto.";
+      : abertura
+        ? `Fechado agora. Abrimos às ${abertura} — pode deixar o pedido pronto.`
+        : "Fechado agora — pode deixar o pedido pronto.";
   }
 
   /* ---------- ofertas reais ---------- */
@@ -150,5 +162,10 @@
 
   escreverHorario();
   setInterval(escreverHorario, 60000);
+
+  /* O horário cadastrado chega depois da primeira pintura — a API é uma
+     ida à rede. Sem isto, a frase ficaria com o horário padrão até o
+     próximo minuto cheio. */
+  document.addEventListener("lojaPronta", escreverHorario);
 
 })();
