@@ -663,6 +663,26 @@
           </label>
         </div>
 
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Logotipo</span>
+            <input type="file" id="novaLogo" accept="image/png,image/jpeg,image/webp,image/avif">
+            <small>PNG com fundo transparente fica melhor. Aparece no topo
+                   de todas as páginas da loja. Até 3 MB.</small>
+          </label>
+          <label class="campo">
+            <span>Cor da marca</span>
+            <span class="campo-linha">
+              <input type="color" id="novaCor" value="#26247B" style="max-width:60px; padding:2px;">
+              <input type="text" id="novaCorTexto" maxlength="7" placeholder="#26247B"
+                     autocomplete="off" spellcheck="false" style="max-width:120px;">
+            </span>
+            <small>Uma só. O tom escuro e o claro saem dela sozinhos, com
+                   proporção fixa — é o que garante que o texto continue
+                   legível sobre o fundo.</small>
+          </label>
+        </div>
+
         <button type="button" id="btnCriarFilial" class="principal">Cadastrar filial</button>
       </div>
 
@@ -2559,34 +2579,48 @@ async function carregarLojas() {
   const dados = await api("/lojas");
   lojasDaPlataforma = dados.lojas || [];
 
+  /* Cinco colunas, e não sete.
+
+     Com sete — nome, apelido, cidade, senha, banco, no ar e a ação — a
+     tabela passava de 1280px e ganhava barra de rolagem lateral. O que
+     sumia para fora era o começo do nome da farmácia, que é exatamente o
+     que se quer ler primeiro.
+
+     Então o apelido desceu para debaixo do nome (é o mesmo dado, e
+     ninguém compara os dois lado a lado), e "banco" com "no ar" viraram
+     uma coluna de situação — que é como isto se lê de verdade: a filial
+     está pronta, ou falta alguma coisa nela. */
   el("listaLojas").innerHTML = tabela(
-    [{ titulo: "Filial", larga: true }, { titulo: "Apelido" }, { titulo: "Cidade" },
-     { titulo: "Senha própria" }, { titulo: "Banco" }, { titulo: "No ar" }, { titulo: "" }],
+    [{ titulo: "Filial", larga: true }, { titulo: "Cidade" },
+     { titulo: "Situação" }, { titulo: "Senha" }, { titulo: "" }],
     lojasDaPlataforma.map((l, i) => [
-      esc(l.nome),
-      `<code>${esc(l.slug)}</code>`,
+
+      `${esc(l.nome)}<br><code>${esc(l.slug)}</code>`,
+
       esc([l.cidade, l.uf].filter(Boolean).join("/")),
-      l.tem_senha ? "sim" : "<em>ainda não</em>",
-      /* Banco em branco só é certo na PRIMEIRA linha — a farmácia que
-         existia antes da plataforma e cujos dados estão no banco
-         original. A lista vem ordenada por data de cadastro, então a
-         primeira linha é ela.
+
+      /* Banco em branco só é cadastro certo na PRIMEIRA linha — a
+         farmácia que existia antes da plataforma e cujos dados estão no
+         banco original. A lista vem ordenada por data de cadastro, então
+         a primeira linha é ela.
 
          Em qualquer outra, banco em branco é cadastro pela metade: o
-         worker recusa a filial com 503, e é melhor ver o aviso aqui,
+         worker recusa a filial com 503. Melhor ver o aviso aqui,
          enquanto se cadastra, do que descobrir quando a dona da farmácia
          tentar entrar. */
-      l.banco
-        ? `<code>${esc(l.banco)}</code>`
-        : i === 0
-          ? "<em>o principal</em>"
-          : '<span class="falta">falta o banco próprio</span>',
-      l.ativo ? "sim" : "<em>desligada</em>",
-      /* Filial desligada não oferece o botão. O worker só autentica em
-         loja com ativo = 1, então clicar devolveria 401 — e o painel,
-         que não sabe distinguir "senha errada" de "essa filial não
-         existe", mandaria de volta para o login dizendo "Senha
-         incorreta". Com a senha certa. Oferecer uma ação que não pode
+      (!l.banco && i > 0)
+        ? '<span class="falta">falta o banco próprio</span>'
+        : l.ativo
+          ? '<span class="aqui">no ar</span>'
+          : '<span class="desligada">desligada</span>',
+
+      l.tem_senha ? "própria" : '<span class="desligada">a do worker</span>',
+
+      /* Filial desligada não oferece "operar nesta". O worker só
+         autentica em loja com ativo = 1, então clicar devolveria 401 — e
+         o painel, que não sabe distinguir "senha errada" de "essa filial
+         não existe", mandaria de volta ao login dizendo "Senha
+         incorreta". Com a senha certa. Oferecer ação que não pode
          funcionar é pior do que não oferecer. */
       l.slug === lojaAtual
         ? '<span class="aqui">você está aqui</span>'
@@ -2729,8 +2763,13 @@ async function criarFilial() {
     const corpo = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(corpo.erro || `HTTP ${r.status}`);
 
+    const avisos = await enviarMarcaDaFilial(slug);
+
     await carregarLojas();
-    avisoLojas(`${nome} cadastrada, e desligada. Faltam os dois passos abaixo.`, false);
+    avisoLojas(
+      `${nome} cadastrada, e desligada. Faltam os dois passos abaixo.` +
+      (avisos.length ? " Só que " + avisos.join(" e ") + " — dá para repetir depois." : ""),
+      avisos.length > 0);
     await mostrarPassos(slug, corpo);
 
     document.querySelectorAll('[id^="nova"]').forEach(c => {
@@ -2746,6 +2785,59 @@ async function criarFilial() {
 }
 
 el("btnCriarFilial").addEventListener("click", criarFilial);
+
+/* O seletor de cor e o campo de texto são a mesma cor por dois caminhos:
+   quem tem o código da marca na mão cola; quem não tem, escolhe no
+   seletor. Mantê-los em sincronia evita o caso em que a pessoa digita um
+   valor, não vê o seletor mudar e manda o outro sem perceber. */
+el("novaCor").addEventListener("input", () => {
+  el("novaCorTexto").value = el("novaCor").value;
+});
+el("novaCorTexto").addEventListener("input", () => {
+  const v = el("novaCorTexto").value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) el("novaCor").value = v;
+});
+
+/* Manda o logotipo e a cor da filial.
+
+   Depois do cadastro, e não junto: o logotipo é arquivo cru e a cor é
+   JSON, então são requisições de formatos diferentes. E se qualquer uma
+   falhar, a filial já está cadastrada — some um logotipo, não o cliente
+   inteiro. */
+async function enviarMarcaDaFilial(slug) {
+  const avisos = [];
+
+  const cor = (el("novaCorTexto").value || el("novaCor").value || "").trim().toLowerCase();
+  if (/^#[0-9a-f]{6}$/.test(cor)) {
+    try {
+      const r = await fetch(`${API.replace(/\/+$/, "")}/lojas/${encodeURIComponent(slug)}/cor`, {
+        method: "POST",
+        headers: cabecalhos({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ cor })
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || `HTTP ${r.status}`);
+    } catch (erro) {
+      avisos.push("a cor não foi salva (" + erro.message + ")");
+    }
+  }
+
+  const arquivo = el("novaLogo").files && el("novaLogo").files[0];
+  if (arquivo) {
+    try {
+      const r = await fetch(`${API.replace(/\/+$/, "")}/lojas/${encodeURIComponent(slug)}/logo`, {
+        method: "POST",
+        headers: cabecalhos({ "Content-Type": arquivo.type }),
+        body: arquivo
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || `HTTP ${r.status}`);
+      el("novaLogo").value = "";
+    } catch (erro) {
+      avisos.push("o logotipo não foi enviado (" + erro.message + ")");
+    }
+  }
+
+  return avisos;
+}
 
 /* ---------- o que falta fazer, e a conferência ---------- */
 

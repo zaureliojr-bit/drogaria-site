@@ -37,6 +37,7 @@ export async function onRequest({ request, env, params }) {
        outra é pior do que não servi-la. */
     let loja;
     let horario = [];
+    let visual = null;
     try {
         const resposta = await fetch(`${PROXY}/loja?slug=${encodeURIComponent(slug)}`, {
             cf: { cacheTtl: 300, cacheEverything: true }
@@ -52,6 +53,7 @@ export async function onRequest({ request, env, params }) {
         const dados = await resposta.json();
         loja = dados.loja;
         horario = dados.horario || [];
+        visual = dados.visual || null;
         if (!loja) throw new Error("resposta sem loja");
 
     } catch (erro) {
@@ -70,6 +72,10 @@ export async function onRequest({ request, env, params }) {
     ].filter(Boolean).join(" - ");
 
     const canonico = `${origem}/loja/${slug}`;
+
+    /* O logotipo da filial, ou o da marca quando ela ainda não mandou o
+       dela. Vale para a prévia do link e para o dado estruturado. */
+    const logoDaLoja = (visual && visual.logo) || `${origem}/logo.png`;
     const titulo = `${loja.nome} — ${loja.cidade}/${loja.uf}`;
     const descricao =
         `${loja.nome} em ${loja.cidade}. ${endereco}. Medicamentos, perfumaria e higiene ` +
@@ -90,7 +96,7 @@ export async function onRequest({ request, env, params }) {
         "@type": "Pharmacy",
         name: loja.nome,
         url: canonico,
-        image: `${origem}/logo.png`,
+        image: logoDaLoja,
         telephone: loja.telefone || undefined,
         priceRange: "$",
         currenciesAccepted: "BRL",
@@ -109,7 +115,35 @@ export async function onRequest({ request, env, params }) {
         areaServed: loja.cidade ? { "@type": "City", name: loja.cidade } : undefined
     };
 
-    const cabeca = `
+    /* A marca da farmácia, escrita no servidor.
+
+       O loja.js também faz isto, lendo a mesma API — mas ele roda depois
+       da primeira pintura. Sem a versão do servidor, quem abre a vitrine
+       de uma filial vê, por um instante, o logotipo e a cor da outra
+       farmácia. Num site que existe para a marca do cliente, esse
+       instante é o problema inteiro.
+
+       Uma cor só, e as variações derivadas por color-mix com proporção
+       fixa: a clara sempre quase branca, a escura sempre mais escura que
+       a principal. O contraste fica garantido por construção, em vez de
+       depender de quem preencheu o formulário.
+
+       A validação do formato é repetida aqui de propósito. O worker já
+       valida na gravação; isto é o que impede um dado estragado no banco
+       de virar CSS arbitrário numa página do nosso domínio. */
+    const corValida = visual && typeof visual.cor === "string" && /^#[0-9a-f]{6}$/i.test(visual.cor)
+        ? visual.cor
+        : "";
+
+    const marca = corValida ? `
+  <style>:root{
+    --marca: ${corValida};
+    --marca-escura: color-mix(in srgb, ${corValida} 70%, #000);
+    --marca-clara: color-mix(in srgb, ${corValida} 12%, #fff);
+    --marca-xclara: color-mix(in srgb, ${corValida} 5%, #fff);
+  }</style>` : "";
+
+    const cabeca = `${marca}
   <link rel="canonical" href="${escapar(canonico)}">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="${escapar(loja.nome)}">
@@ -117,7 +151,7 @@ export async function onRequest({ request, env, params }) {
   <meta property="og:title" content="${escapar(titulo)}">
   <meta property="og:description" content="${escapar(descricao)}">
   <meta property="og:url" content="${escapar(canonico)}">
-  <meta property="og:image" content="${origem}/logo.png">
+  <meta property="og:image" content="${escapar(logoDaLoja)}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${escapar(titulo)}">
   <meta name="twitter:description" content="${escapar(descricao)}">
@@ -150,6 +184,16 @@ export async function onRequest({ request, env, params }) {
            bloco de WebSite, que fica ao lado. */
         .on("script[data-loja-jsonld]", {
             element: (e) => e.setInnerContent(JSON.stringify(farmacia), { html: true })
+        })
+        /* O logotipo no cabeçalho da página. Trocado no servidor pelo
+           mesmo motivo da cor: o loja.js chega depois da primeira
+           pintura, e a filial não pode aparecer, nem por um instante,
+           com a marca da outra farmácia. */
+        .on('img[data-loja="logo"]', {
+            element: (e) => { if (visual && visual.logo) e.setAttribute("src", visual.logo); }
+        })
+        .on('meta[name="theme-color"]', {
+            element: (e) => { if (corValida) e.setAttribute("content", corValida); }
         })
         .on("head", { element: (e) => e.append(cabeca, { html: true }) })
         .transform(pagina);

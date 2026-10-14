@@ -88,7 +88,10 @@ const LOJA_SEGUNDA = {
         frete_gratis_acima: 150,
         fuso: "America/Cuiaba"
     },
-    horario: [0, 1, 2, 3, 4, 5, 6].map((dia) => ({ dia, abre: "00:00", fecha: "23:59" }))
+    horario: [0, 1, 2, 3, 4, 5, 6].map((dia) => ({ dia, abre: "00:00", fecha: "23:59" })),
+    /* A marca dela: logotipo e cor próprios. O layout é o mesmo de todas
+       — é o produto —, mas a marca é o que o cliente dela reconhece. */
+    visual: { logo: "https://exemplo.test/logo-da-outra.png", cor: "#0a7d4b" }
 };
 
 let falhas = 0;
@@ -262,6 +265,54 @@ console.log("\n5. a landing de ofertas lê o mesmo cadastro");
     conferir("o selo diz aberto, porque a loja do cadastro é 24h",
         /Aberto agora/.test(selo || ""), selo);
     conferir("e a frase do horário não fala em fechado", !/Fechado/.test(linha || ""), linha);
+
+    await pagina.close();
+}
+
+/* ---- 6. a marca de cada farmácia ------------------------------------ */
+console.log("\n6. logotipo e cor da filial");
+{
+    const pagina = await abrir("/", LOJA_SEGUNDA);
+    await pagina.waitForTimeout(2500);
+
+    const logo = await pagina.getAttribute('img[data-loja="logo"]', "src");
+    conferir("o logotipo trocou", logo === "https://exemplo.test/logo-da-outra.png", logo);
+
+    /* A cor entra como variável, e tudo que o CSS pinta com ela
+       acompanha: cabeçalho, botões, pílulas, faixas. É por isso que a
+       cor sai barato e o layout não — o CSS já usa variável em 106
+       lugares, e nenhuma cor de marca está escrita à mão. */
+    const cores = await pagina.evaluate(() => {
+        const raiz = getComputedStyle(document.documentElement);
+        return {
+            marca: raiz.getPropertyValue("--marca").trim(),
+            escura: raiz.getPropertyValue("--marca-escura").trim(),
+            clara: raiz.getPropertyValue("--marca-clara").trim(),
+            cabecalho: getComputedStyle(document.querySelector("header.header")).backgroundColor
+        };
+    });
+    conferir("a cor da marca trocou", cores.marca.toLowerCase() === "#0a7d4b", cores.marca);
+    conferir("as variações foram derivadas dela",
+        cores.escura.includes("color-mix") || cores.escura.startsWith("rgb"), cores.escura);
+
+    const tema = await pagina.getAttribute('meta[name="theme-color"]', "content");
+    conferir("e a cor da barra do navegador também", (tema || "").toLowerCase() === "#0a7d4b", tema);
+
+    await pagina.close();
+}
+
+/* ---- 7. e a farmácia sem marca própria ------------------------------ */
+console.log("\n7. quem não mandou logotipo fica com a marca padrão");
+{
+    const pagina = await abrir("/", LOJA_REAL);   // sem o campo visual
+    await pagina.waitForTimeout(2500);
+
+    const logo = await pagina.getAttribute('img[data-loja="logo"]', "src");
+    conferir("o logotipo continua o da casa", /logo\.png$/.test(logo || ""), logo);
+
+    const marca = await pagina.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue("--marca").trim());
+    conferir("e a cor também", marca.toLowerCase() === "#26247b", marca);
 
     await pagina.close();
 }

@@ -77,6 +77,9 @@ const HORARIO_PADRAO = [
 let LOJA = { ...LOJA_PADRAO };
 let HORARIO_LOJA = [...HORARIO_PADRAO];
 
+/* Logotipo e cor. Nulo é o caso da farmácia que usa a marca padrão. */
+let VISUAL = null;
+
 const CACHE_LOJA = "loja-v1";
 const CACHE_LOJA_MS = 60 * 60 * 1000;   // uma hora
 
@@ -161,6 +164,52 @@ function enderecoCompleto(l) {
         .filter(Boolean).join(", ");
 }
 
+/* A cara da farmácia: logotipo e cor.
+
+   As duas são opcionais — sem elas, vale a marca padrão, que é o que
+   está no HTML e no style.css.
+
+   A cor vem UMA só, e as variações saem dela aqui, com proporção fixa:
+   a clara é sempre quase branca (serve de fundo para texto escuro) e a
+   escura é sempre mais escura que a principal. Deixar a loja escolher as
+   quatro pareceria mais flexível e seria pior — é assim que se publica
+   texto azul-escuro sobre fundo azul-escuro. Com a derivação, o
+   contraste é garantido por construção.
+
+   Navegador antigo sem color-mix ignora as declarações que não entende,
+   uma a uma, e fica com a cor padrão. Degrada para "site da marca
+   original", não para site quebrado. */
+function aplicarMarca(visual) {
+    if (!visual) return;
+
+    if (visual.logo) {
+        document.querySelectorAll('img[data-loja="logo"]').forEach((img) => {
+            img.setAttribute("src", visual.logo);
+        });
+    }
+
+    /* Só #rrggbb entra. O valor vai para dentro de uma folha de estilo —
+       o worker já valida, e validar de novo aqui é o que impede que um
+       dado estragado no banco vire CSS arbitrário na página. */
+    if (visual.cor && /^#[0-9a-f]{6}$/i.test(visual.cor)) {
+        let estilo = document.getElementById("corDaLoja");
+        if (!estilo) {
+            estilo = document.createElement("style");
+            estilo.id = "corDaLoja";
+            document.head.appendChild(estilo);
+        }
+        estilo.textContent = `:root{
+            --marca: ${visual.cor};
+            --marca-escura: color-mix(in srgb, ${visual.cor} 70%, #000);
+            --marca-clara: color-mix(in srgb, ${visual.cor} 12%, #fff);
+            --marca-xclara: color-mix(in srgb, ${visual.cor} 5%, #fff);
+        }`;
+
+        const tema = document.querySelector('meta[name="theme-color"]');
+        if (tema) tema.setAttribute("content", visual.cor);
+    }
+}
+
 function aplicarNaPagina() {
     const l = LOJA;
 
@@ -213,6 +262,8 @@ function aplicarNaPagina() {
     if (typeof FRETE_GRATIS_ACIMA_DE !== "undefined" && Number.isFinite(l.frete_gratis_acima)) {
         FRETE_GRATIS_ACIMA_DE = l.frete_gratis_acima;
     }
+
+    aplicarMarca(VISUAL);
 
     /* Quem desenha horário na tela redesenha agora, com o dado novo. */
     if (typeof atualizarStatusLoja === "function") atualizarStatusLoja();
@@ -271,6 +322,7 @@ async function carregarLoja() {
 function adotar(dados) {
     LOJA = { ...LOJA_PADRAO, ...dados.loja };
     if (Array.isArray(dados.horario) && dados.horario.length) HORARIO_LOJA = dados.horario;
+    VISUAL = dados.visual || null;
     aplicarNaPagina();
 }
 

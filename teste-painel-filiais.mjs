@@ -211,11 +211,24 @@ let chamadasDoDono;
     conferir("lista as três farmácias",
         /Mais Barato/.test(texto) && /Farmácia do Centro/.test(texto) && /Farmácia Parada/.test(texto),
         texto.replace(/\s+/g, " ").slice(0, 120));
-    conferir("mostra quem ainda não tem senha própria", /ainda não/.test(texto));
+    conferir("mostra quem ainda entra com a chave do worker", /a do worker/.test(texto),
+        texto.replace(/\s+/g, " ").slice(0, 160));
     conferir("e em qual delas você está", /você está aqui/.test(texto));
 
     const opcoes = await pagina.$$eval("#senhaLojaAlvo option", (os) => os.map((o) => o.value));
     conferir("o seletor de senha traz as três", opcoes.length === 3, opcoes.join(","));
+
+    /* A tabela tinha sete colunas e passava de 1280px: ganhava barra de
+       rolagem lateral, e o que sumia para fora era o começo do nome da
+       farmácia. Agora são cinco. Este teste mede, em vez de confiar no
+       olho. */
+    const largura = await pagina.evaluate(() => {
+        const caixa = document.getElementById("listaLojas");
+        return { visivel: caixa.clientWidth, conteudo: caixa.scrollWidth };
+    });
+    conferir("a tabela cabe na largura da tela, sem rolagem lateral",
+        largura.conteudo <= largura.visivel + 1,
+        `conteúdo ${largura.conteudo}px em ${largura.visivel}px`);
 
     /* Filial desligada não pode oferecer "Operar nesta": o worker só
        autentica em loja ativa, então o clique daria 401 e o painel
