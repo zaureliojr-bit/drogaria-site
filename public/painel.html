@@ -2148,7 +2148,32 @@ el("listaEncartes").addEventListener("click", async (ev) => {
    frontend/src/headless/importarEPublicar.js no repo FarmaTech-
    Padronizador. Ele já sabe onde buscar cada coisa (mesmos workers
    imagens-proxy/publish-proxy); aqui só chama e mostra o resultado. */
-const URL_IMPORTADOR = "https://farmatech-padronizador.zaureliojr.workers.dev/importador-automatico.js";
+const PADRONIZADOR_URL = "https://farmatech-padronizador.zaureliojr.workers.dev";
+const URL_IMPORTADOR = PADRONIZADOR_URL + "/importador-automatico.js";
+
+/* O padronizador roda no quadro ao lado e precisa escrever no catálogo
+   (salvar imagem, publicar). Ele não carrega mais chave de worker
+   nenhuma: pede ao porteiro com a senha do painel, que é a que já está
+   digitada aqui. Em vez de fazer a loja digitar de novo lá dentro,
+   mandamos por postMessage.
+
+   Com a origem exata como alvo, nunca "*": com "*", qualquer página que
+   um dia carregasse esse quadro receberia a senha do faturamento. */
+function entregarSenhaAoPadronizador() {
+
+  const quadro = el("iframePadronizador");
+
+  if (!quadro || !quadro.contentWindow || !senha) return;
+
+  quadro.contentWindow.postMessage({ tipo: "senha-painel", senha }, PADRONIZADOR_URL);
+
+}
+
+/* Ele avisa quando sobe, porque pode subir depois de a gente mandar. */
+window.addEventListener("message", (evento) => {
+  if (evento.origin !== PADRONIZADOR_URL) return;
+  if (evento.data?.tipo === "padronizador-pronto") entregarSenhaAoPadronizador();
+});
 
 function avisoCatalogo(msg, tipo = "erro") {
   el("avisoCatalogo").innerHTML = msg
@@ -2252,7 +2277,11 @@ el("abas").addEventListener("click", (ev) => {
   // O iframe só ganha "src" na primeira vez que a aba abre - antes
   // disso fica sem carregar o app React inteiro à toa.
   if (aba === "padronizador" && !el("iframePadronizador").src) {
-    el("iframePadronizador").src = "https://farmatech-padronizador.zaureliojr.workers.dev/";
+    el("iframePadronizador").src = PADRONIZADOR_URL;
+    el("iframePadronizador").addEventListener("load", entregarSenhaAoPadronizador);
+  } else if (aba === "padronizador") {
+    // já carregado: reentrega, caso a aba tenha sido fechada e reaberta
+    entregarSenhaAoPadronizador();
   }
 
   // Relatório e banners só são buscados quando alguém abre a aba. O
