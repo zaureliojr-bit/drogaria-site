@@ -398,6 +398,7 @@
   }
   #abaLojas .btn-operar:hover { border-color: var(--marca); color: var(--marca); }
   #abaLojas .aqui { font-size: 12px; color: var(--marca); font-weight: 700; }
+  #abaLojas .desligada { font-size: 12px; color: var(--tinta-suave); font-style: italic; }
 
   .aviso-ok {
     background: #E6F4EC; border: 1px solid var(--ok); color: var(--ok);
@@ -2432,9 +2433,17 @@ async function carregarLojas() {
          caso da primeira, e não um erro de cadastro. */
       l.banco ? `<code>${esc(l.banco)}</code>` : "<em>o principal</em>",
       l.ativo ? "sim" : "<em>desligada</em>",
+      /* Filial desligada não oferece o botão. O worker só autentica em
+         loja com ativo = 1, então clicar devolveria 401 — e o painel,
+         que não sabe distinguir "senha errada" de "essa filial não
+         existe", mandaria de volta para o login dizendo "Senha
+         incorreta". Com a senha certa. Oferecer uma ação que não pode
+         funcionar é pior do que não oferecer. */
       l.slug === lojaAtual
-        ? '<span class="aqui">você está aqui</span>' 
-        : `<button type="button" class="btn-operar" data-ir-para="${esc(l.slug)}">Operar nesta</button>`
+        ? '<span class="aqui">você está aqui</span>'
+        : !l.ativo
+          ? '<span class="desligada">ligue a filial para entrar nela</span>'
+          : `<button type="button" class="btn-operar" data-ir-para="${esc(l.slug)}">Operar nesta</button>`
     ]),
     "Nenhuma filial cadastrada."
   );

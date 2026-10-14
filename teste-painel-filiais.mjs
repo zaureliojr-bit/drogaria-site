@@ -31,7 +31,12 @@ const LOJAS = [
     { slug: "mais-barato", nome: "Drogaria Mais Barato", cidade: "São Bernardo do Campo",
       uf: "SP", ativo: 1, tem_senha: 0, banco: null, prefixo_r2: null },
     { slug: "farma-centro", nome: "Farmácia do Centro", cidade: "Cuiabá",
-      uf: "MT", ativo: 1, tem_senha: 1, banco: "DB_FARMA_CENTRO", prefixo_r2: "farma-centro" }
+      uf: "MT", ativo: 1, tem_senha: 1, banco: "DB_FARMA_CENTRO", prefixo_r2: "farma-centro" },
+    /* Uma filial cadastrada e desligada. É o estado de quem está
+       preparando a loja nova, ou de quem tirou uma do ar — e o painel não
+       pode oferecer "operar nesta" numa delas. */
+    { slug: "farma-parada", nome: "Farmácia Parada", cidade: "Santos",
+      uf: "SP", ativo: 0, tem_senha: 0, banco: null, prefixo_r2: null }
 ];
 
 let falhas = 0;
@@ -154,13 +159,23 @@ let chamadasDoDono;
     await pagina.waitForSelector("#listaLojas table", { timeout: 15000 });
 
     const texto = await pagina.textContent("#listaLojas");
-    conferir("lista as duas farmácias",
-        /Mais Barato/.test(texto) && /Farmácia do Centro/.test(texto), texto.replace(/\s+/g, " ").slice(0, 100));
+    conferir("lista as três farmácias",
+        /Mais Barato/.test(texto) && /Farmácia do Centro/.test(texto) && /Farmácia Parada/.test(texto),
+        texto.replace(/\s+/g, " ").slice(0, 120));
     conferir("mostra quem ainda não tem senha própria", /ainda não/.test(texto));
     conferir("e em qual delas você está", /você está aqui/.test(texto));
 
     const opcoes = await pagina.$$eval("#senhaLojaAlvo option", (os) => os.map((o) => o.value));
-    conferir("o seletor de senha traz as duas", opcoes.length === 2, opcoes.join(","));
+    conferir("o seletor de senha traz as três", opcoes.length === 3, opcoes.join(","));
+
+    /* Filial desligada não pode oferecer "Operar nesta": o worker só
+       autentica em loja ativa, então o clique daria 401 e o painel
+       mandaria de volta ao login dizendo "Senha incorreta" — com a senha
+       certa. Oferecer ação que não funciona é pior do que não oferecer. */
+    const botoes = await pagina.$$eval("[data-ir-para]", (bs) => bs.map((b) => b.dataset.irPara));
+    conferir("a filial desligada não oferece o botão de operar",
+        !botoes.includes("farma-parada"), botoes.join(","));
+    conferir("e diz por quê", /ligue a filial/.test(texto), texto.replace(/\s+/g, " ").slice(0, 120));
 
     /* Cadastrar a senha de uma filial. */
     await pagina.selectOption("#senhaLojaAlvo", "farma-centro");
