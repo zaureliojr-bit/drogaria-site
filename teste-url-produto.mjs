@@ -6,7 +6,7 @@
      slugificar()      public/script.js          monta o link do card
      slugificar()      scripts/gerar-sitemap.mjs monta o link do sitemap
      separar()+
-     desslugificar()   functions/produto/[[rota]].js   lê de volta
+     desslugificar()   functions/_paginaProduto.js  lê de volta
 
    Cada seção abaixo testa um jeito de isso dar errado. As duas que mais
    me preocupam: nome que TERMINA em número (o "50x2" sendo confundido
@@ -44,13 +44,24 @@ function extrair(arquivo, nome) {
 
 const slugificarSite = extrair("./public/script.js", "slugificar");
 const slugificarSitemap = extrair("./scripts/gerar-sitemap.mjs", "slugificar");
-const separar = extrair("./functions/produto/[[rota]].js", "separar");
-const desslugificar = extrair("./functions/produto/[[rota]].js", "desslugificar");
+const separar = extrair("./functions/_paginaProduto.js", "separar");
+const desslugificar = extrair("./functions/_paginaProduto.js", "desslugificar");
 /* A urlProduto() chama a slugificar() do próprio script.js. Extraída
    para cá ela perde esse vizinho, então ele é devolvido no escopo
    global — e é a função de verdade, não uma imitação. */
 globalThis.slugificar = slugificarSite;
+
+/* A urlProduto() também consulta o cadastro da loja (loja.js) para montar
+   /loja/<slug>/produto/... Aqui ela recebe a loja de hoje, que é o mesmo
+   que o site usa enquanto o cadastro não respondeu. */
+globalThis.LOJA = { slug: "mais-barato" };
 const urlProduto = extrair("./public/script.js", "urlProduto");
+
+/* Tira "/produto/" ou "/loja/<slug>/produto/" e deixa só o pedaço que o
+   servidor manda para a separar(). */
+function tirarPrefixo(url) {
+    return url.replace(/^\/(?:loja\/[a-z0-9-]+\/)?produto\//, "");
+}
 
 let falhas = 0;
 function conferir(descricao, condicao, detalhe = "") {
@@ -86,7 +97,7 @@ for (const c of CASOS) {
 console.log("\n2. o servidor recupera o EAN exato do endereço gerado");
 for (const c of CASOS) {
     const url = urlProduto({ nome: c.nome, ean: c.ean, codigo: "000001" });
-    const rota = url.replace(/^\/produto\//, "");
+    const rota = tirarPrefixo(url);
     const { ean } = separar(rota);
     conferir(`"${c.nome}" → ${c.ean}`, ean === c.ean, `veio "${ean}" de "${rota}"`);
 }
@@ -94,7 +105,7 @@ for (const c of CASOS) {
 console.log("\n3. nome que termina em número não vira código de barras");
 {
     const url = urlProduto({ nome: "Tylenol 750", ean: "7891010244323", codigo: "1" });
-    const { nome, ean } = separar(url.replace(/^\/produto\//, ""));
+    const { nome, ean } = separar(tirarPrefixo(url));
     conferir("o EAN é o do fim", ean === "7891010244323", `veio ${ean}`);
     conferir("o 750 ficou no nome", nome === "tylenol-750", `veio "${nome}"`);
     conferir("e volta legível", desslugificar(nome) === "Tylenol 750", desslugificar(nome));
@@ -112,7 +123,20 @@ conferir(
     desslugificar("vitamina-c-1g-30")
 );
 
-console.log("\n5. produto sem EAN cai no endereço antigo, por código");
+console.log("\n5. o card aponta para a página de compra, com a loja no caminho");
+{
+    const url = urlProduto({ nome: "Dipirona Sódica 500mg", ean: "7896112139829", codigo: "1" });
+    conferir("endereço de compra tem a loja",
+        url === "/loja/mais-barato/produto/dipirona-sodica-500mg-7896112139829", url);
+
+    /* Canônico é o do produto, SEM loja: é o que o sitemap publica e o
+       que a página de compra aponta com rel=canonical. */
+    const canonico = "/produto/dipirona-sodica-500mg-7896112139829";
+    conferir("e o canônico é o mesmo endereço sem a loja",
+        url.replace(/^\/loja\/[a-z0-9-]+/, "") === canonico, url.replace(/^\/loja\/[a-z0-9-]+/, ""));
+}
+
+console.log("\n6. produto sem EAN cai no endereço antigo, por código");
 {
     const url = urlProduto({ nome: "Qualquer Coisa", ean: "", codigo: "000123" });
     conferir("vai para /produto?codigo=", url === "/produto?codigo=000123", url);
@@ -122,13 +146,13 @@ console.log("\n5. produto sem EAN cai no endereço antigo, por código");
     conferir("EAN curto demais também", url === "/produto?codigo=000124", url);
 }
 
-console.log("\n6. endereço sem EAN nenhum não derruba o servidor");
+console.log("\n7. endereço sem EAN nenhum não derruba o servidor");
 for (const rota of ["", "qualquer-coisa", "123", "produto/", "-"]) {
     const { nome, ean } = separar(rota);
     conferir(`"${rota}" → sem EAN, sem exceção`, ean === "" || /^\d{8,14}$/.test(ean), `ean="${ean}" nome="${nome}"`);
 }
 
-console.log("\n7. o slug não passa de 120 caracteres");
+console.log("\n8. o slug não passa de 120 caracteres");
 {
     const longo = "Fralda Descartavel Super Jumbo Tamanho Extra Grande Com Abas Elasticas E Indicador De Umidade Pacote Economico Com Setenta E Duas Unidades";
     const slug = slugificarSite(longo);
@@ -137,7 +161,7 @@ console.log("\n7. o slug não passa de 120 caracteres");
     conferir("e o EAN ainda é lido", ean === "7891234567890", ean);
 }
 
-console.log("\n8. o catálogo de verdade, se estiver à mão");
+console.log("\n9. o catálogo de verdade, se estiver à mão");
 try {
     const bruto = readFileSync(process.env.CATALOGO || "/dev/null", "utf8");
     const lista = JSON.parse(bruto).produtos || [];
@@ -146,7 +170,7 @@ try {
         const ean = String(p.ean || "").replace(/\D/g, "");
         if (ean.length < 8 || !p.descricao) continue;
         const url = urlProduto({ nome: p.descricao, ean, codigo: p.codigo });
-        if (separar(url.replace(/^\/produto\//, "")).ean !== ean) {
+        if (separar(tirarPrefixo(url)).ean !== ean) {
             if (erros < 5) console.log(`    "${p.descricao}" → ${url}`);
             erros++;
         }

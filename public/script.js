@@ -1607,16 +1607,34 @@ function slugificar(texto) {
 
 /* O endereço da página do produto.
 
-   Com EAN, sai o endereço com nome, que é o que o Google indexa e o que
-   permite à função do servidor montar título e foto sem ler o catálogo.
-   Sem EAN, continua o endereço antigo por código — nenhum produto do
+   São DOIS endereços para o mesmo produto, e é de propósito:
+
+     /produto/<nome>-<ean>              a página canônica, do produto
+     /loja/<slug>/produto/<nome>-<ean>  a página de compra, da farmácia
+
+   Os cards apontam para a segunda — é nela que o cliente vê o preço
+   daquela loja e põe no carrinho. A primeira é a que vai para o sitemap
+   e a que o Google mostra; a de compra aponta para ela com rel=canonical.
+
+   O motivo é o marketplace: com dez farmácias no mesmo domínio, se cada
+   uma gerasse a sua página do mesmo remédio, dez páginas quase idênticas
+   de Dipirona disputariam entre si. O Google trata como conteúdo
+   duplicado e escolhe uma — ou nenhuma.
+
+   Sem EAN, continua o endereço antigo por código. Nenhum produto do
    catálogo cai nesse caso hoje (o carregar() descarta produto sem EAN),
    mas o fallback evita gerar link quebrado se isso mudar. */
 function urlProduto(p) {
   const ean = String(p.ean || "").replace(/\D/g, "");
+
+  /* A loja vem do cadastro (loja.js). Enquanto ele não responde, vale o
+     slug da loja de hoje — e não um endereço sem loja, que mandaria o
+     cliente para a página canônica, que não tem botão de comprar. */
+  const loja = (typeof LOJA !== "undefined" && LOJA && LOJA.slug) || "mais-barato";
+
   if (ean.length >= 8) {
     const slug = slugificar(p.nome);
-    return `/produto/${slug ? slug + "-" : ""}${ean}`;
+    return `/loja/${loja}/produto/${slug ? slug + "-" : ""}${ean}`;
   }
   return `/produto?codigo=${encodeURIComponent(p.codigo)}`;
 }

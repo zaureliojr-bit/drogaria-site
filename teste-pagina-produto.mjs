@@ -141,7 +141,11 @@ console.log(`\n1. /produto/${SLUG.slice(0, 30)}…-${EAN}`);
             .map((s) => JSON.parse(s.textContent)).find((x) => x["@type"] === "Product");
         return b && b.offers;
     });
-    conferir("a oferta tem preço e moeda", !!(oferta && oferta.price && oferta.priceCurrency === "BRL"),
+    /* Esta seção visita a página CANÔNICA, sem loja — e lá a oferta é
+       uma faixa de preços (AggregateOffer), não uma oferta de vendedor.
+       A seção 6 cobre a diferença entre as duas rotas. */
+    const valor = oferta && (oferta.price || oferta.lowPrice);
+    conferir("a oferta tem preço e moeda", !!(valor && oferta.priceCurrency === "BRL"),
         JSON.stringify(oferta));
 
     const icones = await pagina.evaluate(() => {
@@ -243,8 +247,12 @@ console.log("\n5. os links da vitrine usam o endereço novo");
     const hrefs = await pagina.evaluate(() =>
         [...document.querySelectorAll(".produto-nome-link")].slice(0, 20).map((a) => a.getAttribute("href"))
     );
-    const bons = hrefs.filter((h) => /^\/produto\/[a-z0-9-]*\d{8,14}$/.test(h));
-    conferir(`${bons.length} de ${hrefs.length} cards com endereço por nome`, bons.length === hrefs.length,
+    /* O card aponta para a página de COMPRA, com a loja no caminho — é
+       nela que há preço e botão. A canônica, sem loja, é a que o sitemap
+       publica e a que o Google mostra. */
+    const bons = hrefs.filter((h) => /^\/loja\/[a-z0-9-]+\/produto\/[a-z0-9-]*\d{8,14}$/.test(h));
+    conferir(`${bons.length} de ${hrefs.length} cards apontam para a página de compra da loja`,
+        bons.length === hrefs.length,
         hrefs.filter((h) => !bons.includes(h)).slice(0, 3).join(" | "));
 
     /* E o link realmente abre: clicar é o que prova que o endereço
@@ -252,6 +260,89 @@ console.log("\n5. os links da vitrine usam o endereço novo");
     await pagina.click(".produto-nome-link");
     await pagina.waitForSelector("h1.produto-nome", { timeout: 90000 });
     conferir("clicar no card abre a página do produto", /\/produto\//.test(pagina.url()), pagina.url());
+    await pagina.close();
+}
+
+/* ---- 6: as duas rotas do marketplace -------------------------------- */
+console.log("\n6. as duas rotas: a do produto e a da loja");
+{
+    const caminhoProduto = `/produto/${SLUG}-${EAN}`;
+    const caminhoLoja = `/loja/mais-barato/produto/${SLUG}-${EAN}`;
+
+    const ler = async (caminho) => {
+        const { pagina } = await abrir(caminho);
+        const cabeca = await pagina.evaluate(() => ({
+            titulo: document.title,
+            canonico: document.querySelector('link[rel="canonical"]')?.getAttribute("href"),
+            ogUrl: document.querySelector('meta[property="og:url"]')?.getAttribute("content"),
+            robots: document.querySelector('meta[name="robots"]')?.getAttribute("content") || ""
+        }));
+        await pagina.waitForSelector("h1.produto-nome", { timeout: 90000 });
+        const oferta = await pagina.evaluate(() => {
+            const b = [...document.querySelectorAll('script[type="application/ld+json"]')]
+                .map((s) => JSON.parse(s.textContent)).find((x) => x["@type"] === "Product");
+            return b && b.offers;
+        });
+        await pagina.close();
+        return { ...cabeca, oferta };
+    };
+
+    const doProduto = await ler(caminhoProduto);
+    const daLoja = await ler(caminhoLoja);
+
+    const canonicoEsperado = new URL(caminhoProduto, BASE).toString();
+
+    conferir("a página do produto é canônica de si mesma",
+        doProduto.canonico === canonicoEsperado, doProduto.canonico);
+    conferir("a página da loja aponta para a do produto",
+        daLoja.canonico === canonicoEsperado, daLoja.canonico);
+    conferir("e o og:url de cada uma é o endereço dela mesma",
+        doProduto.ogUrl !== daLoja.ogUrl, `${doProduto.ogUrl} vs ${daLoja.ogUrl}`);
+
+    /* noindex junto com canonical são instruções que se contradizem, e o
+       Google avisa que pode acabar tirando as duas páginas. O canonical
+       sozinho já consolida. */
+    conferir("a página da loja NÃO leva noindex", !/noindex/.test(daLoja.robots), daLoja.robots);
+
+    conferir("a loja declara uma oferta com vendedor",
+        daLoja.oferta && daLoja.oferta["@type"] === "Offer" && !!daLoja.oferta.seller,
+        JSON.stringify(daLoja.oferta));
+    conferir("a do produto declara faixa de preços, sem vendedor",
+        doProduto.oferta && doProduto.oferta["@type"] === "AggregateOffer" && !doProduto.oferta.seller,
+        JSON.stringify(doProduto.oferta));
+    conferir("as duas abrem o mesmo produto",
+        /Aspirina/i.test(doProduto.titulo) && /Aspirina/i.test(daLoja.titulo),
+        `${doProduto.titulo} | ${daLoja.titulo}`);
+}
+
+/* ---- 7: a vitrine da farmácia --------------------------------------- */
+console.log("\n7. a vitrine da farmácia, em /loja/<slug>");
+{
+    const { pagina, quebrados } = await abrir("/loja/mais-barato");
+
+    const cabeca = await pagina.evaluate(() => {
+        const blocos = [...document.querySelectorAll('script[type="application/ld+json"]')]
+            .map((s) => { try { return JSON.parse(s.textContent); } catch { return null; } })
+            .filter(Boolean);
+        return {
+            titulo: document.title,
+            canonico: document.querySelector('link[rel="canonical"]')?.getAttribute("href"),
+            farmacia: blocos.find((b) => b["@type"] === "Pharmacy")
+        };
+    });
+
+    conferir("o título traz a farmácia e a cidade",
+        /Drogaria Mais Barato/.test(cabeca.titulo) && /São Bernardo/.test(cabeca.titulo), cabeca.titulo);
+    conferir("é canônica de si mesma",
+        (cabeca.canonico || "").endsWith("/loja/mais-barato"), cabeca.canonico);
+    conferir("declara Pharmacy com endereço",
+        !!(cabeca.farmacia && cabeca.farmacia.address && cabeca.farmacia.address.addressLocality),
+        JSON.stringify(cabeca.farmacia && cabeca.farmacia.address));
+    conferir("e com horário de funcionamento",
+        (cabeca.farmacia?.openingHoursSpecification || []).length === 7,
+        String((cabeca.farmacia?.openingHoursSpecification || []).length));
+    conferir("nenhum arquivo do site faltou", quebrados.length === 0, quebrados.slice(0, 3).join(" | "));
+
     await pagina.close();
 }
 

@@ -405,6 +405,18 @@ document.addEventListener("click", ev => {
    também o tira; o trecho de nome é enfeite para a busca e não participa
    da identificação. Então um nome desatualizado no link (produto que
    mudou de descrição) ainda abre a página certa. */
+/* O slug da farmácia, quando o endereço é o de compra.
+
+   /loja/mais-barato/produto/dipirona-789...  ->  "mais-barato"
+   /produto/dipirona-789...                   ->  ""
+
+   Vazio significa "página do produto, sem loja" — e é o que decide se a
+   página declara uma oferta com vendedor ou uma faixa de preços. */
+function lojaDaURL() {
+  const achado = /^\/loja\/([a-z0-9-]+)\//.exec(decodeURIComponent(window.location.pathname));
+  return achado ? achado[1] : "";
+}
+
 function produtoPedidoNaURL() {
   if (typeof produtos === "undefined" || !produtos.length) return null;
 
@@ -454,6 +466,49 @@ function ajustarMetaDoProduto(p) {
 
   if (!p.preco) return;
 
+  /* A oferta muda conforme a rota, e isso não é detalhe:
+
+       /loja/<slug>/produto/...   Offer, com vendedor e preço daquela
+                                  farmácia — é uma oferta de verdade,
+                                  feita por alguém, com botão de comprar
+
+       /produto/...               AggregateOffer, sem vendedor — é a
+                                  página do produto, que fala de todas as
+                                  farmácias, e dizer "vendido por X" nela
+                                  seria mentira assim que existir a
+                                  segunda loja
+
+     Com uma loja só, o preço mínimo e o máximo coincidem e a contagem é
+     1. Fica correto hoje e continua correto depois, sem reescrever. */
+  const daLoja = lojaDaURL();
+  const preco = Number(p.preco).toFixed(2);
+  const disponibilidade = semEstoque(p)
+    ? "https://schema.org/OutOfStock"
+    : "https://schema.org/InStock";
+  const aqui = window.location.origin + window.location.pathname;
+
+  const oferta = daLoja
+    ? {
+        "@type": "Offer",
+        url: aqui,
+        priceCurrency: "BRL",
+        price: preco,
+        availability: disponibilidade,
+        seller: {
+          "@type": "Pharmacy",
+          name: (typeof LOJA !== "undefined" && LOJA && LOJA.nome) || "Drogaria Mais Barato"
+        }
+      }
+    : {
+        "@type": "AggregateOffer",
+        url: aqui,
+        priceCurrency: "BRL",
+        lowPrice: preco,
+        highPrice: preco,
+        offerCount: 1,
+        availability: disponibilidade
+      };
+
   const dados = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -462,16 +517,7 @@ function ajustarMetaDoProduto(p) {
     gtin13: String(p.ean || "") || undefined,
     brand: (p.marca || p.laboratorio) ? { "@type": "Brand", name: p.marca || p.laboratorio } : undefined,
     image: p.imagem || undefined,
-    offers: {
-      "@type": "Offer",
-      url: window.location.origin + window.location.pathname,
-      priceCurrency: "BRL",
-      price: Number(p.preco).toFixed(2),
-      availability: semEstoque(p)
-        ? "https://schema.org/OutOfStock"
-        : "https://schema.org/InStock",
-      seller: { "@type": "Pharmacy", name: "Drogaria Mais Barato" }
-    }
+    offers: oferta
   };
 
   const script = document.createElement("script");
