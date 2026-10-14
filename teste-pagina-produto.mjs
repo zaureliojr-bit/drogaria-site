@@ -346,6 +346,29 @@ console.log("\n7. a vitrine da farmácia, em /loja/<slug>");
     await pagina.close();
 }
 
+/* ---- 8: o cabeçalho Link (Early Hints) ------------------------------ */
+console.log("\n8. os caminhos do cabeçalho Link, que o reescritor não alcança");
+{
+    /* De onde saiu esta seção: a vitrine pedia /loja/logo.png e dava 404,
+       com o HTML servido perfeito — todos os caminhos absolutos. A
+       Cloudflare lê o <link rel="preload"> da página e repete o caminho
+       num cabeçalho HTTP `link:` (Early Hints). Caminho relativo ali é
+       resolvido contra o endereço DA REQUISIÇÃO, e não contra a raiz, e
+       o HTMLRewriter não tem como alcançar um cabeçalho.
+
+       Por isso o HTML estático passou a usar caminho absoluto, em vez de
+       depender só do reescritor. E por isso este teste olha o cabeçalho:
+       é o único lugar onde o erro aparece. */
+    for (const caminho of ["/", "/loja/mais-barato", `/loja/mais-barato/produto/${SLUG}-${EAN}`]) {
+        const resposta = await contexto.request.get(BASE + caminho);
+        const cabecalho = resposta.headers()["link"] || "";
+        const alvos = [...cabecalho.matchAll(/<([^>]+)>/g)].map((m) => m[1]);
+        const relativos = alvos.filter((u) => !/^([a-z][a-z0-9+.-]*:|\/\/|\/)/i.test(u));
+        conferir(`${caminho}: nenhum caminho relativo no cabeçalho Link`,
+            relativos.length === 0, relativos.join(" | ") + "  (cabeçalho: " + cabecalho + ")");
+    }
+}
+
 await navegador.close();
 console.log(falhas === 0 ? "\nTudo certo.\n" : `\n${falhas} falha(s).\n`);
 process.exit(falhas === 0 ? 0 : 1);
