@@ -35,6 +35,20 @@
 # script e mostra o padronizador inteiro num iframe. Dar essas duas
 # folgas à vitrine toda seria alargar o CSP de 6.800 páginas de produto
 # para atender uma tela que só a loja abre.
+#
+# A regra fica em /painel, e não em /painel.html: a Pages redireciona
+# painel.html para /painel com 308, então a requisição que chega aqui é
+# sempre a da URL curta. Com a regra escrita no nome do arquivo, ela
+# nunca casava e o painel caía no CSP da vitrine — que bloqueia o
+# padronizador. O .html fica logo abaixo só por garantia, para o caso de
+# alguém chegar pelo endereço antigo sem seguir o redirecionamento.
+/painel
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+
 /painel.html
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
