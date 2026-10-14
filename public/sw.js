@@ -16,17 +16,23 @@
    primeira vez que ele abrir, não na segunda.
    ===================================================== */
 
-const CACHE = "mais-barato-casca-v5";
+const CACHE = "mais-barato-casca-v6";
 
 /* Só a casca. "/index.html" fica de fora porque o Cloudflare Pages
    responde 308 nele e redireciona para "/", e resposta de redirecionamento
    não pode ser guardada no cache. Pelo mesmo motivo o painel entra como
-   "/painel", e não "/painel.html". */
+   "/painel", e não "/painel.html", e a página de produto entra como
+   "/produto".
+
+   Guardar "/produto" guarda a casca genérica, sem produto nenhum — é o
+   que já era, porque o conteúdo vem do catálogo em tempo de execução. Os
+   endereços /produto/<nome>-<ean> entram no cache sozinhos, um por um,
+   quando o cliente visita (ver o handler de fetch, rede primeiro). */
 const CASCA = [
   "/",
   "/style.css",
   "/script.js",
-  "/produto.html",
+  "/produto",
   "/produto.js",
   "/carrinho.html",
   "/carrinho.js",

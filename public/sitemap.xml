@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Índice de sitemaps. O robots.txt aponta para cá, e daqui saem dois:
+
+    sitemap-paginas.xml   as páginas fixas, escritas à mão
+    sitemap-produtos.xml  as 6.800 páginas de produto, geradas
+
+  São dois arquivos, e não um, porque têm ritmo diferente: as páginas
+  fixas mudam quando alguém mexe no site, e os produtos mudam toda vez
+  que o padronizador publica catálogo novo. O de produtos é gerado pelo
+  .github/workflows/sitemap.yml, que roda na nuvem do GitHub todo dia —
+  não numa função da Pages, porque montar 6.800 URLs exige ler o
+  catálogo inteiro (2,6 MB) e isso custa 48 ms de CPU, quase cinco vezes
+  o limite de 10 ms por requisição do plano Free.
+-->
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://drogaria-site.pages.dev/sitemap-paginas.xml</loc>
+  </sitemap>
+  <sitemap>
+    <loc>https://drogaria-site.pages.dev/sitemap-produtos.xml</loc>
+  </sitemap>
+</sitemapindex>

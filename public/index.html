@@ -6,11 +6,86 @@
   <meta name="description" content="Drogaria Mais Barato - Medicamentos com os melhores preços em São Bernardo do Campo">
   <title>Drogaria Mais Barato</title>
 
+  <link rel="canonical" href="https://drogaria-site.pages.dev/">
+
   <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Drogaria Mais Barato">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:url" content="https://drogaria-site.pages.dev/">
   <meta property="og:title" content="Drogaria Mais Barato">
   <meta property="og:description" content="Medicamentos, perfumaria e higiene com os melhores preços em São Bernardo do Campo. Retire na loja ou receba em casa.">
-  <meta property="og:image" content="logo.png">
+  <!-- Endereço COMPLETO, não "logo.png". O WhatsApp e o Facebook não
+       resolvem caminho relativo ao montar a prévia do link: com o
+       relativo, a prévia saía sem imagem nenhuma. -->
+  <meta property="og:image" content="https://drogaria-site.pages.dev/logo.png">
+  <meta property="og:image:alt" content="Logotipo da Drogaria Mais Barato">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#26247B">
+
+  <!-- A loja, em dado que a máquina lê.
+       Tudo aqui já estava no site: endereço e CRF no rodapé, as
+       coordenadas no cálculo de frete, o horário no indicador
+       "Aberto/Fechado". O que faltava era dizer isso numa forma que o
+       Google entenda - é o que coloca a farmácia no resultado local de
+       quem busca "farmácia perto de mim" em São Bernardo. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Pharmacy",
+    "name": "Drogaria Mais Barato",
+    "url": "https://drogaria-site.pages.dev/",
+    "image": "https://drogaria-site.pages.dev/logo.png",
+    "telephone": "+5511925190101",
+    "priceRange": "$",
+    "currenciesAccepted": "BRL",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Rua Almeida Leme, 07 - Loja 1",
+      "addressLocality": "São Bernardo do Campo",
+      "addressRegion": "SP",
+      "postalCode": "09761-170",
+      "addressCountry": "BR"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": -23.709245,
+      "longitude": -46.5251954
+    },
+    "openingHoursSpecification": [
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
+        "opens": "07:00",
+        "closes": "21:30"
+      },
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": "Sunday",
+        "opens": "08:00",
+        "closes": "19:30"
+      }
+    ],
+    "areaServed": { "@type": "City", "name": "São Bernardo do Campo" }
+  }
+  </script>
+
+  <!-- Deixa o Google oferecer a busca do próprio site no resultado. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Drogaria Mais Barato",
+    "url": "https://drogaria-site.pages.dev/",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://drogaria-site.pages.dev/?busca={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
 
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="apple-touch-icon" href="icone-180.png">

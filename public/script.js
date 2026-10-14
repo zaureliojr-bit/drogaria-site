@@ -38,7 +38,7 @@ const BLOQUEAR_CONTROLADOS = true;
    afeta o carrinho. Para atualizar, baixe a lista nova em
    gov.br/anvisa/pt-br/assuntos/medicamentos/cmed/precos e gere o
    arquivo de novo. */
-const API_TARJAS = "tarjas.json";
+const API_TARJAS = "/tarjas.json";
 
 /* Frete grátis a partir de: use 0 para desativar.
    Enquanto for 0, o banner NÃO deve prometer frete grátis. */
@@ -68,8 +68,8 @@ Fica hospedada junto do site, e não num serviço externo: hoje todo o
 catálogo cai neste arquivo, então se o host sair do ar a vitrine
 inteira vai junto.
 ========================= */
-const IMAGEM_SEM_FOTO = "sem-imagem.webp";              // com o selo "Medicamento Genérico"
-const IMAGEM_SEM_FOTO_NEUTRA = "sem-imagem-neutra.webp"; // mesma caixa, sem o selo
+const IMAGEM_SEM_FOTO = "/sem-imagem.webp";              // com o selo "Medicamento Genérico"
+const IMAGEM_SEM_FOTO_NEUTRA = "/sem-imagem-neutra.webp"; // mesma caixa, sem o selo
 
 /* Só estas classes podem exibir a caixa com o selo "Medicamento Genérico".
    Um ETICO é medicamento de referência, não genérico — para ele e para os
@@ -413,7 +413,25 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("produtosProntos", (ev) => {
   if (!ev.detail || !ev.detail.ok) return;
 
-  const familia = new URLSearchParams(location.search).get("familia");
+  const parametros = new URLSearchParams(location.search);
+
+  /* ?busca=dipirona — é o endereço que o próprio Google usa quando
+     oferece a caixa de busca do site no resultado (o SearchAction
+     declarado no index.html). Sem isto, quem clicasse ali cairia na home
+     com o termo ignorado, o que é pior do que não oferecer a busca.
+
+     Também serve para link mandado no WhatsApp: "olha o preço aqui,
+     drogaria-site.pages.dev/?busca=dipirona". */
+  const termo = (parametros.get("busca") || "").trim();
+  if (termo) {
+    const campo = el("busca");
+    if (campo) campo.value = termo;
+    if (typeof buscar === "function") buscar();
+    history.replaceState(null, "", location.pathname);
+    return;
+  }
+
+  const familia = parametros.get("familia");
   if (!familia || typeof filtrarCategoria !== "function") return;
   if (!familiasComProdutos().some(f => f.id === familia)) return;
 
@@ -508,7 +526,7 @@ A seção só existe se houver banner válido hoje. Espaço publicitário
 vazio numa loja pequena não passa despercebido: passa a impressão de
 loja parada, que é pior do que não ter o espaço. */
 
-const BANNERS_JSON = "banners.json";
+const BANNERS_JSON = "/banners.json";
 
 /* aaaa-mm-dd comparado como texto, não como Date.
 
@@ -1558,11 +1576,45 @@ function acoesDoCardHTML(p, qtd, mini = false) {
           </button>`;
 }
 
+/* Transforma "Dipirona Sódica 500mg C/ 20" em
+   "dipirona-sodica-500mg-c-20": tira acento, deixa minúsculo e troca
+   tudo que não é letra ou número por hífen.
+
+   Esta função e a desslugificar() da functions/produto/[[rota]].js são
+   as duas pontas do mesmo acordo. Mexer numa sem mexer na outra muda o
+   endereço das páginas já indexadas — o que, para o Google, é o site
+   perdendo 6.800 páginas e ganhando 6.800 novas. */
+function slugificar(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+}
+
+/* O endereço da página do produto.
+
+   Com EAN, sai o endereço com nome, que é o que o Google indexa e o que
+   permite à função do servidor montar título e foto sem ler o catálogo.
+   Sem EAN, continua o endereço antigo por código — nenhum produto do
+   catálogo cai nesse caso hoje (o carregar() descarta produto sem EAN),
+   mas o fallback evita gerar link quebrado se isso mudar. */
+function urlProduto(p) {
+  const ean = String(p.ean || "").replace(/\D/g, "");
+  if (ean.length >= 8) {
+    const slug = slugificar(p.nome);
+    return `/produto/${slug ? slug + "-" : ""}${ean}`;
+  }
+  return `/produto?codigo=${encodeURIComponent(p.codigo)}`;
+}
+
 function cardHTML(p, mini = false) {
   const qtd = carrinho.find(i => String(i.codigo) === String(p.codigo))?.qtd || 0;
   const nome = esc(p.nome);
   const codigo = esc(p.codigo);
-  const href = `produto.html?codigo=${encodeURIComponent(p.codigo)}`;
+  const href = esc(urlProduto(p));
 
   // A faixa fica numa tira no topo do card, e não flutuando sobre a foto:
   // cabe o texto inteiro sem tapar o produto, e a foto de todos os cards
@@ -2661,7 +2713,7 @@ function mostrarPedidoEnviado(ref, temReceita) {
           <strong>Não esqueça da receita.</strong> Envie a foto dela nessa mesma conversa. A entrega só pode sair depois de a farmacêutica conferir.
         </p>
       ` : ""}
-      <a class="btn-finalizar" href="index.html">Voltar para a loja</a>
+      <a class="btn-finalizar" href="/">Voltar para a loja</a>
     </div>
   `;
 
@@ -2769,7 +2821,7 @@ function mostrarBannerInstalar() {
   const noIPhone = ehIPhone();
 
   banner.innerHTML = `
-    <img class="instalar-icone" src="icone-192.png" alt="" width="44" height="44">
+    <img class="instalar-icone" src="/icone-192.png" alt="" width="44" height="44">
 
     <div class="instalar-texto">
       <strong>Instale nosso catálogo</strong>
@@ -2833,7 +2885,7 @@ document.addEventListener("DOMContentLoaded", () => {
    nem tarja — ver os comentários no sw.js. */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch((erro) => {
+    navigator.serviceWorker.register("/sw.js").catch((erro) => {
       console.warn("Service worker não registrou; o site funciona igual.", erro);
     });
   });

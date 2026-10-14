@@ -65,7 +65,7 @@ function mostrarErroConexao() {
       <p class="erro-acoes">
         <button class="btn-buscar" onclick="window.location.reload()">Tentar novamente</button>
       </p>
-      <p><a href="index.html">Voltar para a loja</a></p>
+      <p><a href="/">Voltar para a loja</a></p>
     </div>
   `;
 }
@@ -79,7 +79,7 @@ function mostrarProdutoNaoEncontrado() {
     <div class="produto-detalhe-erro">
       <p class="erro-titulo">Produto não encontrado.</p>
       <p>Ele pode ter saído do catálogo ou o link está incorreto.</p>
-      <p class="erro-acoes"><a href="index.html">Voltar para a loja</a></p>
+      <p class="erro-acoes"><a href="/">Voltar para a loja</a></p>
     </div>
   `;
 }
@@ -122,7 +122,7 @@ function renderProdutoDetalhe(p) {
 
   container.innerHTML = `
     <nav class="migalhas" aria-label="Você está em">
-      <a href="index.html">Início</a>
+      <a href="/">Início</a>
       ${icone("chevron-right", 11)}
       <span>${esc(p.familiaNome || "Produto")}</span>
     </nav>
@@ -352,7 +352,7 @@ function acoesDoDetalheHTML(p, qtd) {
         <button data-acao="mais" data-codigo="${codigo}" aria-label="Adicionar uma unidade de ${nome}">+</button>
       </div>
 
-      <a class="btn-comprar btn-ir-carrinho" href="carrinho.html">
+      <a class="btn-comprar btn-ir-carrinho" href="/carrinho.html">
         ${icone("cart", 16)}Ver carrinho
       </a>
     `;
@@ -390,6 +390,96 @@ document.addEventListener("click", ev => {
   adicionarAoCarrinhoDetalhe(alvo.dataset.codigo);
 });
 
+/* Qual produto esta URL pede.
+
+   Dois formatos convivem, de propósito:
+
+     /produto/dipirona-500mg-7891234567890   endereço novo, por EAN
+     /produto?codigo=000123                  endereço antigo, por código
+
+   O antigo tem de continuar funcionando: está em link mandado por
+   WhatsApp, em aba salva e no índice do Google. Some quando o Google
+   reindexar — não antes.
+
+   O EAN vem do fim do caminho porque é de lá que a função do servidor
+   também o tira; o trecho de nome é enfeite para a busca e não participa
+   da identificação. Então um nome desatualizado no link (produto que
+   mudou de descrição) ainda abre a página certa. */
+function produtoPedidoNaURL() {
+  if (typeof produtos === "undefined" || !produtos.length) return null;
+
+  const caminho = decodeURIComponent(window.location.pathname);
+  const achado = /(\d{8,14})\/?$/.exec(caminho);
+
+  if (achado) {
+    const ean = achado[1];
+    const porEan = produtos.find(p => String(p.ean) === ean);
+    if (porEan) return porEan;
+  }
+
+  const codigo = new URLSearchParams(window.location.search).get("codigo");
+  if (codigo) return produtos.find(p => String(p.codigo) === String(codigo)) || null;
+
+  return null;
+}
+
+/* Corrige a cabeça da página com o produto de verdade.
+
+   A função do servidor (functions/produto/[[rota]].js) já escreveu
+   título, descrição e foto a partir da URL, sem ler o catálogo — é o
+   que o WhatsApp e o Facebook leem, porque eles não rodam JavaScript.
+   O que ela não tem como saber: o acento do nome, o preço e se está em
+   estoque. Isso entra aqui, e o Google — que roda JavaScript — acaba
+   indexando a versão completa.
+
+   O Product/Offer só é escrito com preço: oferta sem preço é dado
+   estruturado incompleto, e a Busca reclama em vez de mostrar. */
+function ajustarMetaDoProduto(p) {
+  const titulo = `${p.nome} — Drogaria Mais Barato`;
+  document.title = titulo;
+
+  const por = (seletor, atributo, valor) => {
+    const el = document.querySelector(seletor);
+    if (el) el.setAttribute(atributo, valor);
+  };
+
+  const descricao = `${p.nome}. Compre na Drogaria Mais Barato, em São Bernardo do Campo, com entrega em até 2 horas.`;
+
+  por('meta[name="description"]', "content", descricao);
+  por('meta[property="og:title"]', "content", titulo);
+  por('meta[property="og:description"]', "content", descricao);
+  por('meta[name="twitter:title"]', "content", titulo);
+  por('meta[name="twitter:description"]', "content", descricao);
+  por('meta[property="og:image:alt"]', "content", p.nome);
+
+  if (!p.preco) return;
+
+  const dados = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: p.nome,
+    sku: String(p.codigo),
+    gtin13: String(p.ean || "") || undefined,
+    brand: (p.marca || p.laboratorio) ? { "@type": "Brand", name: p.marca || p.laboratorio } : undefined,
+    image: p.imagem || undefined,
+    offers: {
+      "@type": "Offer",
+      url: window.location.origin + window.location.pathname,
+      priceCurrency: "BRL",
+      price: Number(p.preco).toFixed(2),
+      availability: semEstoque(p)
+        ? "https://schema.org/OutOfStock"
+        : "https://schema.org/InStock",
+      seller: { "@type": "Pharmacy", name: "Drogaria Mais Barato" }
+    }
+  };
+
+  const script = document.createElement("script");
+  script.type = "application/ld+json";
+  script.textContent = JSON.stringify(dados);
+  document.head.appendChild(script);
+}
+
 async function initProdutoPage() {
   mostrarSkeletonProduto();
   const { ok } = await aguardarProdutos();
@@ -399,10 +489,7 @@ async function initProdutoPage() {
     return;
   }
 
-  const params = new URLSearchParams(window.location.search);
-  const codigo = params.get("codigo");
-
-  const produto = produtos.find(p => String(p.codigo) === String(codigo));
+  const produto = produtoPedidoNaURL();
 
   if (!produto) {
     mostrarProdutoNaoEncontrado();
@@ -410,6 +497,7 @@ async function initProdutoPage() {
   }
 
   renderProdutoDetalhe(produto);
+  ajustarMetaDoProduto(produto);
 }
 
 document.addEventListener("DOMContentLoaded", initProdutoPage);

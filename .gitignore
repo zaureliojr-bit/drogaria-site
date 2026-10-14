@@ -1,0 +1,4 @@
+# O site não tem build: a Cloudflare Pages publica a pasta public/ como
+# está. Estas pastas só existem na máquina de quem roda os testes.
+node_modules/
+.wrangler/

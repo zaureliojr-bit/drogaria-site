@@ -1,0 +1,18 @@
+# Drogaria Mais Barato — regras para robôs de busca
+#
+# Antes deste arquivo, /robots.txt devolvia o HTML da home: a Pages
+# serve o index.html para tudo que não é arquivo conhecido. O Google
+# pedia robots.txt e recebia uma página — não impede o rastreamento,
+# mas é sinal de site mal configurado, e escondia que não havia sitemap.
+
+User-agent: *
+Allow: /
+
+# O painel não é conteúdo de loja: é a tela de operação, com fila de
+# pedidos e cadastro de clientes. Fora do índice por dois motivos — não
+# serve a ninguém que busque remédio, e um painel listado no Google é
+# convite para alguém tentar a senha.
+Disallow: /painel
+Disallow: /painel.html
+
+Sitemap: https://drogaria-site.pages.dev/sitemap.xml

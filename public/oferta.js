@@ -130,7 +130,7 @@
     if (!familias.length) { caixa.closest(".lp-secao")?.remove(); return; }
 
     caixa.innerHTML = familias.map(f => `
-      <a class="lp-categoria" href="index.html?familia=${encodeURIComponent(f.id)}">
+      <a class="lp-categoria" href="/?familia=${encodeURIComponent(f.id)}">
         ${esc(f.nome)}
       </a>
     `).join("");

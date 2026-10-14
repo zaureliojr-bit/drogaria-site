@@ -1,0 +1,52 @@
+# Mantém o sitemap das páginas de produto em dia.
+#
+# Roda aqui, e não numa função da Cloudflare Pages, por limite de CPU:
+# montar as 6.800 URLs exige ler o catálogo inteiro (2,6 MB), o que custa
+# 48 ms, e o plano Free da Pages dá 10 ms por requisição. Na CPU do
+# GitHub o mesmo trabalho é de graça e sobra tempo.
+#
+# O comit vai para a main, o que dispara uma publicação da Pages — é o
+# que faz o arquivo novo chegar ao ar. Quando nada mudou no catálogo, o
+# script não grava nada e não há comit nem publicação.
+
+name: Sitemap dos produtos
+
+on:
+  schedule:
+    # 09:43 UTC = 06:43 em Brasília, antes de a loja abrir. Minuto quebrado
+    # de propósito: a fila do GitHub no minuto 0 de cada hora é longa.
+    - cron: "43 9 * * *"
+  # Para rodar na mão depois de uma publicação grande, sem esperar o dia.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sitemap
+  cancel-in-progress: false
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Gerar o sitemap
+        run: node scripts/gerar-sitemap.mjs
+
+      - name: Comitar se mudou
+        run: |
+          if git diff --quiet -- public/sitemap-produtos.xml; then
+            echo "nada mudou"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/sitemap-produtos.xml
+          git commit -m "Atualiza o sitemap das páginas de produto"
+          git push
