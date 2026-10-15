@@ -31,7 +31,16 @@ import { writeFile, readFile } from "node:fs/promises";
 const CATALOGO =
     "https://raw.githubusercontent.com/zaureliojr-bit/Produtos/refs/heads/main/produtos.json";
 
-const SITE = "https://drogaria-site.pages.dev";
+/* O endereço da plataforma. Variável de ambiente porque o dia da mudança
+   para o drogalink.com.br vai ser um dia só, e regerar o sitemap apontando
+   para o endereço velho é o tipo de erro que o Google leva semanas para
+   desfazer:
+
+       SITE=https://drogalink.com.br node scripts/gerar-sitemap.mjs
+
+   O que vale a cada momento está em MUDAR-DE-DOMINIO.md. */
+const SITE = (process.env.SITE || "https://drogaria-site.pages.dev")
+    .replace(/\/+$/, "");
 const SAIDA = new URL("../public/sitemap-produtos.xml", import.meta.url);
 
 /* Limite do protocolo: 50.000 URLs por arquivo. Hoje são 6.800 — a
