@@ -31,7 +31,8 @@ const LOJAS = [
     { slug: "mais-barato", nome: "Drogaria Mais Barato", cidade: "São Bernardo do Campo",
       uf: "SP", ativo: 1, tem_senha: 0, banco: null, prefixo_r2: null },
     { slug: "farma-centro", nome: "Farmácia do Centro", cidade: "Cuiabá",
-      uf: "MT", ativo: 1, tem_senha: 1, banco: "DB_FARMA_CENTRO", prefixo_r2: "farma-centro" },
+      uf: "MT", ativo: 1, tem_senha: 1, banco: "DB_FARMA_CENTRO", prefixo_r2: "farma-centro",
+      logo: "https://exemplo.test/logo-centro.png", cor: "#0a7d4b" },
     /* Uma filial cadastrada e desligada. É o estado de quem está
        preparando a loja nova, ou de quem tirou uma do ar — e o painel não
        pode oferecer "operar nesta" numa delas. */
@@ -138,7 +139,17 @@ async function abrirPainel({ dono }) {
                 ]
             });
         }
-        if (/\/lojas\/[a-z0-9-]+\/(cor|logo)$/.test(url.pathname)) {
+        const marca = url.pathname.match(/^\/lojas\/([a-z0-9-]+)\/(cor|logo)$/);
+        if (marca) {
+            const loja = LOJAS.find((l) => l.slug === marca[1]);
+            if (loja) {
+                if (marca[2] === "logo") {
+                    loja.logo = pedido.method() === "DELETE" ? null : "https://exemplo.test/novo.png";
+                } else {
+                    const c = JSON.parse(pedido.postData() || "{}").cor;
+                    loja.cor = c || null;
+                }
+            }
             return responder({ sucesso: true });
         }
         const ligando = url.pathname.match(/^\/lojas\/([a-z0-9-]+)\/ativo$/);
@@ -447,6 +458,100 @@ console.log("\n4. quem digita o apelido errado não fica preso");
     }));
     conferir("a filial errada não fica guardada", !guardado.loja, JSON.stringify(guardado));
     conferir("a tela de login volta", await pagina.isVisible("#login"));
+
+    await contexto.close();
+}
+
+/* ---- 5. a marca de uma filial já cadastrada -------------------------- */
+console.log("\n5. trocar e tirar a marca de uma filial");
+{
+    const { pagina, contexto, chamadas } = await abrirPainel({ dono: true });
+    await entrar(pagina, "chave-de-dono");
+    await pagina.click("#botaoAbaLojas");
+    await pagina.waitForSelector("#listaLojas table", { timeout: 15000 });
+
+    /* O bloco mostra o que está valendo AGORA: sem isso, quem vai trocar
+       o logotipo não tem como saber se a filial já tem um. */
+    await pagina.selectOption("#marcaLojaAlvo", "farma-centro");
+    await pagina.waitForTimeout(300);
+
+    const atual = await pagina.innerHTML("#marcaAtual");
+    conferir("mostra o logotipo que está valendo",
+        /logo-centro\.png/.test(atual), atual.slice(0, 120));
+    conferir("e a cor que está valendo", /#0a7d4b/.test(atual), atual.slice(0, 200));
+
+    const corNoSeletor = await pagina.inputValue("#marcaCorTexto");
+    conferir("o seletor começa na cor da filial, não na da casa",
+        corNoSeletor === "#0a7d4b", corNoSeletor);
+
+    /* A filial que usa a identidade da casa diz isso, em vez de mostrar
+       um espaço vazio que pareceria defeito. */
+    await pagina.selectOption("#marcaLojaAlvo", "mais-barato");
+    await pagina.waitForTimeout(300);
+    const semMarca = await pagina.textContent("#marcaAtual");
+    conferir("quem usa a marca da casa diz isso",
+        /sem logotipo próprio/.test(semMarca) && /sem cor própria/.test(semMarca),
+        semMarca.replace(/\s+/g, " "));
+
+    const botaoLimpar = await pagina.isVisible("#btnLimparLogo");
+    conferir("o botão de limpar logotipo existe", botaoLimpar);
+
+    /* Limpar numa filial que já usa a marca da casa não chama o worker:
+       avisa e para. */
+    chamadas.length = 0;
+    await pagina.click("#btnLimparLogo");
+    await pagina.waitForTimeout(500);
+    conferir("limpar quem já usa o da casa não chama o worker",
+        !chamadas.some((c) => /\/logo$/.test(c.caminho)),
+        chamadas.map((c) => c.caminho).join(","));
+    const aviso = await pagina.textContent("#avisoLojas");
+    conferir("e explica por quê", /já usa o logotipo da casa/.test(aviso || ""), aviso);
+
+    /* Agora na filial que TEM logotipo. O confirm é respondido com sim —
+       ele existe porque apagar leva o arquivo junto. */
+    await pagina.selectOption("#marcaLojaAlvo", "farma-centro");
+    await pagina.waitForTimeout(300);
+
+    pagina.once("dialog", (d) => d.accept());
+    chamadas.length = 0;
+    await pagina.click("#btnLimparLogo");
+    await pagina.waitForTimeout(1200);
+
+    const apagou = chamadas.find((c) => /\/lojas\/farma-centro\/logo$/.test(c.caminho));
+    conferir("manda DELETE do logotipo", !!apagou && apagou.metodo === "DELETE",
+        apagou ? apagou.metodo : "nenhuma chamada");
+
+    const depois = await pagina.textContent("#marcaAtual");
+    conferir("e a tela passa a dizer que usa o da casa",
+        /sem logotipo próprio/.test(depois), depois.replace(/\s+/g, " "));
+    conferir("mas a cor continua lá", /#0a7d4b/.test(await pagina.innerHTML("#marcaAtual")));
+
+    /* A filial escolhida não pode se perder quando a lista é redesenhada:
+       quem acabou de mexer na terceira teria de procurá-la de novo. */
+    const aindaEscolhida = await pagina.inputValue("#marcaLojaAlvo");
+    conferir("a filial escolhida continua escolhida", aindaEscolhida === "farma-centro", aindaEscolhida);
+
+    /* Limpar a cor não pergunta: não há arquivo a perder. */
+    chamadas.length = 0;
+    await pagina.click("#btnLimparCor");
+    await pagina.waitForTimeout(1200);
+    const limpouCor = chamadas.find((c) => /\/cor$/.test(c.caminho));
+    conferir("limpar a cor manda vazio ao worker",
+        !!limpouCor && JSON.parse(limpouCor.corpo).cor === "", limpouCor && limpouCor.corpo);
+
+    const semNada = await pagina.textContent("#marcaAtual");
+    conferir("e aí a filial usa a identidade da casa inteira",
+        /sem logotipo próprio/.test(semNada) && /sem cor própria/.test(semNada),
+        semNada.replace(/\s+/g, " "));
+
+    /* Salvar sem escolher nada não deve mandar requisição nenhuma — nem
+       apagar a cor de quem só queria trocar o logotipo. */
+    chamadas.length = 0;
+    await pagina.click("#btnSalvarMarca");
+    await pagina.waitForTimeout(600);
+    conferir("salvar sem nada escolhido não chama o worker",
+        !chamadas.some((c) => /\/(cor|logo)$/.test(c.caminho)),
+        chamadas.map((c) => c.caminho).join(","));
 
     await contexto.close();
 }
