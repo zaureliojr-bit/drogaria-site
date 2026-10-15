@@ -397,6 +397,14 @@
     border-radius: var(--raio-sm); background: var(--branco); cursor: pointer;
   }
   #abaLojas .btn-operar:hover { border-color: var(--marca); color: var(--marca); }
+  /* Discreto de propósito: fica embaixo do nome de cada filial, e a
+     coluna não pode engordar — a tabela já esbarrava em 1280px. */
+  #abaLojas .btn-link {
+    margin-top: 4px; font-size: 11.5px; padding: 0; border: 0;
+    background: none; color: var(--tinta-suave); cursor: pointer;
+    text-decoration: underline; text-underline-offset: 2px;
+  }
+  #abaLojas .btn-link:hover { color: var(--marca); }
   #abaLojas .aqui { font-size: 12px; color: var(--marca); font-weight: 700; }
   #abaLojas .desligada { font-size: 12px; color: var(--tinta-suave); font-style: italic; }
   #abaLojas .falta { font-size: 12px; color: var(--erro); font-weight: 700; }
@@ -2503,6 +2511,86 @@ const SITE_URL = "https://drogaria-site.pages.dev";
    Pages. Aqui ele só monta o texto do passo a passo e o link de conferir;
    quem decide de verdade é o middleware do site. */
 const DOMINIO_PLATAFORMA = "drogalink.com.br";
+
+/* ---------------------------------------------------------------------
+   O link que se manda para a dona da farmácia
+   ---------------------------------------------------------------------
+
+   Duas coisas que o painel NÃO faz, e é decisão, não falta de tempo:
+
+   1. Não cria o subdomínio. Criar domínio na Pages exige um token de
+      conta da Cloudflare, e esse token reescreve o próprio worker —
+      guardá-lo dentro dele é guardar, dentro da casa, a chave que abre a
+      casa. É a mesma razão de o banco D1 e o binding serem manuais.
+
+   2. Não inventa que o subdomínio existe. Oferecer
+      maisbarato.drogalink.com.br antes de alguém adicioná-lo em Custom
+      Domains seria entregar um link que não abre — e o primeiro link que
+      a dona da farmácia recebe é o que ela clica na frente dos sócios.
+
+   O que ele faz: confere qual dos dois endereços está de pé e entrega
+   esse. O da plataforma funciona desde o minuto do cadastro; o
+   subdomínio assume sozinho assim que responder. */
+
+const subdominiosNoAr = new Set();
+
+function enderecoProprio(slug) {
+    return `https://${slug}.${DOMINIO_PLATAFORMA}/`;
+}
+
+function linkDaLoja(slug) {
+    return subdominiosNoAr.has(slug)
+        ? enderecoProprio(slug)
+        : `${SITE_URL}/loja/${slug}`;
+}
+
+/* Pergunta ao navegador se aquele endereço existe.
+
+   mode:"no-cors" porque não queremos LER a resposta — queremos saber se
+   houve resposta. Sem isso o navegador bloquearia a leitura e a conta
+   daria "não existe" para um domínio perfeitamente de pé.
+
+   Resposta opaca de 404 também vale como sim: significa que o DNS
+   resolveu, o certificado valeu e alguém atendeu. Quem erra, erra para o
+   lado seguro — falhou, usa o endereço da plataforma, que funciona. */
+async function subdominioResponde(slug) {
+    try {
+        await fetch(enderecoProprio(slug) + "logo.png", {
+            mode: "no-cors",
+            cache: "no-store",
+            signal: AbortSignal.timeout(5000)
+        });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/* Confere todas de uma vez e corrige os botões onde o endereço mudou.
+
+   Redesenhar a lista inteira seria mais simples e está errado: ela
+   redesenha o seletor da marca junto, e a pessoa que estava no meio de
+   escolher uma cor veria a escolha voltar para a primeira filial. */
+async function conferirSubdominios(lojas) {
+    const resultados = await Promise.all(
+        lojas.map(async (l) => [l.slug, await subdominioResponde(l.slug)])
+    );
+
+    let mudou = false;
+    for (const [slug, responde] of resultados) {
+        if (responde && !subdominiosNoAr.has(slug)) { subdominiosNoAr.add(slug); mudou = true; }
+        if (!responde && subdominiosNoAr.delete(slug)) mudou = true;
+    }
+    if (!mudou) return;
+
+    document.querySelectorAll("#listaLojas [data-copiar]").forEach((botao) => {
+        const slug = botao.dataset.slug;
+        if (!slug) return;
+        const link = linkDaLoja(slug);
+        botao.dataset.copiar = link;
+        botao.title = link;
+    });
+}
 const URL_IMPORTADOR = PADRONIZADOR_URL + "/importador-automatico.js";
 
 /* O padronizador roda no quadro ao lado e precisa escrever no catálogo
@@ -2682,7 +2770,19 @@ async function carregarLojas() {
      { titulo: "Situação" }, { titulo: "Senha" }, { titulo: "" }],
     lojasDaPlataforma.map((l, i) => [
 
-      `${esc(l.nome)}<br><code>${esc(l.slug)}</code>`,
+      /* O link de mandar para a dona da farmácia.
+
+         Enquanto o subdomínio dela não estiver de pé na Pages, mandar
+         o endereço dele seria mandar um link que não abre — e o
+         primeiro link que a cliente recebe é o que ela vai clicar na
+         frente dos sócios. Então a lista oferece o endereço da
+         plataforma, que funciona desde o minuto do cadastro, e o
+         subdomínio só depois que ele responder. Quem decide é a
+         conferência de verdade, feita uma vez por carregamento. */
+      `${esc(l.nome)}<br><code>${esc(l.slug)}</code>` +
+      `<br><button type="button" class="btn-link" data-copiar="${esc(linkDaLoja(l.slug))}"
+                   data-slug="${esc(l.slug)}"
+                   title="${esc(linkDaLoja(l.slug))}">copiar link da loja</button>`,
 
       esc([l.cidade, l.uf].filter(Boolean).join("/")),
 
@@ -2732,6 +2832,11 @@ async function carregarLojas() {
     el("marcaLojaAlvo").value = marcaEscolhida;
   }
   mostrarMarcaAtual();
+
+  /* Sem await: são até cinco segundos de espera por filial, e a lista já
+     está na tela com um link que funciona. Quando as respostas chegarem,
+     os botões cujo subdomínio estiver de pé trocam sozinhos. */
+  conferirSubdominios(lojasDaPlataforma).catch(() => {});
 }
 
 /* Troca a filial em que o painel está operando.
@@ -3263,6 +3368,28 @@ el("listaLojas").addEventListener("click", (ev) => {
 el("listaLojas").addEventListener("click", (ev) => {
   const botao = ev.target.closest("[data-ir-para]");
   if (botao) operarNaLoja(botao.dataset.irPara);
+});
+
+/* Copiar o link da loja.
+
+   O writeText pode falhar — é bloqueado fora de HTTPS e em alguns
+   navegadores embarcados. Falhar em silêncio seria o pior caso: a pessoa
+   acha que copiou, cola no WhatsApp e manda outra coisa. Então, quando
+   não dá, o link aparece selecionado para copiar à mão. */
+el("listaLojas").addEventListener("click", async (ev) => {
+  const botao = ev.target.closest("[data-copiar]");
+  if (!botao) return;
+
+  const link = botao.dataset.copiar;
+  const antes = botao.textContent;
+
+  try {
+    await navigator.clipboard.writeText(link);
+    botao.textContent = "copiado ✓";
+    setTimeout(() => { botao.textContent = antes; }, 2000);
+  } catch {
+    window.prompt("Copie o link da loja:", link);
+  }
 });
 
 el("abas").addEventListener("click", (ev) => {

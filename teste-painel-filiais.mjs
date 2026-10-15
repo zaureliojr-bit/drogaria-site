@@ -59,9 +59,19 @@ const navegador = await chromium.launch(
 
    `dono` decide o que a rota /sessao responde — é exatamente o que o
    worker real decide comparando a senha com a DONO_KEY. */
-async function abrirPainel({ dono }) {
+async function abrirPainel({ dono, subdominiosNoAr = [] }) {
     const contexto = await navegador.newContext();
     const pagina = await contexto.newPage();
+
+    /* Os domínios das farmácias. `subdominiosNoAr` é a lista das que já
+       foram adicionadas em Custom Domains na Cloudflare; as outras não
+       existem — e abortar é o que o navegador faz de verdade com DNS que
+       não resolve. */
+    await pagina.route(/drogalink\.com\.br/, (rota) => {
+        const apelido = new URL(rota.request().url()).hostname.split(".")[0];
+        if (!subdominiosNoAr.includes(apelido)) return rota.abort("namenotresolved");
+        return rota.fulfill({ status: 200, contentType: "image/png", body: "" });
+    });
 
     /* Tudo que o painel pediu ao worker, para o teste conferir depois
        quais cabeçalhos foram junto. */
@@ -563,6 +573,72 @@ console.log("\n5. trocar e tirar a marca de uma filial");
     conferir("salvar sem nada escolhido não chama o worker",
         !chamadas.some((c) => /\/(cor|logo)$/.test(c.caminho)),
         chamadas.map((c) => c.caminho).join(","));
+
+    await contexto.close();
+}
+
+/* ---- 6. o link que se manda para a dona da farmácia ----------------- */
+console.log("\n6. o link de mandar para o cliente");
+{
+    /* Nenhum subdomínio adicionado ainda: é o estado do dia em que a
+       filial acaba de ser cadastrada. */
+    const { pagina, contexto } = await abrirPainel({ dono: true, subdominiosNoAr: [] });
+    await entrar(pagina, "chave-do-dono");
+    await pagina.click('[data-aba="lojas"]');
+    await pagina.waitForSelector("#listaLojas [data-copiar]");
+    await pagina.waitForTimeout(1500);
+
+    const semDominio = await pagina.getAttribute(
+        '#listaLojas [data-slug="mais-barato"]', "data-copiar");
+    conferir("sem o subdomínio de pé, manda o endereço que FUNCIONA",
+        /\/loja\/mais-barato$/.test(semDominio), semDominio);
+    conferir("e não um drogalink.com.br que ainda não abre",
+        !/drogalink\.com\.br/.test(semDominio), semDominio);
+
+    await contexto.close();
+}
+{
+    /* Agora a Mais Barato está em Custom Domains, e a outra não. */
+    const { pagina, contexto } = await abrirPainel({
+        dono: true, subdominiosNoAr: ["mais-barato"]
+    });
+    await entrar(pagina, "chave-do-dono");
+    await pagina.click('[data-aba="lojas"]');
+    await pagina.waitForSelector("#listaLojas [data-copiar]");
+
+    /* A conferência é assíncrona de propósito — a lista aparece antes
+       dela terminar. Esperar o botão trocar é esperar o que o olho da
+       pessoa vê.
+
+       Espera do lado do Node, e não com waitForFunction: a CSP do painel
+       não tem 'unsafe-eval', e o Playwright injeta a função por eval. O
+       erro que isso dá não diz nada sobre CSP — diz só que a condição
+       nunca ficou verdadeira. */
+    for (let i = 0; i < 60; i++) {
+        const atual = await pagina.getAttribute(
+            '#listaLojas [data-slug="mais-barato"]', "data-copiar");
+        if (atual && atual.includes("drogalink.com.br")) break;
+        await pagina.waitForTimeout(250);
+    }
+
+    const comDominio = await pagina.getAttribute(
+        '#listaLojas [data-slug="mais-barato"]', "data-copiar");
+    conferir("com o subdomínio de pé, passa a mandar o endereço DELA",
+        comDominio === "https://mais-barato.drogalink.com.br/", comDominio);
+
+    const outra = await pagina.$('#listaLojas [data-slug="farma-centro"]');
+    if (outra) {
+        const linkOutra = await outra.getAttribute("data-copiar");
+        conferir("e a filial sem subdomínio continua no endereço da plataforma",
+            /\/loja\/farma-centro$/.test(linkOutra), linkOutra);
+    }
+
+    /* O título é o que aparece ao parar o mouse em cima: tem de ser o
+       mesmo link que vai ser copiado, e não o de antes da troca. */
+    const titulo = await pagina.getAttribute(
+        '#listaLojas [data-slug="mais-barato"]', "title");
+    conferir("e o que o mouse mostra é o mesmo que o clique copia",
+        titulo === comDominio, titulo);
 
     await contexto.close();
 }

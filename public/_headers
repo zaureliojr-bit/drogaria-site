@@ -49,11 +49,20 @@
 #
 # Só o CSP é trocado. Os outros cabeçalhos vêm do /* e não precisam ser
 # repetidos — repetir criaria "DENY, DENY" e companhia.
+#
+# O https://*.drogalink.com.br no connect-src é a aba Filiais perguntando
+# se o domínio de cada farmácia já está de pé, para oferecer o link certo
+# de mandar para a dona dela. É o nosso próprio domínio, e só o painel
+# ganha essa permissão — o site não fala com quem não precisa.
+#
+# Foi um teste que descobriu a falta: a conferência era barrada antes de
+# sair, e o painel concluía "o domínio não existe" para domínio
+# perfeitamente no ar. O navegador reclama no console, que ninguém lê.
 
 /painel
   ! Content-Security-Policy
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com https://*.drogalink.com.br; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 /painel.html
   ! Content-Security-Policy
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com https://*.drogalink.com.br; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
