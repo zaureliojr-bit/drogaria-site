@@ -138,6 +138,9 @@ async function abrirPainel({ dono }) {
                 ]
             });
         }
+        if (/\/lojas\/[a-z0-9-]+\/(cor|logo)$/.test(url.pathname)) {
+            return responder({ sucesso: true });
+        }
         const ligando = url.pathname.match(/^\/lojas\/([a-z0-9-]+)\/ativo$/);
         if (ligando) {
             const loja = LOJAS.find((l) => l.slug === ligando[1]);
@@ -355,6 +358,14 @@ console.log("\n3b. cadastrar filial sem escrever uma linha de SQL");
     conferir("e com o rótulo do responsável escolhido à mão",
         corpoEnviado.rotuloResponsavel === "Farmacêutico responsável", corpoEnviado.rotuloResponsavel);
 
+    /* Quem não mexeu na cor não manda cor nenhuma. O seletor nasce com o
+       azul da casa porque precisa nascer com alguma coisa; gravar esse
+       valor prenderia a filial no tom antigo no dia em que a cor padrão
+       do sistema mudar. */
+    const mandouCor = chamadas.some((c) => /\/cor$/.test(c.caminho));
+    conferir("não grava cor quando ninguém escolheu uma", !mandouCor,
+        chamadas.filter((c) => /\/cor$/.test(c.caminho)).map((c) => c.corpo).join(","));
+
     const passos = await pagina.textContent("#passosFilial");
     conferir("mostra o nome do banco D1 a criar", /farmatech-sao-jose/.test(passos), passos.slice(0, 160));
     conferir("e o nome do binding a ligar", /DB_SAO_JOSE/.test(passos), passos.slice(0, 160));
@@ -387,6 +398,21 @@ console.log("\n3b. cadastrar filial sem escrever uma linha de SQL");
 
     const aviso = await pagina.textContent("#avisoLojas");
     conferir("lembrando que falta a senha dela", /senha/.test(aviso || ""), aviso);
+
+    /* E o outro lado: escolher a cor manda a cor. Sem este par, a
+       asserção de cima passaria também se a tela nunca mandasse cor
+       nenhuma. */
+    chamadas.length = 0;
+    await pagina.fill("#novaNome", "Farmácia Verde");
+    await pagina.fill("#novaSlug", "verde");
+    await pagina.fill("#novaCorTexto", "#0a7d4b");
+    await pagina.click("#btnCriarFilial");
+    await pagina.waitForTimeout(1500);
+
+    const envioCor = chamadas.find((c) => /\/cor$/.test(c.caminho));
+    conferir("mas grava a cor quando alguém escolhe uma",
+        !!envioCor && JSON.parse(envioCor.corpo).cor === "#0a7d4b",
+        envioCor && envioCor.corpo);
 
     await contexto.close();
 }

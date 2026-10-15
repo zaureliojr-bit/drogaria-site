@@ -2776,6 +2776,7 @@ async function criarFilial() {
       if (c.tagName === "INPUT" && c.type !== "number") c.value = "";
     });
     el("novaSlug").dataset.mexido = "";
+    el("novaCor").dataset.escolhida = "";
 
   } catch (erro) {
     avisoLojas("Não consegui cadastrar: " + erro.message);
@@ -2792,10 +2793,12 @@ el("btnCriarFilial").addEventListener("click", criarFilial);
    valor, não vê o seletor mudar e manda o outro sem perceber. */
 el("novaCor").addEventListener("input", () => {
   el("novaCorTexto").value = el("novaCor").value;
+  el("novaCor").dataset.escolhida = "1";
 });
 el("novaCorTexto").addEventListener("input", () => {
   const v = el("novaCorTexto").value.trim();
   if (/^#[0-9a-fA-F]{6}$/.test(v)) el("novaCor").value = v;
+  el("novaCor").dataset.escolhida = "1";
 });
 
 /* Manda o logotipo e a cor da filial.
@@ -2807,8 +2810,21 @@ el("novaCorTexto").addEventListener("input", () => {
 async function enviarMarcaDaFilial(slug) {
   const avisos = [];
 
+  /* Só manda a cor se alguém realmente escolheu uma.
+
+     O seletor nasce preenchido com o azul da casa — ele tem de nascer
+     com alguma coisa. Mandar esse valor por padrão gravaria, em toda
+     filial nova, uma cor explícita igual à padrão. Funciona hoje e
+     quebra no dia em que a cor padrão do sistema mudar: as filiais que
+     nunca escolheram ficariam presas no azul antigo, sem ninguém
+     entender por quê.
+
+     Sem cor cadastrada, a loja usa a do style.css — e acompanha quando
+     ela mudar. */
+  const escolheu = el("novaCor").dataset.escolhida === "1";
   const cor = (el("novaCorTexto").value || el("novaCor").value || "").trim().toLowerCase();
-  if (/^#[0-9a-f]{6}$/.test(cor)) {
+
+  if (escolheu && /^#[0-9a-f]{6}$/.test(cor)) {
     try {
       const r = await fetch(`${API.replace(/\/+$/, "")}/lojas/${encodeURIComponent(slug)}/cor`, {
         method: "POST",
