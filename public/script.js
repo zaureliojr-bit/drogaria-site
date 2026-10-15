@@ -1,8 +1,20 @@
 /* =========================
 ⚙️ CONFIG
 ========================= */
+/* O catálogo desta farmácia.
+
+   Cada loja da plataforma tem o seu arquivo publicado, e quem diz qual é
+   o desta página é a própria página: a função da Pages escreve o endereço
+   numa <meta> ao servir /loja/<slug>. O valor abaixo é o da farmácia
+   original, e vale quando não há <meta> — na home, na página canônica de
+   produto e em qualquer instalação de uma loja só.
+
+   Vem de <meta>, e não da API: o catálogo é pedido na primeira pintura,
+   antes de o cadastro da loja responder. Esperar a API para só então
+   baixar 2,6 MB somaria uma ida à rede ao tempo até o cliente ver preço. */
 const API_PRODUTOS =
-"https://raw.githubusercontent.com/zaureliojr-bit/Produtos/refs/heads/main/produtos.json";
+  document.querySelector('meta[name="catalogo"]')?.content
+  || "https://raw.githubusercontent.com/zaureliojr-bit/Produtos/refs/heads/main/produtos.json";
 
 const API_PEDIDOS =
 "https://script.google.com/macros/s/AKfycbxkYaQekyFpkptlBPxz5CoyR50sJU_gzLC8tVuW6rWTSJejk0_BRQGaSRkapnMUhWszLw/exec";
@@ -62,7 +74,12 @@ const SECOES_INICIAIS = 4;
    Foi exatamente o que faltou quando temEstoque entrou: quem tinha a aba
    aberta continuou lendo produtos mapeados pelo código anterior, sem o
    campo, e a vitrine inteira apareceu como "Indisponível no momento". */
-const CACHE_CHAVE = "catalogo_v10";
+/* A chave do cache leva o nome do arquivo dentro.
+
+   Sem isso, trocar de filial no mesmo navegador mostraria o catálogo da
+   anterior: o cache é por aba, e a aba é a mesma. O preço errado
+   apareceria com cara de certo, que é o pior jeito de errar preço. */
+const CACHE_CHAVE = "catalogo_v10_" + (API_PRODUTOS.split("/").pop() || "");
 const CACHE_MINUTOS = 30;
 
 /* =========================

@@ -50,6 +50,19 @@
 
 const MARCA = "Drogaria Mais Barato";
 
+/* Onde fica o worker que sabe das lojas.
+
+   Vinha escrito à mão em dois arquivos. Virou configurável por um motivo
+   prático antes de qualquer outro: sem isso não há como testar o caminho
+   do catálogo por loja sem publicar o worker primeiro — e um caminho que
+   só dá para testar em produção é um caminho que não se testa.
+
+   O padrão é o endereço de verdade, então nada muda sem a variável. */
+export function porteiro(env) {
+    return String((env && env.PEDIDOS_PROXY_URL) || "https://farmatech-pedidos-proxy.zaureliojr.workers.dev")
+        .replace(/\/+$/, "");
+}
+
 /* Quanto o Google mostra de uma descrição antes de cortar. */
 const MAX_DESCRICAO = 158;
 
@@ -140,37 +153,46 @@ export async function cascaDoProduto(env, origem) {
     return pagina;
 }
 
-/* O nome da farmácia, para o título da página de compra.
+/* O nome da farmácia e o catálogo dela.
 
    Uma subrequisição ao worker, que responde com cache de 5 minutos. É
    tempo de espera, não de CPU — e o cacheEverything faz a borda
    responder sem sair de casa na quase totalidade das vezes.
 
-   Se falhar, o slug desslugificado serve: "farma-centro" vira "Farma
-   Centro", que é feio mas não é errado, e é melhor que a página não
-   abrir por causa do título. */
-export async function nomeDaLoja(slug, env) {
-    if (!slug) return "";
+   O CATÁLOGO é o que mais importa aqui, e não o nome. Cada farmácia
+   publica o seu arquivo de produtos; sem o endereço certo, quem abre um
+   link de compra compartilhado no WhatsApp veria o PREÇO DA OUTRA LOJA —
+   com cara de certo, que é o pior jeito de errar preço.
+
+   Se a consulta falhar, o nome cai no slug desslugificado ("farma-centro"
+   vira "Farma Centro", feio mas não errado) e o catálogo fica vazio, o
+   que faz a página usar o da farmácia original. Preço de outra loja por
+   falha de rede é ruim; nenhuma página abrindo é pior. */
+export async function dadosDaLoja(slug, env) {
+    if (!slug) return { nome: "", catalogo: "" };
     try {
         const resposta = await fetch(
-            `https://farmatech-pedidos-proxy.zaureliojr.workers.dev/loja?slug=${encodeURIComponent(slug)}`,
+            `${porteiro(env)}/loja?slug=${encodeURIComponent(slug)}`,
             { cf: { cacheTtl: 300, cacheEverything: true } }
         );
         if (resposta.ok) {
             const dados = await resposta.json();
-            if (dados && dados.loja && dados.loja.nome) return dados.loja.nome;
+            return {
+                nome: (dados && dados.loja && dados.loja.nome) || desslugificar(slug),
+                catalogo: (dados && dados.catalogo) || ""
+            };
         }
     } catch (erro) {
-        console.error("nomeDaLoja:", erro);
+        console.error("dadosDaLoja:", erro);
     }
-    return desslugificar(slug);
+    return { nome: desslugificar(slug), catalogo: "" };
 }
 
 /* ---------------------------------------------------------------------
    A função que as duas rotas chamam
    ------------------------------------------------------------------ */
 
-export async function montarPaginaProduto({ request, env, rota, slugLoja = "", nomeLoja = "" }) {
+export async function montarPaginaProduto({ request, env, rota, slugLoja = "", nomeLoja = "", catalogo = "" }) {
     const url = new URL(request.url);
     const origem = url.origin;
 
@@ -226,7 +248,16 @@ export async function montarPaginaProduto({ request, env, rota, slugLoja = "", n
         ]
     };
 
-    const cabeca = `
+    /* Qual catálogo esta página lê. Só na página de compra: a canônica
+       fala do produto, não de uma farmácia, e usa o da casa.
+
+       O filtro de endereço é obrigatório — este valor vira <meta> numa
+       página do nosso domínio, e o script.js baixa de lá. */
+    const metaCatalogo = (slugLoja && /^https:\/\/raw\.githubusercontent\.com\//.test(catalogo))
+        ? `\n  <meta name="catalogo" content="${escapar(catalogo)}">`
+        : "";
+
+    const cabeca = `${metaCatalogo}
   <link rel="canonical" href="${escapar(canonico)}">
   <meta property="og:type" content="product">
   <meta property="og:site_name" content="${escapar(marca)}">

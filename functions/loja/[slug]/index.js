@@ -18,9 +18,7 @@
    arquivo estático — /style.css e /logo.png passariam por ela. Trocar
    esse risco por uma barra a menos no endereço não paga. */
 
-import { escapar, TrocarTexto, ParaRaiz } from "../../_paginaProduto.js";
-
-const PROXY = "https://farmatech-pedidos-proxy.zaureliojr.workers.dev";
+import { escapar, TrocarTexto, ParaRaiz, porteiro } from "../../_paginaProduto.js";
 
 const DIAS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -38,8 +36,9 @@ export async function onRequest({ request, env, params }) {
     let loja;
     let horario = [];
     let visual = null;
+    let catalogo = "";
     try {
-        const resposta = await fetch(`${PROXY}/loja?slug=${encodeURIComponent(slug)}`, {
+        const resposta = await fetch(`${porteiro(env)}/loja?slug=${encodeURIComponent(slug)}`, {
             cf: { cacheTtl: 300, cacheEverything: true }
         });
         if (resposta.status === 404) {
@@ -54,6 +53,7 @@ export async function onRequest({ request, env, params }) {
         loja = dados.loja;
         horario = dados.horario || [];
         visual = dados.visual || null;
+        catalogo = dados.catalogo || "";
         if (!loja) throw new Error("resposta sem loja");
 
     } catch (erro) {
@@ -143,7 +143,20 @@ export async function onRequest({ request, env, params }) {
     --marca-xclara: color-mix(in srgb, ${corValida} 5%, #fff);
   }</style>` : "";
 
-    const cabeca = `${marca}
+    /* Qual catálogo esta vitrine lê.
+
+       Cada farmácia publica o seu arquivo, e o script.js precisa do
+       endereço na primeira pintura — ele baixa 2,6 MB e não pode esperar
+       o cadastro responder. Por isso vem aqui, no HTML, e não da API.
+
+       Sem a <meta>, o script.js usa o da farmácia original. É o que
+       mantém a home e a página canônica de produto funcionando sem
+       mudança nenhuma. */
+    const metaCatalogo = /^https:\/\/raw\.githubusercontent\.com\//.test(catalogo)
+        ? `\n  <meta name="catalogo" content="${escapar(catalogo)}">`
+        : "";
+
+    const cabeca = `${marca}${metaCatalogo}
   <link rel="canonical" href="${escapar(canonico)}">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="${escapar(loja.nome)}">

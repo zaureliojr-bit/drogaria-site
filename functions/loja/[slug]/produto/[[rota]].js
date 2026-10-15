@@ -12,7 +12,7 @@
    este link no WhatsApp está mandando "o preço na MINHA farmácia", e a
    prévia precisa dizer qual. */
 
-import { montarPaginaProduto, nomeDaLoja } from "../../../_paginaProduto.js";
+import { montarPaginaProduto, dadosDaLoja } from "../../../_paginaProduto.js";
 
 export async function onRequest({ request, env, params }) {
     const rota = Array.isArray(params.rota) ? params.rota.join("/") : (params.rota || "");
@@ -25,7 +25,10 @@ export async function onRequest({ request, env, params }) {
         return Response.redirect(new URL("/produto/" + rota, request.url).toString(), 302);
     }
 
-    const nomeLoja = await nomeDaLoja(slugLoja, env);
+    /* Nome e catálogo vêm juntos, da mesma consulta. O catálogo é o que
+       importa: sem ele, quem abre este link vê o preço da farmácia
+       errada. */
+    const { nome: nomeLoja, catalogo } = await dadosDaLoja(slugLoja, env);
 
-    return montarPaginaProduto({ request, env, rota, slugLoja, nomeLoja });
+    return montarPaginaProduto({ request, env, rota, slugLoja, nomeLoja, catalogo });
 }

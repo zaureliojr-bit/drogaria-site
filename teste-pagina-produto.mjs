@@ -369,6 +369,80 @@ console.log("\n8. os caminhos do cabeçalho Link, que o reescritor não alcança
     }
 }
 
+/* ---- 9: cada farmácia lê o catálogo dela ---------------------------- */
+console.log("\n9. o catálogo que cada página lê");
+{
+    /* O erro que isto impede: quem abre um link de compra compartilhado no
+       WhatsApp veria o PREÇO DA OUTRA FARMÁCIA — com cara de certo, que é
+       o pior jeito de errar preço.
+
+       A página precisa do endereço na primeira pintura: o script.js baixa
+       2,6 MB e não pode esperar a API do cadastro responder. Por isso vem
+       numa <meta> escrita no servidor. */
+    const ler = async (caminho) => {
+        const resposta = await contexto.request.get(BASE + caminho);
+        const html = await resposta.text();
+        const achado = /<meta name="catalogo" content="([^"]*)"/.exec(html);
+        return achado ? achado[1] : "";
+    };
+
+    /* Esta seção precisa do porteiro de mentira: as funções da Pages
+       consultam o worker DO SERVIDOR, e o page.route do Playwright só
+       intercepta o que o navegador pede.
+
+         node stub-porteiro.mjs &
+         npx wrangler pages dev public --port 8819 \
+           --binding PEDIDOS_PROXY_URL=http://127.0.0.1:8899
+
+       Sem isso as funções falam com o worker de verdade, onde a filial de
+       teste não existe — e aí não há o que medir. Diz isso em vez de
+       reprovar: teste que reprova por falta de ambiente ensina a ignorar
+       reprovação. */
+    const filialDeTeste = await contexto.request.get(BASE + "/loja/farma-centro");
+    if (!filialDeTeste.ok()) {
+        console.log("  (pulado — rode com o stub-porteiro.mjs e o binding PEDIDOS_PROXY_URL)");
+    } else {
+
+    const naLoja = await ler(`/loja/mais-barato/produto/${SLUG}-${EAN}`);
+    conferir("a página de compra diz qual catálogo ler",
+        /raw\.githubusercontent\.com/.test(naLoja), naLoja || "(nenhuma meta)");
+
+    const naVitrine = await ler("/loja/mais-barato");
+    conferir("a vitrine da filial também", /raw\.githubusercontent\.com/.test(naVitrine),
+        naVitrine || "(nenhuma meta)");
+
+    /* A canônica NÃO leva a meta: ela fala do produto, não de uma
+       farmácia, e usa o catálogo da casa. */
+    const canonica = await ler(`/produto/${SLUG}-${EAN}`);
+    conferir("a página canônica não aponta para loja nenhuma", canonica === "", canonica);
+
+    const home = await ler("/");
+    conferir("e a home também não", home === "", home);
+
+    /* E o script.js precisa realmente usar o valor da meta. */
+    const { pagina } = await abrir(`/loja/mais-barato/produto/${SLUG}-${EAN}`);
+    const usado = await pagina.evaluate(() => typeof API_PRODUTOS !== "undefined" ? API_PRODUTOS : "");
+    conferir("o script usa o endereço da meta", usado === naLoja, `${usado} vs ${naLoja}`);
+
+    /* A chave do cache leva o nome do arquivo: sem isso, trocar de filial
+       na mesma aba mostraria o catálogo da anterior. */
+    const chave = await pagina.evaluate(() => typeof CACHE_CHAVE !== "undefined" ? CACHE_CHAVE : "");
+    conferir("e a chave do cache carrega o nome do arquivo",
+        chave.includes("produtos"), chave);
+
+    /* E a filial com catálogo próprio lê o arquivo DELA. É a asserção que
+       a seção existe para fazer: sem ela, as de cima passariam com todas
+       as farmácias lendo o mesmo arquivo. */
+    const daFilial = await ler(`/loja/farma-centro/produto/${SLUG}-${EAN}`);
+    conferir("a filial lê o catálogo dela, não o da casa",
+        /produtos-farma-centro\.json$/.test(daFilial), daFilial);
+    conferir("e os dois endereços são mesmo diferentes", daFilial !== naLoja,
+        `${naLoja} vs ${daFilial}`);
+
+    await pagina.close();
+    }
+}
+
 await navegador.close();
 console.log(falhas === 0 ? "\nTudo certo.\n" : `\n${falhas} falha(s).\n`);
 process.exit(falhas === 0 ? 0 : 1);
