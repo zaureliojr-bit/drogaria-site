@@ -235,7 +235,7 @@ function aplicarNaPagina() {
 
     /* Os links de WhatsApp da loja. Troca só o número e preserva a
        mensagem pronta de cada botão, que é diferente em cada página
-       ("quero fazer um pedido", "vi o encarte"...). O link da FarmaTech
+       ("quero fazer um pedido", "vi o encarte"...). O link da DrogaLink
        no rodapé não tem este atributo e fica como está — é o nosso
        contato, não o da farmácia. */
     if (l.whatsapp) {
