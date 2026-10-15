@@ -229,6 +229,17 @@ let chamadasDoDono;
         texto.replace(/\s+/g, " ").slice(0, 160));
     conferir("e em qual delas você está", /você está aqui/.test(texto));
 
+    /* "Ver o site" leva à vitrine DA FILIAL em que se está operando.
+
+       Com uma farmácia só dava para ser relativo. Com várias, a raiz é o
+       site de outra — e abrir o site do concorrente achando que é o seu é
+       confusão barata de evitar. É também o que destrava mudar o painel
+       para um domínio próprio da FarmaTech: lá, a raiz não é site de
+       farmácia nenhuma. */
+    const verSite = await pagina.getAttribute("#verSite", "href");
+    conferir("o link do site aponta para a vitrine da filial",
+        /\/loja\/mais-barato$/.test(verSite || ""), verSite);
+
     const opcoes = await pagina.$$eval("#senhaLojaAlvo option", (os) => os.map((o) => o.value));
     conferir("o seletor de senha traz as três", opcoes.length === 3, opcoes.join(","));
 

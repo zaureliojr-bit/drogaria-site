@@ -445,7 +445,7 @@
   </div>
   <div class="painel-topo-acoes">
     <button type="button" id="btnInstalar" class="btn-instalar-painel" hidden>Instalar no computador</button>
-    <a href="index.html">← Ver o site</a>
+    <a id="verSite" href="https://drogaria-site.pages.dev">← Ver o site</a>
   </div>
 </div>
 
@@ -2478,6 +2478,23 @@ el("listaEncartes").addEventListener("click", async (ev) => {
    Padronizador. Ele já sabe onde buscar cada coisa (mesmos workers
    imagens-proxy/publish-proxy); aqui só chama e mostra o resultado. */
 const PADRONIZADOR_URL = "https://farmatech-padronizador.zaureliojr.workers.dev";
+
+/* Onde fica o SITE das farmácias.
+
+   Hoje o painel mora dentro do site da Drogaria Mais Barato, então a
+   origem dele e a do site são a mesma — e por isso o link "Ver o site"
+   podia ser relativo.
+
+   Isso deixa de valer em duas situações, e as duas já chegaram:
+
+     - com mais de uma farmácia, "o site" é o da filial em que você está
+       operando, e não a raiz;
+     - no dia em que o painel mudar para um domínio próprio da FarmaTech,
+       a raiz dele não é site de farmácia nenhuma.
+
+   Por isso é constante, e não o endereço da página. Mudar o painel de
+   domínio passa a ser trocar esta linha. */
+const SITE_URL = "https://drogaria-site.pages.dev";
 const URL_IMPORTADOR = PADRONIZADOR_URL + "/importador-automatico.js";
 
 /* O padronizador roda no quadro ao lado e precisa escrever no catálogo
@@ -2618,6 +2635,16 @@ async function carregarSessao() {
        dele. Aparece só quando há mais de uma possibilidade. */
     if (souDono && s.loja && s.loja.nome) {
       el("atualizado").textContent = `${s.loja.nome} · ` + el("atualizado").textContent;
+    }
+
+    /* "Ver o site" leva à vitrine DESTA filial, e não à raiz. Operando
+       numa filial, a raiz é o site de outra farmácia — e abrir o site do
+       concorrente achando que é o seu é confusão barata de evitar. */
+    const link = el("verSite");
+    if (link) {
+      link.href = (s.loja && s.loja.slug)
+        ? `${SITE_URL}/loja/${encodeURIComponent(s.loja.slug)}`
+        : SITE_URL;
     }
   } catch (erro) {
     if (String(erro.message).startsWith("ROTA:")) return;   // worker antigo

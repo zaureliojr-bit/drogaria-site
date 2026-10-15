@@ -1,8 +1,8 @@
 {
   "id": "/painel",
-  "name": "Painel — Drogaria Mais Barato",
+  "name": "Painel FarmaTech",
   "short_name": "Painel",
-  "description": "Fila de pedidos e relatórios da Drogaria Mais Barato.",
+  "description": "Fila de pedidos, promoções, encarte e relatórios da sua farmácia.",
   "lang": "pt-BR",
   "dir": "ltr",
   "start_url": "/painel",
@@ -11,22 +11,25 @@
   "orientation": "any",
   "background_color": "#F4F5F7",
   "theme_color": "#26247B",
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "icons": [
     {
-      "src": "icone-192.png",
+      "src": "/icone-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icone-512.png",
+      "src": "/icone-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icone-512.png",
+      "src": "/icone-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
