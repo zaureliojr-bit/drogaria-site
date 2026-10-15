@@ -2495,6 +2495,14 @@ const PADRONIZADOR_URL = "https://farmatech-padronizador.zaureliojr.workers.dev"
    Por isso é constante, e não o endereço da página. Mudar o painel de
    domínio passa a ser trocar esta linha. */
 const SITE_URL = "https://drogaria-site.pages.dev";
+
+/* O domínio da plataforma — o que vai depois do apelido da farmácia no
+   endereço dela: maisbarato.drogalink.com.br.
+
+   Tem de ser o mesmo valor da variável DOMINIO_PLATAFORMA do projeto
+   Pages. Aqui ele só monta o texto do passo a passo e o link de conferir;
+   quem decide de verdade é o middleware do site. */
+const DOMINIO_PLATAFORMA = "drogalink.com.br";
 const URL_IMPORTADOR = PADRONIZADOR_URL + "/importador-automatico.js";
 
 /* O padronizador roda no quadro ao lado e precisa escrever no catálogo
@@ -2856,7 +2864,7 @@ async function criarFilial() {
 
     await carregarLojas();
     avisoLojas(
-      `${nome} cadastrada, e desligada. Faltam os dois passos abaixo.` +
+      `${nome} cadastrada, e desligada. Faltam os três passos abaixo.` +
       (avisos.length ? " Só que " + avisos.join(" e ") + " — dá para repetir depois." : ""),
       avisos.length > 0);
     await mostrarPassos(slug, corpo);
@@ -3143,7 +3151,7 @@ async function mostrarPassos(slug, cadastro) {
 
   caixa.innerHTML = `
     <div class="form-banner">
-      <strong>Faltam dois passos na Cloudflare — filial <code>${esc(slug)}</code></strong>
+      <strong>Faltam três passos na Cloudflare — filial <code>${esc(slug)}</code></strong>
 
       <ol class="passos">
         <li>
@@ -3158,6 +3166,20 @@ async function mostrarPassos(slug, cadastro) {
           D1 database, com o nome de variável
           <code>${esc(banco.binding || "")}</code> apontando para o banco
           que você acabou de criar. Depois, <em>Deploy</em>.
+        </li>
+        <li>
+          <b>Dar o endereço dela.</b>
+          Pages &rarr; drogaria-site &rarr; <em>Custom domains</em> &rarr;
+          <em>Set up a domain</em>, com
+          <code>${esc(slug)}.${esc(DOMINIO_PLATAFORMA)}</code>.
+          O DNS e o certificado saem sozinhos em alguns minutos.
+          <br>
+          <small>A conferência abaixo não vê este passo — ela fala com o
+          banco, e domínio é da Pages. Confira abrindo
+          <a href="https://${esc(slug)}.${esc(DOMINIO_PLATAFORMA)}/"
+             target="_blank" rel="noopener">o endereço dela</a>.
+          A filial funciona em <code>${esc(SITE_URL)}/loja/${esc(slug)}</code>
+          mesmo sem ele.</small>
         </li>
       </ol>
 

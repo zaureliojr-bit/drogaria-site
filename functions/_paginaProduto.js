@@ -192,7 +192,7 @@ export async function dadosDaLoja(slug, env) {
    A função que as duas rotas chamam
    ------------------------------------------------------------------ */
 
-export async function montarPaginaProduto({ request, env, rota, slugLoja = "", nomeLoja = "", catalogo = "" }) {
+export async function montarPaginaProduto({ request, env, rota, slugLoja = "", nomeLoja = "", catalogo = "", proprio = false }) {
     const url = new URL(request.url);
     const origem = url.origin;
 
@@ -204,9 +204,17 @@ export async function montarPaginaProduto({ request, env, rota, slugLoja = "", n
     const nome = slug ? desslugificar(slug) : "";
     const caminhoProduto = ean ? `/produto/${slug ? slug + "-" : ""}${ean}` : "/produto";
 
-    /* O canônico é SEMPRE a página do produto, nunca a da loja. É a
-       linha que faz o marketplace não competir consigo mesmo. */
-    const canonico = origem + caminhoProduto;
+    /* O canônico depende de ONDE a página está sendo servida.
+
+       Na plataforma, é sempre a página do produto sem loja — é a linha
+       que faz dez farmácias no mesmo domínio não competirem entre si.
+
+       No domínio DA FARMÁCIA, a página dela é canônica de si mesma.
+       Apontar para a plataforma empurraria para o nosso domínio tudo
+       que ela construir no Google, que é o contrário de dar um endereço
+       a ela — e a primeira coisa que a dona de uma rede pergunta é
+       justamente de quem é o endereço. */
+    const canonico = proprio ? origem + url.pathname : origem + caminhoProduto;
 
     const daLoja = !!slugLoja;
     const marca = daLoja && nomeLoja ? nomeLoja : MARCA;
@@ -240,7 +248,8 @@ export async function montarPaginaProduto({ request, env, rota, slugLoja = "", n
         itemListElement: [
             { "@type": "ListItem", position: 1, name: "Início", item: origem + "/" },
             ...(daLoja
-                ? [{ "@type": "ListItem", position: 2, name: marca, item: `${origem}/loja/${slugLoja}` }]
+                ? [{ "@type": "ListItem", position: 2, name: marca,
+                     item: proprio ? origem + "/" : `${origem}/loja/${slugLoja}` }]
                 : []),
             ...(nome
                 ? [{ "@type": "ListItem", position: daLoja ? 3 : 2, name: nome, item: url.origin + url.pathname }]
