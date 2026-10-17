@@ -480,6 +480,7 @@
       <button data-aba="banners">Banners</button>
       <button data-aba="encarte">Encarte</button>
       <button data-aba="relatorios">Relatórios</button>
+      <button data-aba="estoque">Estoque</button>
       <button data-aba="catalogo">Catálogo</button>
       <button data-aba="padronizador">Padronizador</button>
       <!-- Só aparece para quem entrou com a chave de dono da plataforma.
@@ -1001,6 +1002,50 @@
 
     </div><!-- /abaRelatorios -->
 
+    <!-- ===== ABA: ESTOQUE =====
+         Ruptura e encalhe, calculados da fotografia diária que o agente
+         manda do PC da farmácia. As três listas respondem à mesma conta
+         — estoque ÷ saída média por dia — e são ordenadas por dinheiro,
+         nunca por quantidade: 200 unidades de algo de R$ 2 importa menos
+         que 8 de algo de R$ 190. -->
+    <div id="abaEstoque" hidden>
+
+      <div id="estoqueSemDados" class="bloco" hidden>
+        <h2>Ainda não recebi estoque desta farmácia</h2>
+        <p class="lojas-explica">
+          Esta tela se alimenta de uma fotografia diária do estoque, enviada
+          pelo mesmo programa que já extrai o catálogo no PC da farmácia.
+          Enquanto ele não mandar a primeira, não há o que mostrar — e o
+          giro só começa a aparecer no dia seguinte, quando existir uma
+          fotografia anterior para comparar.
+        </p>
+      </div>
+
+      <div id="estoqueConteudo" hidden>
+
+        <div class="numeros" id="estoqueNumeros"></div>
+
+        <p class="lojas-explica" id="estoqueOrigem"></p>
+
+        <div class="bloco">
+          <h2>Rompeu <small>estoque zerado em produto que vinha vendendo</small></h2>
+          <div class="tabela-wrap" id="estoqueRompidos"></div>
+        </div>
+
+        <div class="bloco">
+          <h2>Vai romper <small>acaba em menos de uma semana no ritmo atual</small></h2>
+          <div class="tabela-wrap" id="estoqueVaoRomper"></div>
+        </div>
+
+        <div class="bloco">
+          <h2>Parado <small>tem estoque e não sai há 60 dias — ordenado pelo que vale mais</small></h2>
+          <div class="tabela-wrap" id="estoqueParados"></div>
+        </div>
+
+      </div>
+
+    </div><!-- /abaEstoque -->
+
     <!-- ===== ABA: CATÁLOGO ===== -->
     <div id="abaCatalogo" hidden>
 
@@ -1127,6 +1172,91 @@ function tabela(colunas, linhas, vazio) {
     <tbody>${linhas.map(l => `<tr>${l.map((v, i) =>
       `<td class="${colunas[i].num ? "num-col" : ""} ${colunas[i].larga ? "larga" : ""}">${v}</td>`).join("")}</tr>`).join("")}</tbody>
   </table>`;
+}
+
+/* ---------------------------------------------------------------------
+   Estoque: o que rompeu, o que vai romper, o que está parado
+   ---------------------------------------------------------------------
+
+   Três listas, uma conta só: estoque ÷ saída média por dia. Zero é
+   ruptura, menos de uma semana é alerta, saída nenhuma é encalhe.
+
+   A tela não calcula nada — quem calcula é o worker, contra o banco da
+   farmácia. Aqui é só apresentação, e a escolha de apresentação que
+   importa é a ORDEM: tudo por dinheiro, nunca por quantidade. */
+
+function diaBR(iso) {
+  if (!iso) return "";
+  const [a, m, d] = String(iso).split("-");
+  return d && m && a ? `${d}/${m}/${a}` : String(iso);
+}
+
+async function carregarEstoque() {
+
+  const dados = await api("/estoque/analise?limite=50");
+
+  const vazio = !dados.atualizado_em;
+  el("estoqueSemDados").hidden = !vazio;
+  el("estoqueConteudo").hidden = vazio;
+  if (vazio) return;
+
+  el("estoqueNumeros").innerHTML = `
+    <div class="num ${dados.rompidos.length ? "alerta" : ""}"><span>Rompidos vendendo</span><strong>${dados.rompidos.length}</strong></div>
+    <div class="num ${dados.vaoRomper.length ? "alerta" : ""}"><span>Vão romper</span><strong>${dados.vaoRomper.length}</strong></div>
+    <div class="num"><span>Itens zerados</span><strong>${dados.zerados}</strong></div>
+    <div class="num"><span>Itens parados</span><strong>${dados.parado_total.itens}</strong></div>
+    <div class="num"><span>Dinheiro parado</span><strong>${dinheiro(dados.parado_total.dinheiro)}</strong></div>
+  `;
+
+  /* Dito na tela, e não só na documentação: a saída é ESTIMADA pela
+     diferença entre duas fotografias, então compra e perda entram na
+     mesma conta. Quem for decidir uma compra em cima disto precisa
+     saber a margem de erro que está aceitando — esconder isso seria
+     vender precisão que não temos. */
+  el("estoqueOrigem").textContent =
+    `Giro estimado pela ${dados.origem}, dos últimos ${dados.periodo.giro} dias. `
+    + `Compra, perda e devolução entram na mesma conta. `
+    + `Fotografia de ${new Date(dados.atualizado_em).toLocaleString("pt-BR")}.`;
+
+  el("estoqueRompidos").innerHTML = tabela(
+    [{ titulo: "Produto", larga: true }, { titulo: "Vendia por dia", num: true },
+     { titulo: "Deixa de vender por dia", num: true }],
+    dados.rompidos.map(p => [
+      `${esc(p.descricao || p.ean)}<br><code>${esc(p.ean)}</code>`,
+      p.media_dia,
+      /* O número que faz agir: não "está zerado", e sim quanto a
+         farmácia deixa de faturar por dia enquanto estiver. */
+      `<strong>${dinheiro(p.venda_perdida_dia)}</strong>`
+    ]),
+    "Nada rompido entre os produtos que vêm vendendo. "
+  );
+
+  el("estoqueVaoRomper").innerHTML = tabela(
+    [{ titulo: "Produto", larga: true }, { titulo: "Tem", num: true },
+     { titulo: "Vende por dia", num: true }, { titulo: "Acaba em", num: true }],
+    dados.vaoRomper.map(p => [
+      `${esc(p.descricao || p.ean)}<br><code>${esc(p.ean)}</code>`,
+      p.estoque,
+      p.media_dia,
+      `<strong>${p.dias_cobertura} dia(s)</strong>`
+    ]),
+    "Nenhum produto acaba na próxima semana no ritmo atual."
+  );
+
+  el("estoqueParados").innerHTML = tabela(
+    [{ titulo: "Produto", larga: true }, { titulo: "Tem", num: true },
+     { titulo: "Vence em" }, { titulo: "Parado", num: true }],
+    dados.parados.map(p => [
+      `${esc(p.descricao || p.ean)}<br><code>${esc(p.ean)}</code>`,
+      p.estoque,
+      /* Validade só aparece se o sistema da farmácia tiver a coluna.
+         Vazio é "não sei", e nunca "não vence". */
+      esc(diaBR(p.validade)),
+      `<strong>${dinheiro(p.dinheiro_parado)}</strong>`
+    ]),
+    `Nada parado há mais de ${dados.periodo.parado} dias.`
+  );
+
 }
 
 function pillStatus(p) {
@@ -3402,6 +3532,7 @@ el("abas").addEventListener("click", (ev) => {
   el("abaBanners").hidden = aba !== "banners";
   el("abaEncarte").hidden = aba !== "encarte";
   el("abaRelatorios").hidden = aba !== "relatorios";
+  el("abaEstoque").hidden = aba !== "estoque";
   el("abaCatalogo").hidden = aba !== "catalogo";
   el("abaPadronizador").hidden = aba !== "padronizador";
   el("abaLojas").hidden = aba !== "lojas";
@@ -3421,6 +3552,17 @@ el("abas").addEventListener("click", (ev) => {
   // fica aberta o dia inteiro e não precisa recarregá-los a cada
   // atualização dela.
   if (aba === "relatorios") carregar().catch(() => tentar());
+
+  /* Só ao abrir a aba: são três varreduras do estoque inteiro, e a
+     fila fica aberta o dia todo. */
+  if (aba === "estoque") {
+    carregarEstoque().catch((e) => {
+      el("estoqueConteudo").hidden = true;
+      el("estoqueSemDados").hidden = false;
+      el("estoqueSemDados").querySelector("h2").textContent = "Não consegui ler o estoque";
+      el("estoqueSemDados").querySelector("p").textContent = e.message;
+    });
+  }
   if (aba === "banners") carregarBanners().catch(e => avisoBanner("Não consegui carregar os banners: " + e.message));
   if (aba === "promocoes") carregarPromocoes().catch(e => avisoPromo("Não consegui carregar as promoções: " + e.message));
   if (aba === "encarte") carregarEncartes().catch(e => avisoEncarte("Não consegui carregar os encartes: " + e.message));
