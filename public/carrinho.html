@@ -154,14 +154,27 @@
             oninput="mascaraCEP(this); resetarFrete();"
             onblur="buscarCEP()">
 
-          <input type="text" id="endereco" placeholder="Rua" readonly>
-          <input type="text" id="numero" placeholder="Número *" inputmode="numeric" oninput="resetarFrete()">
-          <input type="text" id="bairro" placeholder="Bairro" readonly>
-          <input type="text" id="cidade" placeholder="Cidade" readonly>
+          <!-- resetarFrete() apaga a taxa antiga; agendarCalculoFrete()
+               marca a nova para quando a digitação parar. Os dois em
+               cada campo porque o endereço pode ser corrigido à mão
+               depois do CEP — e, em CEP que os Correios não conhecem,
+               ele é digitado inteiro à mão. -->
+          <input type="text" id="endereco" placeholder="Rua" readonly
+            oninput="resetarFrete(); agendarCalculoFrete();">
+          <input type="text" id="numero" placeholder="Número *" inputmode="numeric"
+            oninput="resetarFrete(); agendarCalculoFrete();">
+          <input type="text" id="bairro" placeholder="Bairro" readonly
+            oninput="resetarFrete(); agendarCalculoFrete();">
+          <input type="text" id="cidade" placeholder="Cidade" readonly
+            oninput="resetarFrete(); agendarCalculoFrete();">
 
+          <!-- A taxa sai sozinha quando o endereço fica completo. O
+               botão fica para tentar de novo quando a internet falha, e
+               por isso o nome mudou: oferecer "calcular" depois de já
+               ter calculado faz duvidar do valor que está na tela. -->
           <button type="button" id="btnCalcularFrete" class="btn-calcular-frete" onclick="calcularFrete()">
             <svg class="ic" width="14" height="14" aria-hidden="true"><use href="#ic-pin"></use></svg>
-            Calcular taxa de entrega
+            Recalcular taxa de entrega
           </button>
 
           <div id="resultadoFrete" class="resultado-frete" style="display:none;"></div>

@@ -2268,6 +2268,11 @@ async function buscarCEP() {
 
       el("numero")?.focus();
 
+      /* Cliente que volta a comprar costuma ter o número já preenchido
+         pelo navegador: aí o endereço ficou completo agora, e não há o
+         que esperar. */
+      agendarCalculoFrete();
+
     } catch (e) {
       console.error("Erro buscar CEP", e);
       liberarEnderecoManual();
@@ -2361,6 +2366,11 @@ function mostrarResultadoFrete(msg, tipo) {
 function resetarFrete() {
   freteCalculado = null;
 
+  /* A chave vai junto. Sem isso, apagar e redigitar o mesmo endereço
+     cairia no "já calculei esse" e a taxa nunca voltaria para a tela. */
+  chaveFreteCalculada = "";
+  clearTimeout(relogioFrete);
+
   const resultado = el("resultadoFrete");
   if (resultado) {
     resultado.style.display = "none";
@@ -2371,25 +2381,104 @@ function resetarFrete() {
   atualizarTotais();
 }
 
-async function calcularFrete() {
+/* ---------------------------------------------------------------------
+   Cálculo automático: o cliente não devia ter que pedir
+   ---------------------------------------------------------------------
+
+   Antes, a taxa só aparecia depois de um clique em "Calcular taxa de
+   entrega". Quem não reparasse no botão chegava ao fim do pedido com
+   "a calcular" no lugar do valor — e quanto custa o que se está
+   comprando não pode ser uma coisa que o cliente precise descobrir que
+   precisa pedir.
+
+   NÃO DÁ PARA CALCULAR SÓ COM O CEP, e vale dizer por quê: a conta é
+   feita sobre as coordenadas da PORTA, achadas a partir de rua +
+   número. O CEP preenche a rua; o número é o cliente que digita. Então
+   o gatilho não é "CEP preenchido", é "endereço completo" — o que na
+   prática acontece no instante em que ele termina de digitar o número,
+   logo depois do CEP. Da cadeira dele, é automático.
+
+   Três cuidados, e cada um é um defeito que existiria sem ele:
+
+     - ESPERAR a digitação parar. Sem isso, "123" dispara três
+       geocodificações, e o Nominatim pede no máximo uma por segundo.
+       Abusar derruba o serviço para todo mundo, inclusive para nós;
+     - NÃO repetir o mesmo endereço. Sair e voltar do campo sem mudar
+       nada não é endereço novo;
+     - a resposta ANTIGA não pode vencer a nova. Com duas consultas no
+       ar e a primeira demorando mais, o cliente ficaria com a taxa do
+       endereço que ele acabou de corrigir. */
+
+const ESPERA_DIGITACAO_MS = 700;
+
+let relogioFrete = null;
+let chaveFreteCalculada = "";
+let sequenciaFrete = 0;
+
+function enderecoDoFormulario() {
+  return {
+    numero: el("numero")?.value.trim() || "",
+    endereco: el("endereco")?.value.trim() || "",
+    bairro: el("bairro")?.value.trim() || "",
+    cidade: el("cidade")?.value.trim() || "",
+    cepLimpo: (el("cep")?.value || "").replace(/\D/g, "")
+  };
+}
+
+function chaveDoEndereco(e) {
+  return [e.cepLimpo, e.endereco, e.numero, e.bairro, e.cidade]
+    .map((p) => p.toLowerCase().replace(/\s+/g, " ")).join("|");
+}
+
+function enderecoEstaCompleto(e) {
+  return !!(e.endereco && e.cidade && e.numero);
+}
+
+/* Chamada a cada tecla dos campos de endereço. Barata de propósito: só
+   remarca o relógio e sai. */
+function agendarCalculoFrete() {
+  clearTimeout(relogioFrete);
+
+  if (el("tipoEntrega")?.value !== "Entrega") return;
+
+  relogioFrete = setTimeout(() => {
+    const atual = enderecoDoFormulario();
+    if (!enderecoEstaCompleto(atual)) return;
+    if (chaveDoEndereco(atual) === chaveFreteCalculada) return;
+    calcularFrete({ automatico: true });
+  }, ESPERA_DIGITACAO_MS);
+}
+
+/* `automatico` muda duas coisas: não reclama de campo faltando (o
+   cliente ainda está digitando, e avisar seria atrapalhar) e dá o aviso
+   de "calculando" na área do resultado, em vez de no botão — que ele
+   não clicou e pode nem estar olhando. */
+async function calcularFrete({ automatico = false } = {}) {
   // se o cliente tocou no botão logo depois de digitar o CEP, a consulta
   // ainda está voando; sem esperar, o endereço estaria vazio aqui
   if (buscaCEPEmAndamento) await buscaCEPEmAndamento.catch(() => {});
 
-  const numero = el("numero")?.value.trim();
-  const endereco = el("endereco")?.value.trim();
-  const bairro = el("bairro")?.value.trim();
-  const cidade = el("cidade")?.value.trim();
-  const cepLimpo = (el("cep")?.value || "").replace(/\D/g, "");
+  const { numero, endereco, bairro, cidade, cepLimpo } = enderecoDoFormulario();
 
-  if (!endereco || !cidade) return toast("Preencha a rua e a cidade");
-  if (!numero) return toast("Informe o número do endereço");
+  if (!endereco || !cidade) return automatico ? undefined : toast("Preencha a rua e a cidade");
+  if (!numero) return automatico ? undefined : toast("Informe o número do endereço");
+
+  /* Quem chega pelo botão recalcula mesmo sem nada ter mudado — é o
+     caminho de tentar de novo depois de um erro de rede. */
+  const chave = chaveDoEndereco({ numero, endereco, bairro, cidade, cepLimpo });
+  const minhaVez = ++sequenciaFrete;
+  const fuiAtropelado = () => minhaVez !== sequenciaFrete;
 
   const btn = el("btnCalcularFrete");
   if (btn) { btn.disabled = true; btn.textContent = "Calculando..."; }
+  if (automatico) mostrarResultadoFrete("Calculando a taxa de entrega…", "ok");
 
   try {
     const coords = await geocodificarComFallback({ numero, endereco, bairro, cidade, cepLimpo });
+
+    /* O cliente já mudou o endereço enquanto esta consulta voava: o
+       resultado dela é sobre um endereço que não está mais na tela. */
+    if (fuiAtropelado()) return;
 
     if (!coords) {
       freteCalculado = null;
@@ -2401,12 +2490,14 @@ async function calcularFrete() {
 
     if (dist > RAIO_MAX_KM) {
       freteCalculado = null;
+      chaveFreteCalculada = chave;
       mostrarResultadoFrete(`Endereço fora da área de entrega (${dist.toFixed(1)} km). Finalize como retirada e solicite a entrega por aplicativo.`, "erro");
       return;
     }
 
     const valor = calcularValorFrete(dist);
     freteCalculado = { dist, valor, aproximado: coords.aproximado };
+    chaveFreteCalculada = chave;
 
     const gratis = FRETE_GRATIS_ACIMA_DE > 0 && subtotalCarrinho() >= FRETE_GRATIS_ACIMA_DE;
     const base = gratis
@@ -2423,10 +2514,14 @@ async function calcularFrete() {
     );
   } catch (e) {
     console.error("Erro calcular frete", e);
+    if (fuiAtropelado()) return;
+    /* Sem gravar a chave de propósito: foi falha de rede, não resposta
+       sobre este endereço. Deixar gravada faria a tentativa seguinte,
+       com o MESMO endereço, ser descartada como repetida. */
     freteCalculado = null;
     mostrarResultadoFrete("Erro ao calcular a taxa de entrega. Tente novamente.", "erro");
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = `${icone("pin", 14)}Calcular taxa de entrega`; }
+    if (btn) { btn.disabled = false; btn.innerHTML = `${icone("pin", 14)}Recalcular taxa de entrega`; }
     atualizarTotais();
   }
 }
