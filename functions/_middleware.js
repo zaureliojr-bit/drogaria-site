@@ -58,8 +58,8 @@ const RESERVADOS = new Set([
     "www", "painel", "app", "api", "admin", "assets", "cdn", "mail", "blog", "docs"
 ]);
 
-/* A farmácia dona deste endereço, ou "" quando é a plataforma. */
-function lojaDoEndereco(request, env) {
+/* O que vem antes do domínio da plataforma, seja farmácia ou não. */
+function prefixoDoEndereco(request, env) {
     const host = new URL(request.url).hostname.toLowerCase();
     const base = dominioDaPlataforma(env);
 
@@ -71,23 +71,44 @@ function lojaDoEndereco(request, env) {
        abriria o site a um número infinito de endereços equivalentes, que
        é confusão para o Google e superfície para quem quer brincar. */
     if (!prefixo || prefixo.includes(".")) return "";
-    if (RESERVADOS.has(prefixo)) return "";
     if (!/^[a-z0-9-]+$/.test(prefixo)) return "";
 
     return prefixo;
 }
 
+/* A farmácia dona deste endereço, ou "" quando é a plataforma. */
+function lojaDoEndereco(request, env) {
+    const prefixo = prefixoDoEndereco(request, env);
+    return RESERVADOS.has(prefixo) ? "" : prefixo;
+}
+
 export async function onRequest(contexto) {
     const { request, env, next } = contexto;
+
+    const url = new URL(request.url);
+    const caminho = url.pathname.replace(/\/+$/, "") || "/";
+
+    /* painel.drogalink.com.br: a raiz é o PAINEL.
+
+       O painel mora em /painel, porque ele é uma página do mesmo
+       projeto da loja. Sem esta linha, quem digita o endereço do painel
+       cai na vitrine da farmácia — que foi exatamente o que aconteceu
+       no primeiro teste do domínio.
+
+       Redirecionamento, e não servir a página aqui: assim o endereço na
+       barra vira /painel, que é onde o _headers aplica a CSP folgada
+       que o quadro do padronizador precisa. Servida na raiz, a página
+       receberia a CSS restrita da vitrine e o padronizador não
+       carregaria — um jeito pior de errar, porque a tela abre. */
+    if (prefixoDoEndereco(request, env) === "painel" && caminho === "/") {
+        return Response.redirect(url.origin + "/painel", 302);
+    }
 
     const loja = lojaDoEndereco(request, env);
 
     /* O caminho de 100% do tráfego de hoje: não é subdomínio de loja,
        segue para o arquivo ou para a rota de sempre. */
     if (!loja) return next();
-
-    const url = new URL(request.url);
-    const caminho = url.pathname.replace(/\/+$/, "") || "/";
 
     /* A raiz do domínio dela é a vitrine dela. */
     if (caminho === "/") {

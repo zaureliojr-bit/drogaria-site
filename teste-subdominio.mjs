@@ -155,6 +155,23 @@ console.log("\n4. subdomínio que não é loja");
             !/São Bernardo do Campo\/SP/.test(r.titulo), r.titulo);
     }
 
+    /* O painel tem um subdomínio só dele, e nele a RAIZ é o painel.
+
+       O painel mora em /painel, porque é uma página do mesmo projeto da
+       loja. Sem o desvio, quem digita o endereço do painel cai na
+       vitrine da farmácia — que foi o que aconteceu no primeiro teste
+       do domínio de verdade. */
+    const painel = await pedir("/", "painel.teste.local");
+    conferir("a raiz do domínio do painel desvia para o painel",
+        painel.status === 302 && /\/painel$/.test(painel.local),
+        `${painel.status} ${painel.local}`);
+
+    /* E o resto do domínio do painel continua servindo normalmente: é o
+       mesmo projeto, e o painel carrega CSS, ícones e o manifesto. */
+    const css = await pedir("/style.css", "painel.teste.local", { seguir: true });
+    conferir("e os arquivos do painel continuam servidos",
+        css.status === 200, String(css.status));
+
     /* Dois níveis não é loja: aceitar abriria um número infinito de
        endereços equivalentes para a mesma página. */
     const fundo = await pedir("/", "a.b.teste.local");
