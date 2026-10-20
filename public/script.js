@@ -42,6 +42,33 @@ const POR_PAGINA = 12;
    definir outro fluxo, mude para false. */
 const BLOQUEAR_CONTROLADOS = true;
 
+/* A trava de retenção de receita no fechamento do pedido.
+   =======================================================
+
+   Com ela ligada, o pedido que leva um item de receita retida só é
+   enviado depois de o cliente marcar que vai mandar a foto da receita.
+
+   DESLIGADA a pedido da loja, até a marcação no catálogo ficar
+   confiável. O que foi encontrado:
+
+   dos 472 produtos marcados, 59 são de VENDA LIVRE — pastilha de
+   garganta (Flogoral, Ciflogex), Canesten, clotrimazol creme, neomicina
+   pomada. O padronizador reconhece a substância antimicrobiana e marca
+   retenção sem olhar que o produto é tarja livre. Era isso que travava
+   "remédio comum" no carrinho.
+
+   Os outros 413 estão certos: antimicrobiano de tarja vermelha tem
+   retenção exigida pela RDC 20/2011, e é por isso que esta linha é um
+   interruptor e não uma remoção. Enquanto estiver false, a farmácia
+   assume conferir a receita no balcão e na entrega.
+
+   O QUE NÃO MUDA COM ISTO
+
+   As listas A/B da Portaria 344 (BLOQUEAR_CONTROLADOS, acima) continuam
+   fora do carrinho. São outra coisa: exigem dispensação presencial, e
+   isso não é escolha da loja. */
+const TRAVA_RECEITA = false;
+
 /* Tabela de tarja da CMED (ANVISA), por EAN — usada só como informação
    (rótulo "venda sob prescrição" no card/detalhe). Quem manda no
    carrinho é bloqueioPresencial/receitaRemota, calculados pelo
@@ -916,36 +943,25 @@ function mapearProduto(p) {
   // marca bloqueioPresencial quando reconhece a substância; quando o
   // cruzamento com a CMED falha, um Dimorf ou um Concerta passaria batido.
   // A tarja vem do tarjas.json, por outro caminho, e não depende disso.
-  const bloqueioPresencial = p.bloqueioPresencial === true || tarja === "P";
+  /* As três decisões de receita saíram para receita.js, que roda sem
+     navegador e tem teste. Era aqui que estava a regra que travava
+     remédio de venda livre no carrinho. */
+  const receita = Receita.decidirReceita(
+    { tarja, descricao: p.descricao,
+      bloqueioPresencial: p.bloqueioPresencial,
+      receitaRemota: p.receitaRemota, confirmarReceita: p.confirmarReceita },
+    { trava: TRAVA_RECEITA,
+      familiaExigeReceita: !!familia.receita,
+      /* A categoria vem do PDV da própria farmácia. É a classificação
+         que ela mantém no Farmax, e vale como fonte: quando o cadastro
+         por EAN falha, isto ainda sabe que o remédio é controlado. */
+      categoriaControlada: String(p.categoria || "").toUpperCase() === "ETICO CONTROLADO",
+      catalogoMarcaConfirmar: catalogoMarcaConfirmarReceita }
+  );
 
-  // Todo o resto que precisa de receita É VENDIDO pelo site: a RDC 44/2009
-  // permite a venda a distância desde que a receita seja conferida antes da
-  // dispensação. Entra no carrinho normalmente, e o checkout cobra a
-  // confirmação do envio da receita antes de o pedido ser despachado.
-  const precisaDeReceita =
-    !bloqueioPresencial && (
-      p.receitaRemota === true ||        // listas C da Portaria 344
-      !!familia.receita ||               // categoria ETICO CONTROLADO do PDV
-      tarja === "V" || tarja === "R"     // tarja vermelha, com ou sem restrição
-    );
-
-  /* Confirmação da receita no checkout — quem decide é este campo, e não
-     mais a tarja.
-
-     A tarja vermelha é um conjunto grande demais para esta pergunta: ela
-     inclui remédio de uso contínuo cuja receita o farmacêutico confere e
-     devolve. O campo novo marca só antibiótico e listas C da Portaria
-     344, que são os casos em que a receita FICA RETIDA — e é por isso que
-     a loja precisa da foto antes de despachar.
-
-     O fallback existe porque isto é controle sanitário, não preferência
-     de interface: enquanto o catálogo publicado não trouxer o campo, vale
-     o critério antigo. Não pode haver uma janela em que o site simplesmente
-     pare de pedir a receita. Quando todo produto trouxer o campo, este
-     ramo deixa de ser exercido sozinho. */
-  const confirmarReceita = catalogoMarcaConfirmarReceita
-    ? p.confirmarReceita === true && !bloqueioPresencial
-    : precisaDeReceita;
+  const bloqueioPresencial = receita.bloqueioPresencial;
+  const precisaDeReceita = receita.precisaDeReceita;
+  const confirmarReceita = receita.confirmarReceita;
 
   return {
     tarja,
