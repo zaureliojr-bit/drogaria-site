@@ -2821,6 +2821,26 @@ body.sem-barra-carrinho .carrinho { display: none; }
   .promos { padding: 2px 12px 14px; scroll-padding-inline: 12px; }
 }
 
+/* Pedido mínimo: o que falta para fechar.
+
+   Cor de atenção, não de erro: o cliente não errou nada, só ainda não
+   chegou lá. Vermelho aqui faria parecer que algo quebrou. */
+.aviso-minimo {
+  margin: 14px 0 0;
+  padding: 11px 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--amber-ink, #8a5a00);
+  background: #fdf3e0;
+  border: 1px solid #efcf93;
+  border-radius: var(--raio-sm);
+}
+
+.btn-finalizar-barrado {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* ========================= */
 /* 📰 ENCARTE                */
 /* ========================= */

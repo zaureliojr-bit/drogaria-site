@@ -69,6 +69,40 @@ const BLOQUEAR_CONTROLADOS = true;
    isso não é escolha da loja. */
 const TRAVA_RECEITA = false;
 
+/* Pedido mínimo, em produtos.
+   =========================
+
+   Medido sobre o SUBTOTAL, sem a taxa de entrega — é o que a loja
+   pediu: "o mínimo é 19,99 mais a taxa". Somar a taxa ao mínimo deixaria
+   o cliente de bairro distante alcançá-lo com menos remédio que o
+   cliente da esquina, pelo mesmo trabalho de separar e entregar.
+
+   SÓ PARA ENTREGA, de propósito. O mínimo existe porque sair para
+   entregar custa; quem vem buscar no balcão não dá esse custo, e
+   recusar uma retirada de dez reais é perder venda sem motivo. Para
+   valer também na retirada, troque a linha abaixo para false. */
+const PEDIDO_MINIMO = 19.99;
+const MINIMO_SO_PARA_ENTREGA = true;
+
+function minimoVale() {
+  if (!PEDIDO_MINIMO) return false;
+  if (!MINIMO_SO_PARA_ENTREGA) return true;
+  return el("tipoEntrega")?.value === "Entrega";
+}
+
+/* Quanto falta para o pedido poder ser enviado. Zero quando já dá.
+
+   Devolve o número, e não um texto pronto, porque três lugares
+   perguntam a mesma coisa e cada um mostra de um jeito: o resumo, o
+   botão e a validação do envio. */
+function faltaParaOMinimo() {
+  if (!minimoVale()) return 0;
+  const falta = PEDIDO_MINIMO - subtotalCarrinho();
+  /* Centavo de arredondamento não pode barrar um pedido: 19,989999 é
+     dezenove e noventa e nove para quem está olhando a tela. */
+  return falta > 0.005 ? falta : 0;
+}
+
 /* Tabela de tarja da CMED (ANVISA), por EAN — usada só como informação
    (rótulo "venda sob prescrição" no card/detalhe). Quem manda no
    carrinho é bloqueioPresencial/receitaRemota, calculados pelo
@@ -2146,8 +2180,47 @@ function atualizarTotais() {
       (el("resumoFrete").textContent = freteCalculado ? fmt(frete) : "a calcular");
   }
 
+  mostrarMinimo();
+
   document.querySelector(".header-carrinho")?.classList.toggle("tem-itens", qtd > 0);
   document.body.classList.toggle("carrinho-com-itens", qtd > 0);
+}
+
+/* O aviso de pedido mínimo, e o botão travado junto.
+
+   Diz QUANTO FALTA, e não só "o mínimo é R$ 19,99": a primeira frase é
+   uma tarefa que o cliente sabe cumprir, a segunda é uma regra que ele
+   tem de calcular. É a diferença entre pôr mais um item no carrinho e
+   desistir.
+
+   O botão fica desabilitado de verdade, e não só avisando no clique —
+   quem chega ao fim do pedido e leva um toast de recusa já preencheu
+   nome, telefone e endereço à toa. */
+function mostrarMinimo() {
+
+  const aviso = el("avisoMinimo");
+  const botao = document.querySelector(".btn-finalizar");
+
+  if (!aviso && !botao) return;
+
+  const falta = faltaParaOMinimo();
+  const temItem = carrinho.length > 0;
+
+  if (aviso) {
+    aviso.hidden = !(falta > 0 && temItem);
+    if (falta > 0 && temItem) {
+      aviso.innerHTML =
+        `Faltam <strong>${fmt(falta)}</strong> para fechar o pedido. ` +
+        `O mínimo para entrega é ${fmt(PEDIDO_MINIMO)} em produtos, sem contar a taxa.`;
+    }
+  }
+
+  if (botao) {
+    const barrado = falta > 0 && temItem;
+    botao.disabled = barrado;
+    botao.classList.toggle("btn-finalizar-barrado", barrado);
+  }
+
 }
 
 /* =========================
@@ -2681,6 +2754,15 @@ function finalizar() {
      aparelho, que pode ser de antes de um reajuste. */
   if (!produtos.length) {
     return toast("Não conseguimos conferir o catálogo agora. Recarregue a página e tente de novo.");
+  }
+
+  /* Mesmo com o botão desabilitado: o Enter do teclado, um clique que
+     escapou entre o recalcular e o desenhar, ou alguém chamando
+     finalizar() pelo console. A tela orienta; aqui é onde se decide. */
+  const faltaMinimo = faltaParaOMinimo();
+  if (faltaMinimo > 0) {
+    el("avisoMinimo")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return toast(`Faltam ${fmt(faltaMinimo)} para o mínimo de ${fmt(PEDIDO_MINIMO)}`);
   }
 
   const itensControleEspecial = itensDeControleEspecialNoCarrinho();
