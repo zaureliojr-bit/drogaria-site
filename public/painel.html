@@ -3494,10 +3494,37 @@ async function carregarSessao() {
        numa filial, a raiz é o site de outra farmácia — e abrir o site do
        concorrente achando que é o seu é confusão barata de evitar. */
     const link = el("verSite");
+    const slugDaSessao = s.loja && s.loja.slug;
+
     if (link) {
-      link.href = (s.loja && s.loja.slug)
-        ? `${SITE_URL}/loja/${encodeURIComponent(s.loja.slug)}`
+
+      /* Primeiro o endereço da plataforma, que funciona sempre. */
+      link.href = slugDaSessao
+        ? `${SITE_URL}/loja/${encodeURIComponent(slugDaSessao)}`
         : SITE_URL;
+
+      /* E, se a farmácia já tem o domínio dela de pé, troca para ele.
+
+         Sem isto o painel mandava a dona da farmácia para
+         drogaria-site.pages.dev/loja/mais-barato mesmo depois de o
+         endereço dela existir — e esse é o link que ela copia da barra
+         para mandar no grupo da família. A conferência é a mesma da
+         aba Filiais, mas aquela só roda para o dono da plataforma;
+         aqui vale para quem abriu o painel, seja quem for.
+
+         Sem await: o link já funciona desde o primeiro instante, e
+         troca sozinho quando a resposta chega. */
+      if (slugDaSessao) {
+        subdominioResponde(slugDaSessao)
+          .then((responde) => {
+            if (responde) {
+              subdominiosNoAr.add(slugDaSessao);
+              link.href = enderecoProprio(slugDaSessao);
+            }
+          })
+          .catch(() => { /* fica no endereço da plataforma */ });
+      }
+
     }
   } catch (erro) {
     if (String(erro.message).startsWith("ROTA:")) return;   // worker antigo
