@@ -109,54 +109,26 @@ console.log("\n3. limpar a busca limpa o endereço");
     await contexto.close();
 }
 
-/* ---- 4. o botão de mandar a lista ------------------------------------- */
-console.log("\n4. o botão de mandar a lista");
+/* ---- 4. a barra de endereço é o que a loja copia ---------------------- */
+console.log("\n4. o endereço fica pronto para copiar da barra");
 {
     const { pagina, contexto } = await abrir();
-
-    conferir("não aparece na home", await pagina.isHidden("#compartilharBusca"));
 
     await pagina.fill("#busca", "ibuprofeno");
     await pagina.click(".btn-buscar");
     await pagina.waitForTimeout(1200);
 
-    conferir("aparece quando há resultado", await pagina.isVisible("#compartilharBusca"));
+    /* Não há botão de compartilhar: quem olha esta tela é o CLIENTE, e
+       um botão de ferramenta da loja no meio dos produtos é ruído para
+       ele. A atendente copia da barra de endereço, que agora carrega a
+       busca. */
+    const endereco = pagina.url();
 
-    /* Sem navigator.share (é o caso do computador do balcão), copia. */
-    await pagina.evaluate(() => {
-        delete navigator.share;
-        window.__copiado = "";
-        navigator.clipboard.writeText = async (t) => { window.__copiado = t; };
-    });
+    conferir("o endereço completo serve para colar no WhatsApp",
+        /^https?:\/\/[^/]+\/\?busca=ibuprofeno$/.test(endereco), endereco);
 
-    await pagina.click("#compartilharBusca");
-    await pagina.waitForTimeout(600);
-
-    const copiado = await pagina.evaluate(() => window.__copiado);
-
-    conferir("copia o link da lista",
-        /\?busca=ibuprofeno/.test(copiado || ""), copiado);
-    /* Link sozinho chega no WhatsApp como uma caixa de prévia sem
-       contexto; com uma linha antes, chega como resposta. */
-    conferir("com uma linha de texto antes",
-        /ibuprofeno/i.test(copiado || "") && copiado.split("\n").length > 1,
-        JSON.stringify(copiado));
-    conferir("dizendo quantas opções são",
-        /\b2\b/.test(copiado || ""), copiado);
-
-    await contexto.close();
-}
-
-/* ---- 5. busca sem resultado ------------------------------------------- */
-console.log("\n5. busca sem resultado não oferece mandar nada");
-{
-    const { pagina, contexto } = await abrir();
-
-    await pagina.fill("#busca", "xxxxyyyy");
-    await pagina.click(".btn-buscar");
-    await pagina.waitForTimeout(1200);
-
-    conferir("o botão some", await pagina.isHidden("#compartilharBusca"));
+    conferir("e a tela não ganhou botão de ferramenta da loja",
+        (await pagina.$("#compartilharBusca")) === null);
 
     await contexto.close();
 }

@@ -1555,54 +1555,6 @@ function buscar() {
   rolarParaResultados();
 }
 
-/* Mandar a lista de resultados para alguém.
-
-   É o pedido que originou isto: o cliente pergunta no WhatsApp "tem
-   ibuprofeno?", e a atendente quer mandar a lista com os preços em vez
-   de pedir que ele procure sozinho.
-
-   No celular usa o menu de compartilhar do próprio aparelho — dali o
-   WhatsApp está a um toque, com a conversa já aberta. No computador
-   copia o endereço, que é o que dá para fazer lá.
-
-   O texto vai junto com o link porque link sozinho no WhatsApp chega
-   como uma caixa de prévia sem contexto; com uma linha antes, chega
-   como resposta. */
-async function mandarEstaLista() {
-
-  const termo = (el("busca")?.value || "").trim();
-  if (!termo) return;
-
-  const endereco = location.origin + enderecoDaBusca();
-  const quantos = produtosFiltrados.length;
-
-  const texto =
-    `${quantos} ${quantos === 1 ? "opção" : "opções"} de ${termo} ` +
-    `${quantos === 1 ? "disponível" : "disponíveis"} com preço:`;
-
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: termo, text: texto, url: endereco });
-      return;
-    } catch {
-      /* fechou o menu de compartilhar: não é erro, e não vale cair no
-         copiar por trás das costas de quem desistiu. */
-      return;
-    }
-  }
-
-  try {
-    await navigator.clipboard.writeText(`${texto}\n${endereco}`);
-    toast("Link copiado — é só colar no WhatsApp");
-  } catch {
-    /* Sem área de transferência (fora de HTTPS, ou navegador que
-       bloqueia): mostrar o endereço é melhor do que falhar calado,
-       porque dá para copiar à mão. */
-    window.prompt("Copie o link desta lista:", endereco);
-  }
-
-}
-
 function ordenar(lista) {
   const copia = [...lista];
   if (ordenacao === "menor-preco") return copia.sort((a, b) => a.preco - b.preco);
@@ -1670,11 +1622,6 @@ function aplicarFiltro() {
       el("resultadoContagem").textContent =
         `${produtosFiltrados.length} ${produtosFiltrados.length === 1 ? "produto" : "produtos"}`;
 
-      /* O botão de mandar a lista só faz sentido numa BUSCA. Numa
-         categoria o endereço já é o da categoria, e numa lista vazia
-         não há o que mandar. */
-      const botaoMandar = el("compartilharBusca");
-      if (botaoMandar) botaoMandar.hidden = !(termoBusca && produtosFiltrados.length);
     }
   }
 

@@ -2821,37 +2821,6 @@ body.sem-barra-carrinho .carrinho { display: none; }
   .promos { padding: 2px 12px 14px; scroll-padding-inline: 12px; }
 }
 
-/* "Mandar esta lista": o botão que a atendente usa para responder
-   "tem ibuprofeno?" com a lista de preços em vez de um pedido para o
-   cliente procurar sozinho.
-
-   Discreto ao lado do título, e não um botão grande: quem usa é a
-   loja, algumas vezes por dia; o cliente que chegou pela busca não
-   precisa dele competindo com os produtos. */
-.btn-compartilhar-busca {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 10px;
-  padding: 5px 11px;
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--marca);
-  background: var(--branco);
-  border: 1px solid var(--linha);
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.btn-compartilhar-busca:hover {
-  border-color: var(--marca);
-  background: var(--papel);
-}
-
-@media (max-width: 480px) {
-  .btn-compartilhar-busca { margin-left: 0; margin-top: 6px; }
-}
-
 /* Pedido mínimo: o que falta para fechar.
 
    Cor de atenção, não de erro: o cliente não errou nada, só ainda não
