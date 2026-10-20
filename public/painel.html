@@ -127,6 +127,25 @@
     margin-top: 14px;
   }
 
+  /* ========== CATÁLOGO: trocar/inserir imagem ========== */
+  .busca-imagem-produto {
+    width: 100%; box-sizing: border-box; padding: 9px 12px; margin-bottom: 10px;
+    border: 1.5px solid var(--linha); border-radius: var(--raio-botao);
+    font-size: 13px; font-family: var(--fonte-corpo);
+  }
+  .editor-imagem { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .editor-imagem img {
+    width: 34px; height: 34px; object-fit: contain; flex-shrink: 0;
+    background: var(--papel); border-radius: var(--raio-sm); padding: 2px;
+  }
+  .editor-imagem input[type="url"] {
+    flex: 1; min-width: 180px; padding: 6px 10px;
+    border: 1.5px solid var(--linha); border-radius: var(--raio-botao); font-size: 12px;
+  }
+  .editor-imagem-status { font-size: 11.5px; color: var(--tinta-suave); white-space: nowrap; }
+  .editor-imagem-status[data-ok="1"] { color: var(--ok); }
+  .editor-imagem-status[data-erro="1"] { color: var(--erro); }
+
   /* ========== ABAS ========== */
   .abas { display: flex; gap: 6px; padding: 14px 0 0; }
   .abas button {
@@ -1191,6 +1210,10 @@
 
       <div id="statusCatalogo" class="vazio">Ainda não verificado nesta sessão.</div>
 
+      <h2 style="margin-top:22px">Trocar imagem de um produto</h2>
+      <input type="text" id="buscaImagemProduto" placeholder="Busca por código, nome ou EAN..." class="busca-imagem-produto">
+      <div class="tabela-wrap" id="buscaImagemResultado"></div>
+
       <h2 style="margin-top:22px">Produtos sem imagem <small id="contagemSemImagem"></small></h2>
       <div class="tabela-wrap" id="semImagem"></div>
 
@@ -2133,6 +2156,7 @@ async function carregarCatalogo() {
          seis mil linhas e não vale baixar duas vezes. */
       catalogo.set(String(p.codigo), {
         codigo: String(p.codigo),
+        ean: p.ean || "",
         imagem: p.imagem || "",
         nome: p.descricao || "",
         categoria: (p.categoria || "").trim().toUpperCase(),
@@ -3434,7 +3458,90 @@ async function verificarEPublicarCatalogo() {
 
 }
 
-// Só consulta - a troca/busca de imagem continua no padronizador.
+// Linha com miniatura + campo de link + botão salvar - usada tanto na
+// lista "sem imagem" quanto na busca geral. Sem EAN (planilha antiga,
+// sem essa coluna) não tem como salvar: o worker indexa por EAN, não
+// por código, então o campo fica desabilitado com um aviso em vez de
+// quebrar silenciosamente ao salvar.
+function linhaEditorImagem(p) {
+
+  const miniatura = p.imagem ? `<img src="${esc(p.imagem)}" alt="" loading="lazy">` : "";
+
+  const editor = p.ean
+    ? `<div class="editor-imagem">
+        ${miniatura}
+        <input type="url" placeholder="Link da imagem (Cosmos, Google, etc.)" data-url-imagem="${esc(p.ean)}">
+        <button type="button" class="btn-testar-som" data-salvar-imagem="${esc(p.ean)}">Salvar</button>
+        <span class="editor-imagem-status" data-status-imagem="${esc(p.ean)}"></span>
+      </div>`
+    : `<span class="editor-imagem-status" data-erro="1">Sem EAN na planilha - não dá pra salvar aqui.</span>`;
+
+  return [esc(p.codigo), esc(p.nome), esc(p.marca), editor];
+
+}
+
+// Pedido de quem clicou "Salvar" num editor de imagem - usa o mesmo
+// bundle headless que o botão "Verificar agora" já carrega (ver
+// importador-automatico.js). A senha do painel já está em
+// sessionStorage ("painelKey"/"painelLoja") - o bundle lê de lá
+// sozinho (cabecalhoPainel/credencialPainel.js), sem precisar
+// repassar nada aqui.
+async function salvarImagemDoEditor(botao) {
+
+  const ean = botao.dataset.salvarImagem;
+  const linha = botao.closest(".editor-imagem");
+  const input = linha.querySelector(`[data-url-imagem="${CSS.escape(ean)}"]`);
+  const status = linha.querySelector(`[data-status-imagem="${CSS.escape(ean)}"]`);
+  const url = input.value.trim();
+
+  if (!url) {
+    status.textContent = "Cola o link da imagem antes.";
+    status.dataset.erro = "1";
+    delete status.dataset.ok;
+    return;
+  }
+
+  botao.disabled = true;
+  input.disabled = true;
+  status.removeAttribute("data-erro");
+  status.removeAttribute("data-ok");
+  status.textContent = "Salvando...";
+
+  try {
+
+    const { salvarImagemManual } = await import(URL_IMPORTADOR);
+    const resultado = await salvarImagemManual(ean, url);
+
+    // Atualiza o catálogo em memória - sem isso a mesma imagem some de
+    // novo da lista "sem imagem" só depois de recarregar o painel.
+    for (const p of catalogo.values()) {
+      if (p.ean === ean) p.imagem = resultado.url;
+    }
+
+    status.textContent = "Salvo!";
+    status.dataset.ok = "1";
+
+    await renderizarSemImagem();
+    filtrarBuscaImagem();
+
+  } catch (erro) {
+
+    status.textContent = "Erro: " + erro.message;
+    status.dataset.erro = "1";
+    botao.disabled = false;
+    input.disabled = false;
+
+  }
+
+}
+
+["semImagem", "buscaImagemResultado"].forEach((id) => {
+  el(id).addEventListener("click", (ev) => {
+    const botao = ev.target.closest("[data-salvar-imagem]");
+    if (botao) salvarImagemDoEditor(botao);
+  });
+});
+
 // "Sem imagem" é o mesmo catálogo publicado que a fila/promoções já
 // usam (carregarCatalogo), então não custa uma busca extra.
 async function renderizarSemImagem() {
@@ -3447,8 +3554,8 @@ async function renderizarSemImagem() {
   const LIMITE = 300;
 
   el("semImagem").innerHTML = tabela(
-    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }],
-    semImagem.slice(0, LIMITE).map(p => [esc(p.codigo), esc(p.nome), esc(p.marca)]),
+    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }],
+    semImagem.slice(0, LIMITE).map(linhaEditorImagem),
     "Nenhum produto sem imagem 🎉"
   );
 
@@ -3457,6 +3564,34 @@ async function renderizarSemImagem() {
   }
 
 }
+
+// Busca geral (código, nome ou EAN) pra trocar a imagem de qualquer
+// produto já cadastrado, não só quem está sem foto nenhuma.
+async function filtrarBuscaImagem() {
+
+  const termo = semAcento(el("buscaImagemProduto").value.trim());
+
+  if (termo.length < 2) {
+    el("buscaImagemResultado").innerHTML = `<div class="vazio">Digita pelo menos 2 letras pra buscar.</div>`;
+    return;
+  }
+
+  const cat = await carregarCatalogo();
+  const LIMITE = 50;
+
+  const achados = [...cat.values()]
+    .filter(p => semAcento(p.nome + " " + p.codigo + " " + p.ean).includes(termo))
+    .slice(0, LIMITE);
+
+  el("buscaImagemResultado").innerHTML = tabela(
+    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }],
+    achados.map(linhaEditorImagem),
+    "Nenhum produto encontrado."
+  );
+
+}
+
+el("buscaImagemProduto").addEventListener("input", () => { filtrarBuscaImagem().catch(() => {}); });
 
 el("verificarCatalogo").addEventListener("click", verificarEPublicarCatalogo);
 
@@ -4226,7 +4361,10 @@ el("abas").addEventListener("click", (ev) => {
   if (aba === "banners") carregarBanners().catch(e => avisoBanner("Não consegui carregar os banners: " + e.message));
   if (aba === "promocoes") carregarPromocoes().catch(e => avisoPromo("Não consegui carregar as promoções: " + e.message));
   if (aba === "encarte") carregarEncartes().catch(e => avisoEncarte("Não consegui carregar os encartes: " + e.message));
-  if (aba === "catalogo") renderizarSemImagem().catch(() => {});
+  if (aba === "catalogo") {
+    renderizarSemImagem().catch(() => {});
+    filtrarBuscaImagem().catch(() => {});
+  }
   if (aba === "lojas") carregarLojas().catch(e => avisoLojas("Não consegui carregar as filiais: " + e.message));
 });
 
