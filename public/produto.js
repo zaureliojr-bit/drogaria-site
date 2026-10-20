@@ -101,6 +101,7 @@ function renderProdutoDetalhe(p) {
   // a grade e esta página precisam responder a mesma coisa sobre o mesmo
   // item, e antes cada uma tinha a sua interpretação do campo.
   const emEstoque = !semEstoque(p);
+  const disponibilidade = Estoque.rotuloDeDisponibilidade(p);
   const marcaOuLab = p.marca || p.laboratorio || "";
   const codigo = esc(p.codigo);
   const nome = esc(p.nome);
@@ -149,8 +150,18 @@ function renderProdutoDetalhe(p) {
       `}
     </div>
 
-    <div class="produto-estoque ${emEstoque ? "disponivel" : "indisponivel"}">
-      <span class="ponto"></span> ${emEstoque ? "Disponível na loja" : "Indisponível no momento"}
+    <!-- É aqui, e só aqui, que o número de unidades aparece: esta é a
+         tela em que o cliente decide quantas vai levar.
+
+         E só quando é pouco. O estoque vem de uma extração do PDV que
+         roda uma vez por dia, enquanto a loja vende no balcão o dia
+         inteiro — um "restam 2" visto às 18h pode ter sido verdade às
+         6h da manhã. Abaixo de meia dúzia esse número muda a decisão de
+         quem compra ("levo as duas, então"); acima dela só envelhece na
+         tela sem servir para nada. Quem decide a fronteira é o
+         Estoque.MOSTRAR_ATE. -->
+    <div class="produto-estoque ${emEstoque ? (disponibilidade.poucas ? "disponivel poucas" : "disponivel") : "indisponivel"}">
+      <span class="ponto"></span> ${emEstoque ? esc(disponibilidade.texto) : "Indisponível no momento"}
     </div>
 
     ${!emEstoque ? `
@@ -248,10 +259,12 @@ function renderRelacionados(p) {
 
 function adicionarAoCarrinhoDetalhe(codigo) {
   const p = produtos.find(i => String(i.codigo) === String(codigo));
-  mais(codigo);
-  if (p && !(typeof BLOQUEAR_CONTROLADOS !== "undefined" && BLOQUEAR_CONTROLADOS && p.exigeReceita)) {
-    toast(`${p.nome} adicionado`);
-  }
+
+  /* Só anuncia o que entrou. O mais() devolve se o item foi aceito e já
+     explica por que não — esgotado, limite do estoque, receita. Dois
+     avisos seguidos deixariam o último, "adicionado", como a última
+     palavra sobre um produto que não entrou no carrinho. */
+  if (mais(codigo) && p) toast(`${p.nome} adicionado`);
 }
 
 /* O que o cliente chama de "genérico ou de marca".

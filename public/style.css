@@ -1967,6 +1967,12 @@ body.sem-barra-carrinho .carrinho { display: none; }
 .produto-estoque.indisponivel .ponto { background: var(--erro); }
 .produto-estoque.indisponivel { color: var(--erro); }
 
+/* "Últimas 2 unidades" é disponível, não é erro: precisa dar urgência
+   sem parecer que a compra vai falhar. Daí o âmbar — longe do verde de
+   "tem à vontade" e longe do vermelho de "não tem". */
+.produto-estoque.poucas { color: #9A5B06; }
+.produto-estoque.poucas .ponto { background: #C27803; }
+
 .aviso-receita {
   background: var(--marca-clara);
   border-radius: var(--raio-md);

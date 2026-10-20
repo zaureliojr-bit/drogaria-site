@@ -1220,6 +1220,7 @@ function reconciliarCarrinho() {
 
   const antes = carrinho.length;
   let mudouPreco = 0;
+  let cortouQtd = 0;
 
   carrinho = carrinho.reduce((acc, item) => {
     const p = produtos.find(x => String(x.codigo) === String(item.codigo));
@@ -1232,17 +1233,25 @@ function reconciliarCarrinho() {
 
     if (Number(item.preco) !== Number(p.preco)) mudouPreco++;
 
+    /* A quantidade também envelhece. O carrinho fica guardado no
+       aparelho: quem montou 5 unidades ontem, quando havia 5, não pode
+       fechar o pedido hoje com 5 se a extração da manhã diz 2. O item
+       continua no carrinho — só desce para o que existe. */
+    const qtd = Estoque.ajustarQuantidade(p, item.qtd);
+    if (qtd !== Number(item.qtd)) cortouQtd++;
+
     // relê tudo do catálogo, e não do que estava salvo: é isto que
     // preenche o EAN nos carrinhos guardados antes de ele existir aqui
-    acc.push({ codigo: p.codigo, ean: p.ean, nome: p.nome, preco: p.preco, imagem: p.imagem, qtd: item.qtd });
+    acc.push({ codigo: p.codigo, ean: p.ean, nome: p.nome, preco: p.preco, imagem: p.imagem, qtd });
     return acc;
   }, []);
 
   const removidos = antes - carrinho.length;
-  if (removidos || mudouPreco) {
+  if (removidos || mudouPreco || cortouQtd) {
     salvar();
     const partes = [];
     if (mudouPreco) partes.push(`${mudouPreco} ${mudouPreco > 1 ? "preços atualizados" : "preço atualizado"}`);
+    if (cortouQtd) partes.push(`${cortouQtd} ${cortouQtd > 1 ? "quantidades ajustadas" : "quantidade ajustada"} ao estoque`);
     if (removidos) partes.push(`${removidos} ${removidos > 1 ? "itens saíram" : "item saiu"} do carrinho`);
     toast(partes.join(" · "));
   }
@@ -1998,11 +2007,16 @@ function atualizarQtdNaTela(codigo) {
 /* =========================
 🛒 CARRINHO — adicionar / remover
 ========================= */
+/* Devolve se o item ENTROU mesmo no carrinho.
+
+   Quem chama precisa saber: o botão do banner dizia "adicionado" em
+   seguida, por conta própria, e anunciava a compra de um produto que o
+   mais() tinha acabado de recusar por estar esgotado. */
 function mais(codigo) {
   const p = produtos.find(i => String(i.codigo) === String(codigo));
-  if (!p) return;
+  if (!p) return false;
 
-  if (BLOQUEAR_CONTROLADOS && p.exigeReceita) return falarSobreReceita(codigo);
+  if (BLOQUEAR_CONTROLADOS && p.exigeReceita) { falarSobreReceita(codigo); return false; }
 
   /* Porta única: todo caminho que põe item no carrinho passa por aqui —
      o card, a página do produto e o carrossel de ofertas, que tem botão
@@ -2010,18 +2024,28 @@ function mais(codigo) {
      Não fica em silêncio: sem estoque com encomenda vira conversa no
      WhatsApp, e o resto explica por que nada aconteceu. */
   if (semEstoque(p)) {
-    if (p.encomenda) return encomendarProduto(codigo);
-    toast(`${p.nome} está indisponível no momento.`);
-    return;
+    if (p.encomenda) encomendarProduto(codigo);
+    else toast(`${p.nome} está indisponível no momento.`);
+    return false;
   }
 
   const item = carrinho.find(i => String(i.codigo) === String(codigo));
+
+  /* O limite do estoque, na mesma porta única.
+     Até aqui o carrinho aceitava 6 unidades de um item que tem 2 na
+     prateleira, e a conta só aparecia no WhatsApp — com a farmacêutica
+     avisando o cliente de que vai faltar parte do pedido. */
+  if (!Estoque.cabeMaisUm(p, item ? item.qtd : 0)) {
+    toast(Estoque.avisoDeLimite(p));
+    return false;
+  }
 
   if (item) item.qtd++;
   else carrinho.push({ codigo: p.codigo, ean: p.ean, nome: p.nome, preco: p.preco, imagem: p.imagem, qtd: 1 });
 
   atualizarQtdNaTela(codigo);
   salvar();
+  return true;
 }
 
 function menos(codigo) {
@@ -2796,11 +2820,11 @@ function renderBannerOfertas() {
    já confirma que o item entrou, e o "Ver carrinho" fica a um toque. */
 function adicionarDoBanner(codigo) {
   const p = produtos.find(i => String(i.codigo) === String(codigo));
-  mais(codigo);
 
-  if (p && !(BLOQUEAR_CONTROLADOS && p.exigeReceita)) {
-    toast(`${p.nome} adicionado`);
-  }
+  /* Só anuncia o que entrou. O mais() já explica por que recusou
+     (esgotado, limite do estoque, receita), e dois avisos seguidos
+     deixariam o último — "adicionado" — como a última palavra. */
+  if (mais(codigo) && p) toast(`${p.nome} adicionado`);
 }
 
 /* =========================
