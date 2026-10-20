@@ -458,6 +458,10 @@ document.addEventListener("DOMContentLoaded", () => {
       termoBusca = normalizar(valor);
       modoOfertas = false;
       aplicarFiltro();
+      /* Junto com o filtro, e não só no botão Buscar: quem digita e
+         para de digitar já está vendo o resultado — o endereço tem de
+         estar certo nesse instante, que é quando a atendente copia. */
+      sincronizarEndereco();
     }, 300);
   });
 
@@ -516,7 +520,6 @@ document.addEventListener("produtosProntos", (ev) => {
     const campo = el("busca");
     if (campo) campo.value = termo;
     if (typeof buscar === "function") buscar();
-    history.replaceState(null, "", location.pathname);
     return;
   }
 
@@ -525,8 +528,47 @@ document.addEventListener("produtosProntos", (ev) => {
   if (!familiasComProdutos().some(f => f.id === familia)) return;
 
   filtrarCategoria(familia);
-  history.replaceState(null, "", location.pathname);
 });
+
+/* ---------------------------------------------------------------------
+   O endereço acompanha a busca
+   ---------------------------------------------------------------------
+
+   Antes, buscar não mexia na barra de endereço — e quem chegava por
+   ?busca=ibuprofeno tinha o parâmetro APAGADO logo depois. Ou seja: o
+   link funcionava e não havia como copiá-lo.
+
+   Para a farmácia isso é o dia a dia. O cliente pergunta no WhatsApp
+   "tem ibuprofeno?", e a resposta natural é mandar a lista com os
+   preços. Sem endereço, a atendente só conseguia mandar a home e pedir
+   que ele procurasse — que é pedir ao cliente para fazer o trabalho.
+
+   replaceState, e não pushState: digitar "ibuprofeno" dispara a busca a
+   cada tecla, e com pushState o botão "voltar" teria de ser apertado
+   dez vezes para sair da página. Com replace, o endereço fica sempre
+   certo e o "voltar" leva de onde a pessoa veio. */
+function enderecoDaBusca() {
+
+    const termo = (el("busca")?.value || "").trim();
+
+    const url = new URL(location.href);
+    url.searchParams.delete("familia");
+
+    if (termo) url.searchParams.set("busca", termo);
+    else url.searchParams.delete("busca");
+
+    return url.pathname + (url.search || "") ;
+
+}
+
+function sincronizarEndereco() {
+    try {
+        history.replaceState(null, "", enderecoDaBusca());
+    } catch {
+        /* navegador antigo ou contexto sem history: a busca funciona
+           igual, só não dá para copiar o link. */
+    }
+}
 
 /* =========================
 🏷️ PROMOÇÕES FEITAS NO PAINEL
@@ -1507,9 +1549,58 @@ function buscar() {
   modoOfertas = false;
   termoBusca = normalizar(el("busca")?.value || "");
   aplicarFiltro();
+  sincronizarEndereco();
   // tocar em Buscar é o cliente dizendo que terminou de digitar
   enviarBuscaPendente();
   rolarParaResultados();
+}
+
+/* Mandar a lista de resultados para alguém.
+
+   É o pedido que originou isto: o cliente pergunta no WhatsApp "tem
+   ibuprofeno?", e a atendente quer mandar a lista com os preços em vez
+   de pedir que ele procure sozinho.
+
+   No celular usa o menu de compartilhar do próprio aparelho — dali o
+   WhatsApp está a um toque, com a conversa já aberta. No computador
+   copia o endereço, que é o que dá para fazer lá.
+
+   O texto vai junto com o link porque link sozinho no WhatsApp chega
+   como uma caixa de prévia sem contexto; com uma linha antes, chega
+   como resposta. */
+async function mandarEstaLista() {
+
+  const termo = (el("busca")?.value || "").trim();
+  if (!termo) return;
+
+  const endereco = location.origin + enderecoDaBusca();
+  const quantos = produtosFiltrados.length;
+
+  const texto =
+    `${quantos} ${quantos === 1 ? "opção" : "opções"} de ${termo} ` +
+    `${quantos === 1 ? "disponível" : "disponíveis"} com preço:`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: termo, text: texto, url: endereco });
+      return;
+    } catch {
+      /* fechou o menu de compartilhar: não é erro, e não vale cair no
+         copiar por trás das costas de quem desistiu. */
+      return;
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(`${texto}\n${endereco}`);
+    toast("Link copiado — é só colar no WhatsApp");
+  } catch {
+    /* Sem área de transferência (fora de HTTPS, ou navegador que
+       bloqueia): mostrar o endereço é melhor do que falhar calado,
+       porque dá para copiar à mão. */
+    window.prompt("Copie o link desta lista:", endereco);
+  }
+
 }
 
 function ordenar(lista) {
@@ -1578,6 +1669,12 @@ function aplicarFiltro() {
       el("resultadoTitulo").textContent = rotulo;
       el("resultadoContagem").textContent =
         `${produtosFiltrados.length} ${produtosFiltrados.length === 1 ? "produto" : "produtos"}`;
+
+      /* O botão de mandar a lista só faz sentido numa BUSCA. Numa
+         categoria o endereço já é o da categoria, e numa lista vazia
+         não há o que mandar. */
+      const botaoMandar = el("compartilharBusca");
+      if (botaoMandar) botaoMandar.hidden = !(termoBusca && produtosFiltrados.length);
     }
   }
 
