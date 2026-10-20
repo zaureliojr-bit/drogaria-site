@@ -461,14 +461,19 @@
 
   <div id="login" class="entrar" style="display:none;">
     <h2>Painel da loja</h2>
-    <p>Digite a senha do painel.</p>
+    <p>Escolha a filial e digite a senha dela.</p>
     <div id="erroLogin"></div>
-    <input type="password" id="senha" placeholder="Senha do painel" autocomplete="current-password">
-    <!-- Em branco é a farmácia principal, que é o caso de quem tem uma
-         loja só. Quem administra a rede põe o apelido da filial aqui, ou
-         entra em qualquer uma e troca depois pela aba Lojas. -->
+    <!-- A filial vem ANTES da senha porque é ela que decide qual senha
+         vale: cada farmácia tem a sua. Na ordem inversa, quem administra
+         a rede digitava a senha de uma filial, lembrava da outra, e
+         voltava para corrigir um campo acima — e, se esquecesse, levava
+         "Senha incorreta" com a senha certa na mão.
+
+         Em branco é a farmácia principal, que é o caso de quem tem uma
+         loja só. -->
     <input type="text" id="lojaLogin" placeholder="Filial (deixe em branco para a principal)"
            autocomplete="off" spellcheck="false">
+    <input type="password" id="senha" placeholder="Senha do painel" autocomplete="current-password">
     <button id="btnEntrar">Entrar</button>
   </div>
 
@@ -1415,6 +1420,13 @@ el("btnEntrar").addEventListener("click", () => {
 });
 
 el("senha").addEventListener("keydown", e => { if (e.key === "Enter") el("btnEntrar").click(); });
+
+/* Enter na filial desce para a senha, em vez de tentar entrar com ela
+   vazia. Com a filial em cima, teclar Enter ali é o movimento natural
+   de quem está preenchendo de cima para baixo. */
+el("lojaLogin").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); el("senha").focus(); }
+});
 
 el("periodo").addEventListener("click", e => {
   const btn = e.target.closest("[data-dias]");
@@ -2737,7 +2749,24 @@ function entregarSenhaAoPadronizador() {
 
   if (!quadro || !quadro.contentWindow || !senha) return;
 
-  quadro.contentWindow.postMessage({ tipo: "senha-painel", senha }, PADRONIZADOR_URL);
+  /* A filial vai JUNTO com a senha, no mesmo recado.
+
+     Sem ela, o padronizador falava com o porteiro mandando só a senha —
+     e o porteiro, sem o cabeçalho de loja, cai na farmácia original.
+     Então, com o painel aberto numa filial, importar a extração e
+     publicar o catálogo escreviam na loja errada, em silêncio.
+
+     Para quem entra com a chave de dono era pior: ela abre qualquer
+     farmácia, então nada dava 401 — a publicação ia para o catálogo de
+     outra loja e a tela dizia "catálogo atualizado".
+
+     Num recado separado haveria um instante com a senha nova e a loja
+     velha, e é nesse instante que uma publicação escreveria no lugar
+     errado. As duas juntas, ou nenhuma. */
+  quadro.contentWindow.postMessage(
+    { tipo: "senha-painel", senha, loja: lojaAtual || "" },
+    PADRONIZADOR_URL
+  );
 
 }
 

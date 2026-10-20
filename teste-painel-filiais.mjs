@@ -67,6 +67,23 @@ async function abrirPainel({ dono, subdominiosNoAr = [] }) {
        foram adicionadas em Custom Domains na Cloudflare; as outras não
        existem — e abortar é o que o navegador faz de verdade com DNS que
        não resolve. */
+    /* O padronizador, dublado por uma página que só anota o que recebe.
+
+       Servida DA ORIGEM dele, e não de outra: o painel confere
+       evento.origin antes de mandar a senha, e de uma origem qualquer o
+       recado não sairia — o teste passaria por engano, provando o
+       contrário do que quer. */
+    await pagina.route(/farmatech-padronizador[^/]*\/?$|farmatech-padronizador[^/]*\/[^/]*$/,
+        (rota) => rota.fulfill({
+            status: 200,
+            contentType: "text/html; charset=utf-8",
+            body: `<!doctype html><meta charset="utf-8"><title>dublê</title><script>
+                window.recebidos = [];
+                addEventListener("message", (e) => window.recebidos.push(e.data));
+                try { parent.postMessage({ tipo: "padronizador-pronto" }, "*"); } catch (e) {}
+            </script>`
+        }));
+
     await pagina.route(/drogalink\.com\.br/, (rota) => {
         const apelido = new URL(rota.request().url()).hostname.split(".")[0];
         if (!subdominiosNoAr.includes(apelido)) return rota.abort("namenotresolved");
@@ -328,7 +345,21 @@ console.log("\n3. trocar de filial: o cabeçalho acompanha TUDO");
        encartes já estão em memória, e uma tela meio trocada — fila de
        uma filial com os banners de outra — é pior do que dois segundos
        de espera. */
-    chamadas.length = 0;
+    /* Zera na NAVEGAÇÃO, e não antes do clique.
+
+       Trocar de filial é location.reload(), e a página velha ainda
+       dispara o que estava em voo nos milissegundos antes de morrer —
+       com a loja antiga no cabeçalho, porque era nela que aquela sessão
+       estava, corretamente. Zerando antes do clique, essa chamada
+       moribunda caía na conta da página nova e o teste acusava um
+       vazamento que não existe.
+
+       Limpar quando o documento novo começa é o corte certo: o que vem
+       depois é, por definição, da filial escolhida. */
+    pagina.on("framenavigated", (quadro) => {
+        if (quadro === pagina.mainFrame()) chamadas.length = 0;
+    });
+
     await pagina.click('[data-ir-para="farma-centro"]');
     await pagina.waitForSelector("#conteudo:not([style*='display: none'])", { timeout: 25000 });
     await pagina.waitForTimeout(1500);
@@ -350,6 +381,29 @@ console.log("\n3. trocar de filial: o cabeçalho acompanha TUDO");
         ["/fila", "/resumo", "/banners/todos", "/promocoes/todas", "/encartes"]
             .every((c) => caminhos.includes(c)),
         caminhos.join(","));
+
+    /* O padronizador roda num quadro e fala com o porteiro por conta
+       própria. Se ele não souber a filial, o porteiro cai na farmácia
+       original — e publicar o catálogo escreve no site da loja errada,
+       calado. Com a chave de dono é pior: nada dá 401, e a tela diz
+       "catálogo atualizado" enquanto o site da filial segue igual.
+
+       Então o recado que entrega a senha tem de entregar a filial. */
+    await pagina.click('[data-aba="padronizador"]');
+    await pagina.waitForTimeout(2500);
+
+    const quadro = pagina.frames().find((f) => /padronizador/.test(f.url()));
+    conferir("o quadro do padronizador carregou", !!quadro,
+        pagina.frames().map((f) => f.url()).join(" | ").slice(0, 120));
+
+    const recebidos = quadro ? await quadro.evaluate(() => window.recebidos || []) : [];
+    const entregaDaSenha = recebidos.find((m) => m && m.tipo === "senha-painel");
+
+    conferir("o painel entrega a senha ao padronizador", !!entregaDaSenha,
+        JSON.stringify(recebidos).slice(0, 120));
+    conferir("e entrega a FILIAL junto, no mesmo recado",
+        entregaDaSenha?.loja === "farma-centro",
+        JSON.stringify(entregaDaSenha && { ...entregaDaSenha, senha: "···" }));
 
     await contexto.close();
 }
