@@ -2741,6 +2741,17 @@ body.sem-barra-carrinho .carrinho { display: none; }
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
+
+  /* O encaixe precisa respeitar o respiro lateral da faixa.
+
+     Sem isto o scroll-snap alinha o banner ao início do scrollport, que
+     INCLUI o padding — então o banner encostava na borda esquerda da
+     tela enquanto 14px do próximo apareciam na direita. Ficava torto
+     dos dois lados ao mesmo tempo, e no celular isso lê como defeito.
+
+     Com o scroll-padding igual ao padding, o banner encaixado fica com
+     a mesma margem dos dois lados, como o resto da página. */
+  scroll-padding-inline: 14px;
 }
 .promos::-webkit-scrollbar { display: none; }
 
@@ -2784,19 +2795,30 @@ body.sem-barra-carrinho .carrinho { display: none; }
   box-shadow: var(--sombra-sm);
 }
 
-/* A proporção é fixa e a imagem preenche cortando o excesso. Sem isto,
-   banner de parceiro em tamanho imprevisto empurra a página para baixo
-   enquanto carrega, e o cliente perde o lugar onde estava lendo. */
+/* A proporção é fixa, e é a MESMA em toda tela. Sem ela, banner de
+   parceiro em tamanho imprevisto empurra a página para baixo enquanto
+   carrega, e o cliente perde o lugar onde estava lendo.
+
+   3:1 porque é o que a loja publica — os banners no ar são 1200x400 e
+   1920x650 — e é o que o banners.json manda usar. O celular tinha 2:1,
+   e era isso que cortava: num banner 3:1 exibido em 2:1, o `cover`
+   come um TERÇO da largura. Sumia o começo da frase de um lado e os
+   produtos do outro.
+
+   `contain` no lugar de `cover` pelo mesmo motivo, agora como rede: com
+   a proporção certa os dois dão no mesmo, mas no dia em que alguém
+   publicar um banner 16:9 o `contain` mostra a peça inteira com uma
+   tarja fina, e o `cover` cortaria a chamada. Banner cortado é dinheiro
+   de mídia jogado fora, e ninguém percebe pelo painel. */
 .promo-item img {
   width: 100%;
   aspect-ratio: 3 / 1;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
 @media (max-width: 480px) {
-  .promos { padding: 2px 12px 14px; }
-  .promo-item img { aspect-ratio: 2 / 1; }
+  .promos { padding: 2px 12px 14px; scroll-padding-inline: 12px; }
 }
 
 /* ========================= */
