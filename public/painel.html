@@ -145,6 +145,13 @@
   .editor-imagem-status { font-size: 11.5px; color: var(--tinta-suave); white-space: nowrap; }
   .editor-imagem-status[data-ok="1"] { color: var(--ok); }
   .editor-imagem-status[data-erro="1"] { color: var(--erro); }
+  .btn-apagar-produto {
+    background: var(--branco); border: 1.5px solid var(--erro); color: var(--erro);
+    padding: 6px 12px; border-radius: var(--raio-botao); font-size: 12px; font-weight: 700;
+    font-family: var(--fonte-corpo); white-space: nowrap;
+  }
+  .btn-apagar-produto:hover { background: var(--erro); color: var(--branco); }
+  .btn-apagar-produto:disabled { opacity: .6; }
 
   /* ========== ABAS ========== */
   .abas { display: flex; gap: 6px; padding: 14px 0 0; }
@@ -3476,7 +3483,13 @@ function linhaEditorImagem(p) {
       </div>`
     : `<span class="editor-imagem-status" data-erro="1">Sem EAN na planilha - não dá pra salvar aqui.</span>`;
 
-  return [esc(p.codigo), esc(p.nome), esc(p.marca), editor];
+  const apagar = p.ean
+    ? `<button type="button" class="btn-apagar-produto"
+        data-apagar-produto="${esc(p.ean)}" data-codigo-produto="${esc(p.codigo)}" data-nome-produto="${esc(p.nome)}"
+      >Apagar</button>`
+    : "";
+
+  return [esc(p.codigo), esc(p.nome), esc(p.marca), editor, apagar];
 
 }
 
@@ -3535,10 +3548,48 @@ async function salvarImagemDoEditor(botao) {
 
 }
 
+// Apaga de vez (confirmação antes, não tem como desfazer pela tela) -
+// duas chamadas no bundle (apagarProdutoCatalogo): tira do site AGORA
+// e marca exclusão definitiva, pra não voltar sozinho se o produto
+// ainda existir no PDV com estoque (ex.: taxa de entrega, item de
+// teste, cadastro duplicado).
+async function apagarProdutoClicado(botao) {
+
+  const ean = botao.dataset.apagarProduto;
+  const codigo = botao.dataset.codigoProduto;
+  const nome = botao.dataset.nomeProduto;
+
+  if (!confirm(`Apagar "${nome}" do catálogo do site? Isso não tem volta por aqui.`)) return;
+
+  botao.disabled = true;
+  botao.textContent = "Apagando...";
+
+  try {
+
+    const { apagarProdutoCatalogo } = await import(URL_IMPORTADOR);
+    await apagarProdutoCatalogo(ean, codigo, "Apagado pelo painel (aba Catálogo)");
+
+    catalogo.delete(codigo);
+
+    await renderizarSemImagem();
+    filtrarBuscaImagem();
+
+  } catch (erro) {
+
+    alert("Não consegui apagar: " + erro.message);
+    botao.disabled = false;
+    botao.textContent = "Apagar";
+
+  }
+
+}
+
 ["semImagem", "buscaImagemResultado"].forEach((id) => {
   el(id).addEventListener("click", (ev) => {
-    const botao = ev.target.closest("[data-salvar-imagem]");
-    if (botao) salvarImagemDoEditor(botao);
+    const salvar = ev.target.closest("[data-salvar-imagem]");
+    if (salvar) return salvarImagemDoEditor(salvar);
+    const apagar = ev.target.closest("[data-apagar-produto]");
+    if (apagar) return apagarProdutoClicado(apagar);
   });
 });
 
@@ -3554,7 +3605,7 @@ async function renderizarSemImagem() {
   const LIMITE = 300;
 
   el("semImagem").innerHTML = tabela(
-    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }],
+    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }, { titulo: "" }],
     semImagem.slice(0, LIMITE).map(linhaEditorImagem),
     "Nenhum produto sem imagem 🎉"
   );
@@ -3584,7 +3635,7 @@ async function filtrarBuscaImagem() {
     .slice(0, LIMITE);
 
   el("buscaImagemResultado").innerHTML = tabela(
-    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }],
+    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }, { titulo: "" }],
     achados.map(linhaEditorImagem),
     "Nenhum produto encontrado."
   );
