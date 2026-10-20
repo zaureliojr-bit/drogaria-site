@@ -40,6 +40,7 @@ const LISTA = [
     "MARIA A SILVA\t19975172840\t40",
     "Jose dos Santos\t(11) 3251-4000\t200",
     "Ana Lima\t97517-2841\t150",
+    "Carlos Souza\t(11) 98765-4321\t120",
     "Lixo\t00000000000\t90"
 ].join("\n");
 
@@ -107,8 +108,8 @@ console.log("\n3. a lista processada");
     const linhas = await pagina.$$eval("#reaLista tbody tr",
         (trs) => trs.map((tr) => tr.textContent.replace(/\s+/g, " ")));
 
-    conferir("cinco linhas coladas viraram quatro pessoas",
-        linhas.length === 4, `${linhas.length} linhas`);
+    conferir("seis linhas coladas viraram cinco pessoas",
+        linhas.length === 5, `${linhas.length} linhas`);
 
     const aviso = await pagina.textContent("#reaAviso");
     conferir("e a tela conta que uniu", /repetida/i.test(aviso), aviso.trim());
@@ -181,8 +182,47 @@ console.log("\n6. não perturbe vale para as próximas campanhas");
         /não perturbe/i.test(aviso), aviso.trim());
 }
 
-/* ---- 7. o console ------------------------------------------------------ */
-console.log("\n7. nenhum erro de página");
+/* ---- 7. mandar para o agente -------------------------------------------- */
+console.log("\n7. o botão que carrega a fila do agente");
+{
+    let enviado = null;
+
+    await pagina.route("**/reativacao/fila", (rota) => {
+        enviado = JSON.parse(rota.request().postData() || "{}");
+        return rota.fulfill({
+            status: 200, contentType: "application/json",
+            headers: { "Access-Control-Allow-Origin": "*" },
+            body: JSON.stringify({ ok: true, naFila: enviado.contatos.length, bloqueadosFora: 0, recado: "" })
+        });
+    });
+
+    pagina.once("dialog", (d) => d.accept());
+    await pagina.click("#reaEnviarFila");
+    await pagina.waitForTimeout(900);
+
+    conferir("o painel carrega a fila", !!enviado, String(enviado));
+
+    const telefones = (enviado?.contatos || []).map((c) => c.telefone);
+
+    /* Só quem está PRONTO: o fixo do Jose e a Ana sem DDD não podem
+       entrar. Mandar WhatsApp para telefone fixo gasta tentativa — e,
+       pior, o número que sairia da conta não é daquele cliente. */
+    conferir("manda só os prontos, sem fixo nem sem-DDD",
+        telefones.length > 0 && telefones.every((t) => /^55\d{10,11}$/.test(t)),
+        telefones.join(","));
+    conferir("o fixo do Jose não vai", !(enviado?.contatos || []).some((c) => /Jose/i.test(c.nome)),
+        telefones.join(","));
+
+    conferir("e cada contato leva a mensagem pronta",
+        (enviado?.contatos || []).every((c) => c.mensagem && c.mensagem.length > 5),
+        JSON.stringify((enviado?.contatos || [])[0] || {}));
+
+    const status = await pagina.textContent("#reaFilaStatus");
+    conferir("a tela confirma quantos entraram", /na fila do agente/i.test(status), status.trim());
+}
+
+/* ---- 8. o console ------------------------------------------------------ */
+console.log("\n8. nenhum erro de página");
 conferir("console limpo", erros.length === 0, erros.join(" | "));
 
 await navegador.close();

@@ -1130,6 +1130,7 @@
           <button type="button" id="reaImportar">Importar planilha</button>
           <input type="file" id="reaArquivo" accept=".xlsx,.xls,.csv" hidden>
           <button type="button" id="reaExportar" hidden>Exportar CSV</button>
+          <button type="button" id="reaEnviarFila" hidden>Mandar para o agente</button>
         </div>
         <div id="reaAviso"></div>
       </div>
@@ -1169,9 +1170,11 @@
         </div>
         <div class="tabela-wrap" id="reaLista"></div>
         <p class="lojas-explica">
-          A lista fica só neste navegador. Cada mensagem sai de um clique seu,
-          no seu WhatsApp — nada é disparado em massa.
+          A lista fica neste navegador até você clicar em <b>Mandar para o
+          agente</b>. Sem isso, cada mensagem sai de um clique seu, no seu
+          WhatsApp.
         </p>
+        <div id="reaFilaStatus"></div>
       </div>
 
     </div><!-- /abaReativacao -->
@@ -1472,6 +1475,7 @@ function reaDesenhar() {
   el("reaBlocoMensagem").hidden = !tem;
   el("reaBlocoLista").hidden = !tem;
   el("reaExportar").hidden = !tem;
+  el("reaEnviarFila").hidden = !tem;
   if (!tem) return;
 
   const conta = Reativacao.contarPorSituacao(reaRegistros);
@@ -1582,6 +1586,7 @@ function reaIniciar() {
   });
 
   el("reaExportar").addEventListener("click", reaExportarCSV);
+  el("reaEnviarFila").addEventListener("click", reaMandarParaOAgente);
 
   document.querySelectorAll("[data-rea-filtro]").forEach(botao => {
     botao.addEventListener("click", () => {
@@ -1611,6 +1616,16 @@ function reaIniciar() {
       if (r.telefone.e164 && !reaNaoPerturbe.includes(r.telefone.e164)) {
         reaNaoPerturbe.push(r.telefone.e164);
         reaGravar(REA_NAO_PERTURBE, reaNaoPerturbe);
+
+        /* Também no servidor, porque o agente de envio não enxerga o
+           localStorage deste navegador. Guardar só aqui faria o
+           "não perturbe" valer na tela e não valer no disparo — a
+           pessoa receberia a mensagem assim mesmo.
+
+           Sem await e sem travar a tela: se a rede falhar, o bloqueio
+           local já valeu e o próximo "Mandar para o agente" leva a
+           lista completa junto. */
+        reaBloquearNoServidor(r.telefone.e164);
       }
       reaRegistros = reaRegistros.filter(x => x.id !== r.id);
       reaGuardarLista();
@@ -1735,6 +1750,83 @@ function reaLerPlanilha(arquivo) {
     leitor.readAsArrayBuffer(arquivo);
 
   });
+
+}
+
+/* ---------------------------------------------------------------------
+   O agente de envio
+   ---------------------------------------------------------------------
+
+   "Mandar para o agente" carrega a campanha numa fila no servidor, no
+   banco DESTA farmácia. A partir daí quem envia é o fluxo do n8n: ele
+   puxa lotes, confirma o que saiu e avisa quem pediu para parar.
+
+   O que vai para lá é só quem está PRONTO: fixo e sem DDD ficam de
+   fora, porque mandar WhatsApp para telefone fixo é gastar tentativa —
+   e, pior, um número de celular que não é daquele cliente.
+
+   Vale saber, e está dito na tela: disparo em massa por biblioteca não
+   oficial funciona até a Meta banir o número, e aí a farmácia perde o
+   canal que mais vende junto com o histórico de conversa dos clientes. */
+
+async function reaBloquearNoServidor(telefone) {
+  try {
+    await fetch(`${API.replace(/\/+$/, "")}/reativacao/parar`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ telefone, motivo: "pediu" })
+    });
+  } catch {
+    /* o bloqueio local já valeu; o próximo envio da fila leva a lista */
+  }
+}
+
+async function reaMandarParaOAgente() {
+
+  const prontos = reaRegistros.filter(r => r.telefone.situacao === "ok");
+
+  if (!prontos.length) {
+    return reaAviso("Nenhum contato pronto para enviar — veja a coluna Telefone.", true);
+  }
+
+  const modelo = el("reaModelo").value;
+
+  if (!confirm(
+    `Mandar ${prontos.length} contato(s) para a fila do agente?\n\n` +
+    "A fila anterior é substituída. Quem está no \"não perturbe\" fica de fora."
+  )) return;
+
+  const botao = el("reaEnviarFila");
+  botao.disabled = true;
+
+  try {
+
+    const r = await fetch(`${API.replace(/\/+$/, "")}/reativacao/fila`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        contatos: prontos.map(p => ({
+          telefone: p.telefone.e164,
+          nome: p.nome,
+          dias: p.dias,
+          mensagem: Reativacao.montarMensagem(modelo, p)
+        }))
+      })
+    });
+
+    const corpo = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(corpo.erro || `HTTP ${r.status}`);
+
+    el("reaFilaStatus").innerHTML =
+      `<div class="aviso-ok">${esc(corpo.naFila)} contato(s) na fila do agente. `
+      + `${esc(corpo.recado || "")}</div>`;
+
+  } catch (e) {
+    el("reaFilaStatus").innerHTML =
+      `<div class="erro">Não consegui carregar a fila: ${esc(e.message)}</div>`;
+  } finally {
+    botao.disabled = false;
+  }
 
 }
 
