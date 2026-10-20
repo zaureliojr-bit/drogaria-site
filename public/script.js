@@ -1692,6 +1692,23 @@ function slugificar(texto) {
    catálogo cai nesse caso hoje (o carregar() descarta produto sem EAN),
    mas o fallback evita gerar link quebrado se isso mudar. */
 function urlProduto(p) {
+  /* Estamos no domínio da própria farmácia? Quem diz é o servidor, com
+     uma <meta> posta na vitrine e na página de produto.
+
+     Lido do HTML, e não do endereço do navegador: a página não sabe
+     qual é o domínio da plataforma, e adivinhar por "tem ponto no
+     começo" erraria no dia em que a loja tiver domínio próprio de
+     verdade (farmaciadocentro.com.br). O servidor sabe; a página só
+     obedece.
+
+     Lido AQUI DENTRO, e não numa constante do arquivo, porque esta
+     função é extraída e rodada sozinha pelo teste de endereços — uma
+     referência externa a quebraria fora do navegador. O guarda do
+     typeof é o que a mantém rodando nos dois lugares. */
+  const lojaPropria = typeof document !== "undefined"
+    ? (document.querySelector('meta[name="loja-propria"]')?.content || "")
+    : "";
+
   const ean = String(p.ean || "").replace(/\D/g, "");
 
   /* A loja vem do cadastro (loja.js). Enquanto ele não responde, vale o
@@ -1701,7 +1718,14 @@ function urlProduto(p) {
 
   if (ean.length >= 8) {
     const slug = slugificar(p.nome);
-    return `/loja/${loja}/produto/${slug ? slug + "-" : ""}${ean}`;
+    const caminho = `${slug ? slug + "-" : ""}${ean}`;
+
+    /* No domínio dela, o endereço curto. Com o /loja/<slug> no meio o
+       middleware encurtaria com um 301 — funciona, mas é uma ida e
+       volta ao servidor a cada clique, num site que se usa na rua. */
+    return lojaPropria
+      ? `/produto/${caminho}`
+      : `/loja/${loja}/produto/${caminho}`;
   }
   return `/produto?codigo=${encodeURIComponent(p.codigo)}`;
 }

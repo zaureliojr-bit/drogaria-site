@@ -128,6 +128,17 @@ console.log("\n2. no domínio da farmácia, a vitrine dela é a raiz");
     /* A marca dela também: a filial de Cuiabá tem logotipo e cor próprios
        no cadastro de mentira. Sem isso, o cliente dela abriria o site com
        a identidade de uma farmácia concorrente. */
+    /* O servidor avisa a página de que ela está no domínio da loja. É
+       isso que faz o card apontar direto para /produto/... em vez de
+       passar pelo 301 do middleware a cada clique. */
+    conferir("a página sabe que está no domínio da loja",
+        /name="loja-propria" content="mais-barato"/.test(raiz.corpo),
+        "sem a marca de loja própria");
+
+    const naPlataforma = await pedir("/loja/mais-barato", "teste.local");
+    conferir("e na plataforma essa marca NÃO existe",
+        !/loja-propria/.test(naPlataforma.corpo), "marca vazou para a plataforma");
+
     conferir("e a marca dela", /logo-centro\.png/.test(outra.corpo), "logotipo não trocado");
     conferir("inclusive a cor", /#0a7d4b/.test(outra.corpo), "cor não aplicada");
 }
@@ -193,14 +204,40 @@ console.log("\n5. subdomínio apontado para farmácia que não existe");
         /apelido do domínio/.test(r.corpo), r.corpo.slice(0, 80));
 }
 
-/* ---- 6. a vitrine de outra, dentro do domínio dela ------------------ */
-console.log("\n6. /loja/<outra> dentro do domínio de uma farmácia");
+/* ---- 6. /loja/... dentro do domínio de uma farmácia ----------------- */
+console.log("\n6. /loja/<slug> dentro do domínio de uma farmácia");
 {
-    const r = await pedir("/loja/farma-centro", "mais-barato.teste.local");
+    const outra = await pedir("/loja/farma-centro", "mais-barato.teste.local");
     conferir("não serve a concorrente no endereço dela",
-        r.status === 302, String(r.status));
+        outra.status === 302, String(outra.status));
     conferir("manda para a vitrine certa, que é a raiz",
-        /\/$/.test(r.local), r.local);
+        /\/$/.test(outra.local), outra.local);
+
+    /* O defeito que esta seção não pegava: TODO card do site aponta para
+       /loja/<slug>/produto/<nome>-<ean>. A regra acima olhava só o
+       começo do caminho, então o link da própria loja caía nela e o
+       cliente voltava para a home ao clicar num produto. Sem erro
+       nenhum — só um redirecionamento. */
+    const dela = await pedir(
+        "/loja/mais-barato/produto/dipirona-7891106000888",
+        "mais-barato.teste.local");
+
+    conferir("o produto DELA não volta para a home",
+        dela.status === 301, String(dela.status));
+    conferir("e sim para o endereço curto, no domínio dela",
+        /\/produto\/dipirona-7891106000888$/.test(dela.local), dela.local);
+
+    /* A vitrine dela, no endereço da plataforma, também encurta. */
+    const vitrine = await pedir("/loja/mais-barato", "mais-barato.teste.local");
+    conferir("a vitrine dela encurta para a raiz",
+        vitrine.status === 301 && /\/$/.test(vitrine.local),
+        `${vitrine.status} ${vitrine.local}`);
+
+    /* Link compartilhado com busca não pode perder o que a pessoa
+       procurou no caminho. */
+    const comBusca = await pedir("/loja/mais-barato?busca=dipirona", "mais-barato.teste.local");
+    conferir("e a busca vai junto no encurtamento",
+        /busca=dipirona/.test(comBusca.local), comBusca.local);
 }
 
 /* ---- 7. o resto do site continua igual ------------------------------ */

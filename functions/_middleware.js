@@ -134,11 +134,38 @@ export async function onRequest(contexto) {
         });
     }
 
-    /* /loja/<outra> dentro do domínio de uma farmácia não faz sentido:
-       seria a vitrine de uma concorrente servida no endereço dela.
-       Manda para a raiz, que é a vitrine certa. */
-    if (caminho.startsWith("/loja/")) {
-        return Response.redirect(url.origin + "/", 302);
+    /* /loja/<slug>/... dentro do domínio de uma farmácia.
+
+       Esta regra nasceu para um caso só — não servir a vitrine de uma
+       CONCORRENTE no endereço dela — e engolia junto o endereço da
+       própria loja. Como todo card do site aponta para
+       /loja/<slug>/produto/<nome>-<ean>, clicar num produto no domínio
+       da farmácia voltava para a home. Quebrado desde que o subdomínio
+       entrou no ar, e sem erro nenhum: só um redirecionamento.
+
+       Agora o slug é lido. Dela, é a página dela, no endereço curto;
+       de outra, vai para a raiz como antes. */
+    const dentroDeLoja = caminho.match(/^\/loja\/([a-z0-9-]+)(\/.*)?$/);
+
+    if (dentroDeLoja) {
+
+        const slugPedido = dentroDeLoja[1];
+        const resto = dentroDeLoja[2] || "";
+
+        if (slugPedido !== loja) {
+            return Response.redirect(url.origin + "/", 302);
+        }
+
+        /* 301, e não 302: o endereço com /loja/ no meio é o da
+           plataforma, e no domínio dela o certo é o curto. Dizer ao
+           Google que a mudança é definitiva é o que evita as duas
+           versões disputando a mesma página.
+
+           A busca vai junto — um link compartilhado com ?busca= não
+           pode perder o que a pessoa procurou no caminho. */
+        const destinoProprio = resto && resto !== "/" ? resto : "/";
+        return Response.redirect(url.origin + destinoProprio + url.search, 301);
+
     }
 
     /* Carrinho, encarte, oferta, CSS, imagens: tudo igual. O que muda

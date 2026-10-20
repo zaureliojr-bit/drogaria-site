@@ -195,7 +195,18 @@ export async function montarVitrine({ request, env, slug: slugPedido, proprio = 
         ? `\n  <meta name="catalogo" content="${escapar(catalogo)}">`
         : "";
 
-    const cabeca = `${marca}${metaCatalogo}
+    /* No domínio da própria farmácia, o card do produto aponta direto
+       para /produto/<nome>-<ean>, sem o /loja/<slug> no meio.
+
+       Sem esta marca o link saía no formato da plataforma e o
+       middleware o encurtava com um 301 — funciona, mas é uma ida e
+       volta ao servidor a cada clique em produto, num site que se usa
+       no celular e na rua. */
+    const metaPropria = proprio
+        ? `\n  <meta name="loja-propria" content="${escapar(slug)}">`
+        : "";
+
+    const cabeca = `${marca}${metaCatalogo}${metaPropria}
   <link rel="canonical" href="${escapar(canonico)}">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="${escapar(loja.nome)}">

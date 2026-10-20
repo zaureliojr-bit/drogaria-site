@@ -266,7 +266,13 @@ export async function montarPaginaProduto({ request, env, rota, slugLoja = "", n
         ? `\n  <meta name="catalogo" content="${escapar(catalogo)}">`
         : "";
 
-    const cabeca = `${metaCatalogo}
+    /* A mesma marca da vitrine: no domínio da farmácia, os links de
+       produto desta página saem no endereço curto, sem o 301 no meio. */
+    const metaPropria = proprio && slugLoja
+        ? `\n  <meta name="loja-propria" content="${escapar(slugLoja)}">`
+        : "";
+
+    const cabeca = `${metaCatalogo}${metaPropria}
   <link rel="canonical" href="${escapar(canonico)}">
   <meta property="og:type" content="product">
   <meta property="og:site_name" content="${escapar(marca)}">
