@@ -405,6 +405,61 @@
     text-decoration: underline; text-underline-offset: 2px;
   }
   #abaLojas .btn-link:hover { color: var(--marca); }
+
+  /* ----- Reativação de clientes ----- */
+  #abaReativacao .rea-area {
+    width: 100%; padding: 10px 12px; font-family: ui-monospace, Consolas, monospace;
+    font-size: 12.5px; color: var(--tinta); background: var(--papel);
+    border: 1px solid var(--linha); border-radius: var(--raio-sm); resize: vertical;
+  }
+  #abaReativacao .rea-botoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  #abaReativacao .rea-linha { display: flex; flex-wrap: wrap; gap: 18px; }
+  #abaReativacao .rea-col { flex: 1; min-width: 260px; }
+  #abaReativacao .rea-col-estreita { flex: 0 0 180px; }
+  #abaReativacao .rea-rotulo {
+    display: block; margin-bottom: 6px; font-size: 11px; letter-spacing: .4px;
+    text-transform: uppercase; color: var(--tinta-suave);
+  }
+  #abaReativacao #reaDDD {
+    width: 100%; padding: 9px 11px; font-size: 13px;
+    border: 1px solid var(--linha); border-radius: var(--raio-sm); background: var(--papel);
+  }
+  #abaReativacao .rea-filtros {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0;
+  }
+  #abaReativacao #reaBusca {
+    flex: 1; min-width: 180px; max-width: 260px; padding: 8px 11px; font-size: 13px;
+    border: 1px solid var(--linha); border-radius: var(--raio-sm); background: var(--papel);
+  }
+  #abaReativacao .rea-chip {
+    padding: 6px 13px; font-size: 12px; color: var(--tinta-suave); background: var(--branco);
+    border: 1px solid var(--linha); border-radius: 999px; cursor: pointer;
+  }
+  #abaReativacao .rea-chip.ativo { color: var(--branco); background: var(--marca); border-color: var(--marca); }
+  #abaReativacao .rea-sub { display: block; margin-top: 2px; font-size: 11px; color: var(--tinta-suave); }
+  #abaReativacao .rea-marca {
+    display: inline-block; margin-top: 4px; padding: 2px 8px; font-size: 10.5px;
+    color: var(--tinta-suave); background: var(--fundo);
+    border: 1px solid var(--linha); border-radius: 999px;
+  }
+  #abaReativacao .rea-aten { color: var(--aviso, #95610f); border-color: currentColor; }
+  #abaReativacao .rea-ruim { color: var(--erro); border-color: currentColor; }
+  #abaReativacao .rea-whats {
+    display: inline-block; padding: 6px 14px; font-size: 12px; font-weight: 600;
+    color: #fff; text-decoration: none; background: #1FA855; border-radius: 999px;
+  }
+  #abaReativacao .rea-whats:hover { background: #19843F; }
+  #abaReativacao .rea-mini {
+    margin-top: 4px; padding: 4px 10px; font-size: 11px; color: var(--tinta-suave);
+    background: var(--branco); border: 1px solid var(--linha);
+    border-radius: 999px; cursor: pointer;
+  }
+  #abaReativacao .rea-mini:hover { color: var(--marca); border-color: var(--marca); }
+  #abaReativacao .rea-mini-ruim:hover { color: var(--erro); border-color: var(--erro); }
+  #abaReativacao .rea-contato {
+    padding: 5px 8px; font-size: 11.5px; border: 1px solid var(--linha);
+    border-radius: var(--raio-sm); background: var(--branco);
+  }
   #abaLojas .aqui { font-size: 12px; color: var(--marca); font-weight: 700; }
   #abaLojas .desligada { font-size: 12px; color: var(--tinta-suave); font-style: italic; }
   #abaLojas .falta { font-size: 12px; color: var(--erro); font-weight: 700; }
@@ -486,6 +541,7 @@
       <button data-aba="encarte">Encarte</button>
       <button data-aba="relatorios">Relatórios</button>
       <button data-aba="estoque">Estoque</button>
+      <button data-aba="reativacao">Reativação</button>
       <button data-aba="catalogo">Catálogo</button>
       <button data-aba="padronizador">Padronizador</button>
       <!-- Só aparece para quem entrou com a chave de dono da plataforma.
@@ -1051,6 +1107,75 @@
 
     </div><!-- /abaEstoque -->
 
+    <!-- ===== ABA: REATIVAÇÃO =====
+         Quem parou de comprar, com o telefone arrumado e pronto para
+         mandar mensagem no WhatsApp.
+
+         Cada mensagem sai de um clique, no WhatsApp de quem está
+         operando. Não há disparo em massa de propósito: é o caminho
+         mais curto para o número da farmácia ser bloqueado, e aí ela
+         perde o canal que mais vende. -->
+    <div id="abaReativacao" hidden>
+
+      <div class="bloco">
+        <h2>1. De onde vem a lista</h2>
+        <p class="lojas-explica">
+          Cole as colunas <b>Nome</b>, <b>Telefone</b> e <b>Dias sem comprar</b> —
+          copiando direto do Excel — ou escolha a planilha do relatório do PDV.
+        </p>
+        <textarea id="reaColado" class="rea-area" rows="5"
+          placeholder="Maria Silva&#9;(19) 97517-2840&#9;183&#10;João Lima&#9;11 98902-4152&#9;182"></textarea>
+        <div class="rea-botoes">
+          <button type="button" id="reaProcessar" class="principal">Processar lista</button>
+          <button type="button" id="reaImportar">Importar planilha</button>
+          <input type="file" id="reaArquivo" accept=".xlsx,.xls,.csv" hidden>
+          <button type="button" id="reaExportar" hidden>Exportar CSV</button>
+        </div>
+        <div id="reaAviso"></div>
+      </div>
+
+      <div class="bloco" id="reaBlocoMensagem" hidden>
+        <h2>2. A mensagem</h2>
+        <div class="rea-linha">
+          <div class="rea-col">
+            <label class="rea-rotulo" for="reaModelo">Texto</label>
+            <textarea id="reaModelo" class="rea-area" rows="3"></textarea>
+            <p class="lojas-explica">
+              <code>{primeiro}</code> só o primeiro nome,
+              <code>{nome}</code> o nome inteiro,
+              <code>{dias}</code> os dias sem comprar.
+            </p>
+          </div>
+          <div class="rea-col rea-col-estreita">
+            <label class="rea-rotulo" for="reaDDD">DDD da região</label>
+            <input type="text" id="reaDDD" maxlength="2" inputmode="numeric" placeholder="19">
+            <p class="lojas-explica">
+              Usado só quando você clica em <b>Usar DDD</b> numa linha — nunca
+              sozinho, porque chutar o DDD manda a mensagem para outra pessoa.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bloco" id="reaBlocoLista" hidden>
+        <div class="numeros" id="reaNumeros"></div>
+        <div class="rea-filtros">
+          <input type="search" id="reaBusca" placeholder="Buscar por nome…">
+          <button type="button" class="rea-chip ativo" data-rea-filtro="todos">Todos</button>
+          <button type="button" class="rea-chip" data-rea-filtro="ok">Prontos</button>
+          <button type="button" class="rea-chip" data-rea-filtro="semDDD">Falta DDD</button>
+          <button type="button" class="rea-chip" data-rea-filtro="fixo">Fixo</button>
+          <button type="button" class="rea-chip" data-rea-filtro="invalido">Inválidos</button>
+        </div>
+        <div class="tabela-wrap" id="reaLista"></div>
+        <p class="lojas-explica">
+          A lista fica só neste navegador. Cada mensagem sai de um clique seu,
+          no seu WhatsApp — nada é disparado em massa.
+        </p>
+      </div>
+
+    </div><!-- /abaReativacao -->
+
     <!-- ===== ABA: CATÁLOGO ===== -->
     <div id="abaCatalogo" hidden>
 
@@ -1084,6 +1209,11 @@
 <!-- As famílias de categoria, compartilhadas com o site: é como o
      filtro de grupo das promoções sabe que "SHAMPOO" é Cabelo. -->
 <script src="familias.js"></script>
+<!-- A conta da reativação: telefone, duplicado, não perturbe.
+     Arquivo próprio porque é a parte que roda sem navegador, e é
+     exatamente onde morava o defeito que mandava a mensagem para a
+     pessoa errada — ver o cabeçalho dele. -->
+<script src="reativacao.js"></script>
 
 <script>
 /* Endereço do worker de pedidos. Precisa ser o mesmo valor que está em
@@ -1261,6 +1391,382 @@ async function carregarEstoque() {
     ]),
     `Nada parado há mais de ${dados.periodo.parado} dias.`
   );
+
+}
+
+/* ---------------------------------------------------------------------
+   Reativação de clientes
+   ---------------------------------------------------------------------
+
+   A conta mora no reativacao.js, que roda sem navegador e tem teste.
+   Aqui é só a tela: ler, desenhar e guardar.
+
+   O "não perturbe" é guardado SEPARADO da lista, e isso é de propósito:
+   a lista é de uma campanha e vai embora na próxima importação; quem
+   pediu para não receber vale para sempre. Juntos no mesmo registro,
+   reimportar a planilha traria a pessoa de volta — e aí não seria
+   descuido, seria insistir depois de um não. */
+
+const REA_GUARDADO = "painelReativacao";
+const REA_NAO_PERTURBE = "painelNaoPerturbe";
+
+const REA_MODELO_PADRAO =
+  "Oi {primeiro}! Aqui é da sua farmácia. Vi que faz {dias} dias desde a " +
+  "sua última compra e queria saber se está tudo bem. Se precisar de " +
+  "alguma coisa é só chamar.";
+
+const REA_CONTATOS = ["Não enviado", "Enviado", "Respondeu", "Voltou a comprar", "Não respondeu"];
+
+let reaRegistros = [];
+let reaNaoPerturbe = [];
+let reaFiltro = "todos";
+let reaIniciada = false;
+
+function reaLerGuardado(chave, padrao) {
+  try {
+    const cru = localStorage.getItem(chave);
+    return cru ? JSON.parse(cru) : padrao;
+  } catch { return padrao; }
+}
+
+function reaGravar(chave, valor) {
+  try { localStorage.setItem(chave, JSON.stringify(valor)); } catch { /* sem armazenamento */ }
+}
+
+function reaSemAcento(t) {
+  return String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+}
+
+function reaAviso(texto, erro = false) {
+  el("reaAviso").innerHTML = texto
+    ? `<div class="${erro ? "erro" : "aviso-ok"}">${esc(texto)}</div>`
+    : "";
+}
+
+function reaCarregar(linhas, origem) {
+
+  const { registros, duplicadosUnidos, descartadosNaoPerturbe } =
+    Reativacao.montarRegistros(linhas, { naoPerturbe: reaNaoPerturbe });
+
+  if (!registros.length) {
+    reaAviso("Não achei nenhuma linha com nome e telefone.", true);
+    return;
+  }
+
+  reaRegistros = registros;
+  reaGravar(REA_GUARDADO, { registros: reaRegistros, modelo: el("reaModelo").value });
+
+  reaAviso(
+    `${registros.length} cliente(s) de ${origem}.`
+    + (duplicadosUnidos ? ` ${duplicadosUnidos} ficha(s) repetida(s) uniram-se.` : "")
+    + (descartadosNaoPerturbe ? ` ${descartadosNaoPerturbe} do "não perturbe" ficaram de fora.` : "")
+  );
+
+  reaDesenhar();
+
+}
+
+function reaDesenhar() {
+
+  const tem = reaRegistros.length > 0;
+  el("reaBlocoMensagem").hidden = !tem;
+  el("reaBlocoLista").hidden = !tem;
+  el("reaExportar").hidden = !tem;
+  if (!tem) return;
+
+  const conta = Reativacao.contarPorSituacao(reaRegistros);
+
+  el("reaNumeros").innerHTML = `
+    <div class="num"><span>Na lista</span><strong>${conta.total}</strong></div>
+    <div class="num"><span>Prontos</span><strong>${conta.ok}</strong></div>
+    <div class="num ${conta.semDDD ? "alerta" : ""}"><span>Falta DDD</span><strong>${conta.semDDD}</strong></div>
+    <div class="num"><span>Fixos — ligue</span><strong>${conta.fixo}</strong></div>
+    <div class="num"><span>Inválidos</span><strong>${conta.invalido}</strong></div>
+    <div class="num"><span>Não perturbe</span><strong>${reaNaoPerturbe.length}</strong></div>
+  `;
+
+  const procurado = reaSemAcento(el("reaBusca").value || "");
+  const modelo = el("reaModelo").value;
+
+  const visiveis = reaRegistros
+    .filter(r => reaFiltro === "todos" || r.telefone.situacao === reaFiltro)
+    .filter(r => !procurado || reaSemAcento(r.nome).includes(procurado))
+    .sort((a, b) => b.dias - a.dias);
+
+  el("reaLista").innerHTML = tabela(
+    [{ titulo: "Cliente", larga: true }, { titulo: "Dias", num: true },
+     { titulo: "Telefone" }, { titulo: "WhatsApp" }, { titulo: "Contato" }, { titulo: "" }],
+    visiveis.map(r => {
+
+      const mensagem = Reativacao.montarMensagem(modelo, r);
+      const link = Reativacao.linkWhatsApp(r, mensagem);
+
+      /* O fixo mostra "ligue", e não "inválido": a farmácia PODE
+         telefonar para esse cliente. Jogar os dois no mesmo balde
+         esconderia uma lista de gente que vale a pena chamar. */
+      const telefone = r.telefone.situacao === "ok"
+        ? esc(Reativacao.formatarTelefone(r.telefone))
+        : r.telefone.situacao === "fixo"
+          ? `<span class="rea-marca rea-aten">fixo — ligue</span>
+             <span class="rea-sub">${esc(Reativacao.formatarTelefone(r.telefone))}</span>`
+          : r.telefone.situacao === "semDDD"
+            ? `<span class="rea-marca rea-aten">falta o DDD</span>
+               <button type="button" class="rea-mini" data-rea-ddd="${esc(r.id)}">Usar DDD</button>`
+            : `<span class="rea-marca rea-ruim">${esc(r.telefone.motivo || "inválido")}</span>`;
+
+      return [
+        `<b>${esc(r.nome || "(sem nome)")}</b><span class="rea-sub">${esc(r.bruto)}</span>`
+          + (r.fichas > 1 ? `<span class="rea-marca">${r.fichas} fichas unidas</span>` : ""),
+        String(r.dias),
+        telefone,
+        link
+          ? `<a class="rea-whats" href="${esc(link)}" target="_blank" rel="noopener"
+                data-rea-enviado="${esc(r.id)}">Abrir</a>`
+          : '<span class="rea-sub">—</span>',
+        `<select class="rea-contato" data-rea-contato="${esc(r.id)}">`
+          + REA_CONTATOS.map(c =>
+              `<option value="${esc(c)}" ${r.contato === c ? "selected" : ""}>${esc(c)}</option>`).join("")
+          + "</select>",
+        `<button type="button" class="rea-mini rea-mini-ruim" data-rea-parar="${esc(r.id)}"
+                 title="Nunca mais mandar mensagem para este número">Não perturbe</button>`
+      ];
+
+    }),
+    "Nenhum cliente com esse filtro."
+  );
+
+}
+
+function reaGuardarLista() {
+  reaGravar(REA_GUARDADO, { registros: reaRegistros, modelo: el("reaModelo").value });
+}
+
+function reaIniciar() {
+
+  const guardado = reaLerGuardado(REA_GUARDADO, {});
+  reaNaoPerturbe = reaLerGuardado(REA_NAO_PERTURBE, []);
+  reaRegistros = guardado.registros || [];
+  el("reaModelo").value = guardado.modelo || REA_MODELO_PADRAO;
+
+  el("reaProcessar").addEventListener("click", () => {
+    const texto = el("reaColado").value;
+    if (!texto.trim()) return reaAviso("Cole a lista primeiro.", true);
+    reaCarregar(Reativacao.lerTextoColado(texto), "texto colado");
+  });
+
+  el("reaImportar").addEventListener("click", async () => {
+    try {
+      await reaCarregarXLSX();
+      el("reaArquivo").click();
+    } catch {
+      reaAviso("Não consegui carregar o leitor de planilhas. Cole a lista no campo acima.", true);
+    }
+  });
+
+  el("reaArquivo").addEventListener("change", async (ev) => {
+    const arquivo = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!arquivo) return;
+    try {
+      const { linhas, abas } = await reaLerPlanilha(arquivo);
+      reaCarregar(linhas, `${abas} aba(s) de "${arquivo.name}"`);
+    } catch (e) {
+      reaAviso("Não consegui ler esse arquivo: " + e.message, true);
+    }
+  });
+
+  el("reaModelo").addEventListener("input", () => { reaGuardarLista(); reaDesenhar(); });
+  el("reaBusca").addEventListener("input", reaDesenhar);
+  el("reaDDD").addEventListener("input", (e) => {
+    e.target.value = Reativacao.soDigitos(e.target.value).slice(0, 2);
+  });
+
+  el("reaExportar").addEventListener("click", reaExportarCSV);
+
+  document.querySelectorAll("[data-rea-filtro]").forEach(botao => {
+    botao.addEventListener("click", () => {
+      document.querySelectorAll("[data-rea-filtro]").forEach(b => b.classList.remove("ativo"));
+      botao.classList.add("ativo");
+      reaFiltro = botao.dataset.reaFiltro;
+      reaDesenhar();
+    });
+  });
+
+  el("reaLista").addEventListener("click", (ev) => {
+
+    const usarDDD = ev.target.closest("[data-rea-ddd]");
+    if (usarDDD) {
+      const r = reaRegistros.find(x => x.id === usarDDD.dataset.reaDdd);
+      const completo = Reativacao.comDDD(r.telefone, el("reaDDD").value);
+      if (completo.situacao !== "ok") return reaAviso("Informe um DDD válido no campo acima.", true);
+      r.telefone = completo;
+      reaGuardarLista();
+      reaDesenhar();
+      return;
+    }
+
+    const parar = ev.target.closest("[data-rea-parar]");
+    if (parar) {
+      const r = reaRegistros.find(x => x.id === parar.dataset.reaParar);
+      if (r.telefone.e164 && !reaNaoPerturbe.includes(r.telefone.e164)) {
+        reaNaoPerturbe.push(r.telefone.e164);
+        reaGravar(REA_NAO_PERTURBE, reaNaoPerturbe);
+      }
+      reaRegistros = reaRegistros.filter(x => x.id !== r.id);
+      reaGuardarLista();
+      reaDesenhar();
+      return;
+    }
+
+    /* Abrir o WhatsApp já marca como enviado: quem está mandando
+       cinquenta mensagens não volta para marcar uma a uma, e uma lista
+       de status que ninguém mantém não serve para nada. */
+    const abriu = ev.target.closest("[data-rea-enviado]");
+    if (abriu) {
+      const r = reaRegistros.find(x => x.id === abriu.dataset.reaEnviado);
+      if (r && r.contato === "Não enviado") {
+        r.contato = "Enviado";
+        reaGuardarLista();
+        setTimeout(reaDesenhar, 50);
+      }
+    }
+
+  });
+
+  el("reaLista").addEventListener("change", (ev) => {
+    const sel = ev.target.closest("[data-rea-contato]");
+    if (!sel) return;
+    const r = reaRegistros.find(x => x.id === sel.dataset.reaContato);
+    r.contato = sel.value;
+    reaGuardarLista();
+  });
+
+  reaDesenhar();
+
+}
+
+/* O leitor de planilhas tem 862 KB e só serve a quem clica em "Importar
+   planilha" — então entra sob demanda, e não no carregamento do painel.
+   Quem usa a aba de pedidos o dia inteiro nunca o baixa.
+
+   Servido do próprio site, e não de um CDN: a CSP desta página é
+   fechada de propósito, porque é a página que guarda a senha da loja.
+   Abrir script-src para um domínio de terceiro por causa de uma
+   conveniência não paga. */
+let reaXLSXCarregando = null;
+
+function reaCarregarXLSX() {
+
+  if (typeof XLSX !== "undefined") return Promise.resolve();
+  if (reaXLSXCarregando) return reaXLSXCarregando;
+
+  reaXLSXCarregando = new Promise((resolver, rejeitar) => {
+    const tag = document.createElement("script");
+    tag.src = "/xlsx.min.js";
+    tag.onload = () => resolver();
+    tag.onerror = () => { reaXLSXCarregando = null; rejeitar(new Error("falhou")); };
+    document.head.appendChild(tag);
+  });
+
+  return reaXLSXCarregando;
+
+}
+
+/* A planilha do PDV muda de formato entre versões do Farmax, então as
+   colunas são achadas pelo NOME, em qualquer aba e em qualquer posição.
+   Exigir "coluna A, B e C" quebraria a cada atualização deles. */
+function reaLerPlanilha(arquivo) {
+
+  return new Promise((resolver, rejeitar) => {
+
+    const leitor = new FileReader();
+    leitor.onerror = () => rejeitar(new Error("não consegui abrir"));
+
+    leitor.onload = (evento) => {
+      try {
+        const livro = XLSX.read(new Uint8Array(evento.target.result), { type: "array" });
+        const linhas = [];
+        let abas = 0;
+
+        for (const nomeAba of livro.SheetNames) {
+
+          const grade = XLSX.utils.sheet_to_json(livro.Sheets[nomeAba],
+            { header: 1, defval: null, raw: false });
+
+          let cabecalho = -1, cNome = -1, cTel = -1, cDias = -1;
+
+          for (let i = 0; i < Math.min(grade.length, 15); i++) {
+            (grade[i] || []).forEach((celula, coluna) => {
+              if (typeof celula !== "string") return;
+              const t = reaSemAcento(celula);
+              if (t.includes("nome")) cNome = coluna;
+              if (t.includes("telefone") || t.includes("fone")
+                  || t.includes("celular") || t.includes("whats")) cTel = coluna;
+              if (t.includes("dias")) cDias = coluna;
+            });
+            if (cNome >= 0 && cTel >= 0) { cabecalho = i; break; }
+          }
+
+          if (cabecalho === -1) continue;
+          abas++;
+
+          for (let i = cabecalho + 1; i < grade.length; i++) {
+            const linha = grade[i];
+            if (!linha) continue;
+            const nome = linha[cNome], tel = linha[cTel];
+            if ((nome == null || String(nome).trim() === "")
+                && (tel == null || String(tel).trim() === "")) continue;
+            linhas.push({
+              nome: nome == null ? "" : String(nome),
+              telefone: tel == null ? "" : String(tel),
+              dias: cDias >= 0 && linha[cDias] != null ? String(linha[cDias]) : "0"
+            });
+          }
+
+        }
+
+        if (!abas) return rejeitar(new Error("não achei colunas de Nome e Telefone"));
+
+        resolver({ linhas, abas });
+
+      } catch (e) { rejeitar(e); }
+    };
+
+    leitor.readAsArrayBuffer(arquivo);
+
+  });
+
+}
+
+function reaExportarCSV() {
+
+  if (!reaRegistros.length) return;
+
+  const situacoes = { ok: "Pronto", semDDD: "Falta DDD", fixo: "Fixo", invalido: "Inválido" };
+  const modelo = el("reaModelo").value;
+
+  const linhas = [["Nome", "Dias sem comprar", "Telefone original", "Telefone padronizado",
+                   "Situação", "Fichas unidas", "Contato", "Mensagem"].join(";")];
+
+  for (const r of reaRegistros) {
+    linhas.push([
+      r.nome, r.dias, r.bruto,
+      r.telefone.e164 ? "+" + r.telefone.e164 : Reativacao.formatarTelefone(r.telefone),
+      situacoes[r.telefone.situacao], r.fichas, r.contato,
+      Reativacao.montarMensagem(modelo, r).replace(/;/g, ",")
+    ].map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";"));
+  }
+
+  /* O ﻿ é o que faz o Excel brasileiro abrir com acento certo. Sem
+     ele, "José" vira "JosÃ©" e a loja acha que o sistema corrompeu o
+     cadastro. */
+  const blob = new Blob(["﻿" + linhas.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "reativacao-clientes.csv";
+  a.click();
+  URL.revokeObjectURL(url);
 
 }
 
@@ -3562,6 +4068,7 @@ el("abas").addEventListener("click", (ev) => {
   el("abaEncarte").hidden = aba !== "encarte";
   el("abaRelatorios").hidden = aba !== "relatorios";
   el("abaEstoque").hidden = aba !== "estoque";
+  el("abaReativacao").hidden = aba !== "reativacao";
   el("abaCatalogo").hidden = aba !== "catalogo";
   el("abaPadronizador").hidden = aba !== "padronizador";
   el("abaLojas").hidden = aba !== "lojas";
@@ -3584,6 +4091,11 @@ el("abas").addEventListener("click", (ev) => {
 
   /* Só ao abrir a aba: são três varreduras do estoque inteiro, e a
      fila fica aberta o dia todo. */
+  /* Uma vez só, na primeira abertura: ler o que estava guardado e
+     ligar os eventos. Fazer isso no carregamento do painel custaria
+     leitura de armazenamento a quem nunca abre esta aba. */
+  if (aba === "reativacao" && !reaIniciada) { reaIniciada = true; reaIniciar(); }
+
   if (aba === "estoque") {
     carregarEstoque().catch((e) => {
       el("estoqueConteudo").hidden = true;
