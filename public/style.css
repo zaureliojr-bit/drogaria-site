@@ -157,7 +157,10 @@ h1, h2 { font-family: var(--fonte-titulo); }
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* Encostado no carrinho, e não centralizado: desde que os recados
+     saíram daqui, o que sobrou é um botão só, e um botão solto no meio
+     do cabeçalho fica parecendo que perdeu o par. */
+  justify-content: flex-end;
   gap: 10px;
 }
 
@@ -181,77 +184,35 @@ h1, h2 { font-family: var(--fonte-titulo); }
 .header-whats:hover { background: #17894A; }
 .header-whats:active { transform: scale(0.97); }
 
-/* Os três ocupam o mesmo lugar, empilhados um sobre o outro, e só um
-   fica visível por vez. É isso que permite a troca sem o cabeçalho
-   mudar de altura — se cada recado ocupasse seu espaço, a página
-   inteira pularia a cada quatro segundos. */
-.header-avisos {
-  position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 18px;
-  overflow: hidden;
-}
 
-.header-aviso {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--amarelo);
-  font-family: var(--fonte-titulo);
-  font-size: 12.5px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  opacity: 0;
-  transform: translateY(6px);
-  transition: opacity 0.45s ease, transform 0.45s ease;
-  pointer-events: none;
-}
+/* O celular, medido antes de mexer.
+   =================================
 
-.header-aviso.ativo { opacity: 1; transform: translateY(0); }
+   Numa tela de 390x844, o que ficava grudado no topo somava 215px:
+   cabeçalho 92 + busca 58 + filtros 65. Um quarto da tela ocupado o
+   tempo todo, e o primeiro produto da home começando a 441px.
 
-/* Abaixo de 640px o recado não cabe entre o logotipo e o carrinho — e
-   não é questão de apertar a fonte: medido, em 390px sobram 68px para um
-   texto que precisa de 158. Então ele desce para uma segunda linha,
-   ainda dentro do cabeçalho, ocupando a largura toda. É onde ele fica
-   legível, e o cabeçalho cresce 24px uma vez só, em vez de o recado
-   sair cortado em todo celular.
+   O cabeçalho tinha 92px porque os recados não cabiam na mesma linha do
+   logotipo e desciam para uma segunda (medido: sobravam 68px para um
+   texto que precisava de 158). Com eles fora, ele volta a 62.
 
-   O --header-h acompanha porque a barra de filtros gruda logo abaixo
-   dele (top: var(--header-h)); sem isso ela taparia o recado. */
+   E os filtros deixam de grudar. Eles continuam no mesmo lugar, com os
+   mesmos chips: o que muda é que sobem com a página em vez de ocupar
+   65px fixos. Quem rola uma vitrine quer ver produto; para trocar de
+   categoria, a página volta ao topo - que é um gesto só, e é o gesto
+   que a pessoa já faz. O alturaGrudada() do script.js lê a posição
+   calculada de cada barra, então a conta da barra de resultado
+   acompanha isto sozinha.
+
+   Fica em 639px, e não em 1024, porque no computador a barra lateral
+   não existe e esses 215px são 24% de uma tela de 900 - lá eles cabem. */
 @media (max-width: 639px) {
-  :root { --header-h: 92px; }
-
-  .header {
-    flex-wrap: wrap;
-    align-content: center;
-    padding-top: 6px;
-    padding-bottom: 6px;
-  }
+  :root { --header-h: 62px; }
 
   .header-left, .header-carrinho { flex-shrink: 0; }
 
-  .header-faixa {
-    order: 3;
-    flex: 0 0 100%;
-    margin-top: 2px;
-    padding-top: 5px;
-    border-top: 1px solid rgba(255, 255, 255, 0.14);
-    gap: 8px;
-  }
-
-  .header-avisos { height: 24px; }
-  .header-aviso { font-size: 12px; justify-content: flex-start; }
-
   /* Em tela estreita o rótulo sai e fica só o ícone: o verde do WhatsApp
-     já diz o que ele é, e o recado ao lado precisa do espaço mais do que
-     a palavra "Pedido".
+     já diz o que ele é.
 
      A altura mínima é por causa do dedo, não do desenho: com o padding
      que o rótulo pedia, o alvo ficava em 25px. Dedo não acerta 25px —
@@ -265,12 +226,27 @@ h1, h2 { font-family: var(--fonte-titulo); }
   .header-whats-texto { display: none; }
 }
 
-/* Quem pediu menos animação no sistema recebe a troca seca, sem deslize
-   nem esmaecimento. O conteúdo é o mesmo; o movimento é que some. */
-@media (prefers-reduced-motion: reduce) {
-  .header-aviso { transition: none; transform: none; }
-  .header-aviso.ativo { transform: none; }
+/* A linha de recado da loja, logo abaixo dos filtros.
+
+   Fina e discreta de propósito: ela informa, não vende. O que vende é o
+   produto logo abaixo, e um recado com cara de banner competiria com
+   ele - que foi o problema de ter isto piscando em amarelo no topo. */
+.recado-loja {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0;
+  padding: 8px 16px;
+  background: var(--marca-clara);
+  color: var(--marca-escura);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
 }
+
+.recado-loja strong { font-weight: 800; }
+.recado-loja .ic { flex-shrink: 0; }
 
 .header-left {
   display: flex;
@@ -443,6 +419,21 @@ h1, h2 { font-family: var(--fonte-titulo); }
   background: var(--papel);
   border-bottom: 1px solid var(--linha);
   padding-bottom: 8px;
+}
+
+/* No celular os filtros sobem com a página.
+
+   Eles continuam no mesmo lugar, com os mesmos chips: o que muda é que
+   não ocupam mais 65px fixos no topo. Com o cabeçalho e a busca, o que
+   ficava grudado somava 215px numa tela de 844 - um quarto da tela, o
+   tempo todo, numa página cujo trabalho é mostrar produto.
+
+   Esta regra mora aqui, e não lá em cima com o resto do celular, por um
+   motivo chato de CSS: a declaração acima tem a mesma especificidade e
+   vem depois no arquivo, então ela ganhava da media query e os filtros
+   continuavam grudados. O primeiro teste pegou isso. */
+@media (max-width: 639px) {
+  .filtros-wrap { position: static; }
 }
 
 .filtros {
@@ -655,6 +646,23 @@ h1, h2 { font-family: var(--fonte-titulo); }
   bottom: 6px;
   width: 1px;
   background: var(--linha);
+}
+
+/* Na tela larga os três itens eram três miniaturas de 46px espalhadas
+   por 1900px, com um tracinho no meio de cada vão. Parecia rodapé, não
+   oferta. A fileira passa a ter largura máxima e fica centralizada -
+   é a mesma caixa, só que com os produtos perto uns dos outros, que é
+   o que faz três itens lerem como um conjunto. */
+@media (min-width: 760px) {
+  .banner-grupo-itens {
+    max-width: 760px;
+    /* Alinhada pela esquerda, debaixo do título, e não centralizada:
+       centralizada ela virava um bloco solto no meio de uma caixa
+       vazia, sem relação visível com o "Ofertas do dia" no canto. */
+    margin-inline: 0 auto;
+  }
+
+  .banner-item img { width: 60px; height: 60px; }
 }
 
 .banner-item-img-wrap { position: relative; display: block; }
@@ -2870,7 +2878,17 @@ body.sem-barra-carrinho .carrinho { display: none; }
   text-decoration: none;
 }
 .chamada-encarte:hover { border-color: var(--marca); background: var(--marca-xclara); }
-.chamada-encarte-icone { font-size: 24px; flex-shrink: 0; }
+.chamada-encarte-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--raio-md);
+  background: var(--marca-clara);
+  color: var(--marca);
+}
 .chamada-encarte-texto { flex: 1; min-width: 0; line-height: 1.4; }
 .chamada-encarte-texto strong { display: block; font-family: var(--fonte-titulo); font-size: 15px; font-weight: 800; }
 .chamada-encarte-texto small { color: var(--tinta-suave); font-size: 12.5px; }

@@ -84,6 +84,36 @@ const TRAVA_RECEITA = false;
 const PEDIDO_MINIMO = 19.99;
 const MINIMO_SO_PARA_ENTREGA = true;
 
+/* Desconto grande demais para ser verdade.
+   =========================
+
+   O "de" de alguns produtos não é um preço que esta loja praticou:
+   parece ser o preço de referência da marca que veio junto no cadastro.
+   Rivaroxabana "de R$ 227,50 por R$ 34,99", clopidogrel "de R$ 194,20
+   por R$ 24,99", anlodipino "de R$ 49,53 por R$ 6,99" — e R$ 6,99 é o
+   preço normal de um anlodipino genérico em qualquer farmácia.
+
+   São 38 produtos no catálogo de hoje, de quase sete mil. O problema
+   não era o tamanho deles, era o LUGAR: o carrossel da home ordena por
+   maior desconto, então justamente esses 38 ocupavam as primeiras
+   posições da primeira tela do site. O cliente confere o preço em outra
+   farmácia, acha o mesmo valor, e conclui que a loja mente — que é um
+   estrago maior que a venda daquele item. Em medicamento ainda há a RDC
+   96/2008 e o art. 37 do CDC por cima.
+
+   O que esta linha faz é tirar a AFIRMAÇÃO, não o produto: o preço
+   continua o mesmo, o item continua na vitrine e na busca, só não
+   aparece mais o "de R$ 227,50" nem o "−85%", e ele não lidera a home.
+   Vender a R$ 34,99 é um fato; dizer que isso é 85% de desconto é uma
+   afirmação que a loja não tem como sustentar.
+
+   Mesmo número que a página de oferta já usava pelo mesmo motivo (ver
+   oferta.js) — agora é um só, aqui, para os dois não divergirem.
+
+   O conserto de verdade é no cadastro: quando o precoVenda desses itens
+   estiver certo, esta trava para de pegar qualquer coisa, e tudo bem. */
+const DESCONTO_IMPLAUSIVEL = 70;
+
 function minimoVale() {
   if (!PEDIDO_MINIMO) return false;
   if (!MINIMO_SO_PARA_ENTREGA) return true;
@@ -491,7 +521,6 @@ document.addEventListener("DOMContentLoaded", () => {
   toggleEndereco();
   iniciarBanner();
   vigiarTetoGrudado();
-  girarAvisosDoCabecalho();
   carregarBanners();
   carregarChamadaDoEncarte();
 });
@@ -615,6 +644,10 @@ async function aplicarPromocoesDoPainel() {
     p.preco = promo;
     p.emOferta = true;
     p.desconto = descontoPercent(p.precoOriginal, promo);
+    /* A promoção do painel foi digitada por alguém da loja, mas ela é
+       calculada sobre o MESMO precoVenda do cadastro — se o "de" está
+       errado, o desconto sai errado aqui também. */
+    p.descontoSuspeito = p.desconto >= DESCONTO_IMPLAUSIVEL;
     p.promocaoDoPainel = true;
   });
 }
@@ -839,40 +872,6 @@ async function carregarBanners() {
   }
 }
 
-/* =========================
-📣 RECADOS DO CABEÇALHO
-=========================
-Alterna os três recados da loja, um a cada quatro segundos e meio —
-tempo de ler sem pressa e sem cansar quem fica na página.
-
-Só roda quando a aba está à frente. Um intervalo girando numa aba
-esquecida em segundo plano gasta bateria do celular para trocar um texto
-que ninguém está vendo. */
-const AVISO_SEGUNDOS = 4.5;
-
-function girarAvisosDoCabecalho() {
-  const avisos = document.querySelectorAll(".header-aviso");
-  if (avisos.length < 2) return;
-
-  let atual = 0;
-  let timer = null;
-
-  const trocar = () => {
-    avisos[atual].classList.remove("ativo");
-    atual = (atual + 1) % avisos.length;
-    avisos[atual].classList.add("ativo");
-  };
-
-  const ligar = () => { if (!timer) timer = setInterval(trocar, AVISO_SEGUNDOS * 1000); };
-  const desligar = () => { if (timer) { clearInterval(timer); timer = null; } };
-
-  document.addEventListener("visibilitychange", () => {
-    document.visibilityState === "hidden" ? desligar() : ligar();
-  });
-
-  ligar();
-}
-
 function estaNaHome() {
   return categoriaAtual === "todas" && !termoBusca && !modoOfertas;
 }
@@ -1080,6 +1079,14 @@ function mapearProduto(p) {
     precoOriginal: venda,
     emOferta,
     desconto: emOferta ? descontoPercent(venda, promo) : 0,
+
+    /* O preço continua sendo o de promoção; o que esta marca tira é a
+       comparação com um "de" que a loja não consegue sustentar (ver
+       DESCONTO_IMPLAUSIVEL, no alto do arquivo). Por isso ela é um
+       campo à parte, e não um emOferta falso: desligar o emOferta
+       devolveria o preço de tabela ao cliente — cobraria R$ 227,50 por
+       causa de uma correção de vitrine. */
+    descontoSuspeito: emOferta && descontoPercent(venda, promo) >= DESCONTO_IMPLAUSIVEL,
 
     estoque: p.estoque,
 
@@ -1815,7 +1822,7 @@ function cardHTML(p, mini = false) {
     ? `<div class="faixa faixa-receita">${icone("receita", 11)}Retém receita</div>`
     : p.confirmarReceita
       ? `<div class="faixa faixa-controle">${icone("receita", 11)}Envie a receita</div>`
-      : p.emOferta
+      : p.emOferta && !p.descontoSuspeito
         ? `<div class="faixa faixa-oferta">${icone("tag", 11)}Oferta</div>`
         : `<div class="faixa faixa-vazia" aria-hidden="true"></div>`;
 
@@ -1830,7 +1837,7 @@ function cardHTML(p, mini = false) {
   // A linha do preço antigo sai vazia quando não há desconto, em vez de não
   // sair: assim o preço fica na mesma altura em todos os cards da fileira,
   // e não sobe no card sem oferta. Quem reserva a altura é o CSS.
-  const bloco = p.emOferta
+  const bloco = p.emOferta && !p.descontoSuspeito
     ? `<div class="preco-linha-de">
          <span class="preco-de">${fmt(p.precoOriginal)}</span>
          <span class="preco-desconto">−${p.desconto}%</span>
@@ -2769,8 +2776,12 @@ function renderBannerOfertas() {
   const container = document.querySelector(".banner-container");
   if (!banner || !container) return;
 
+  /* Ordenado por maior desconto, este carrossel é uma máquina de
+     promover o dado mais duvidoso do catálogo: os poucos produtos cujo
+     "de" veio errado do cadastro ficavam, por construção, nas primeiras
+     posições da primeira tela do site. Ficam de fora daqui. */
   const ofertas = produtos
-    .filter(p => p.emOferta && !p.exigeReceita && !semEstoque(p))
+    .filter(p => p.emOferta && !p.descontoSuspeito && !p.exigeReceita && !semEstoque(p))
     .sort((a, b) => b.desconto - a.desconto)
     .slice(0, 12);
 
@@ -2781,8 +2792,19 @@ function renderBannerOfertas() {
 
   banner.style.display = "";
 
+  /* Foto de verdade na frente.
+
+     Este bloco é a primeira coisa colorida da home, e estava mostrando
+     três vezes a mesma caixa genérica — o desenho de "produto sem foto",
+     que num lugar de destaque lê como "não carregou". Quem tem foto vem
+     primeiro; quem não tem só entra se não houver oferta suficiente com
+     foto para encher o carrossel. O produto não é escondido por não ter
+     foto: ele continua na vitrine, na busca e no filtro de ofertas. */
+  const comFoto = ofertas.filter(p => p.imagem);
+  const lista = comFoto.length >= 3 ? comFoto : ofertas;
+
   const grupos = [];
-  for (let i = 0; i < ofertas.length; i += 3) grupos.push(ofertas.slice(i, i + 3));
+  for (let i = 0; i < lista.length; i += 3) grupos.push(lista.slice(i, i + 3));
 
   container.innerHTML = grupos.map(grupo => `
     <div class="banner-slide banner-slide-grupo">

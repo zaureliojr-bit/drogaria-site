@@ -117,7 +117,7 @@ function renderProdutoDetalhe(p) {
     ? `<span class="badge-receita">${icone("receita", 12)}Retém receita</span>`
     : p.confirmarReceita
       ? `<span class="badge-controle">${icone("receita", 12)}Envie a receita</span>`
-      : p.emOferta
+      : p.emOferta && !p.descontoSuspeito
         ? `<span class="badge-oferta">${icone("tag", 12)}-${p.desconto}%</span>`
         : "";
 
@@ -139,7 +139,7 @@ function renderProdutoDetalhe(p) {
     <h1 class="produto-nome">${nome}</h1>
 
     <div class="produto-preco-box">
-      ${p.emOferta ? `
+      ${p.emOferta && !p.descontoSuspeito ? `
         <div class="preco-linha-de">
           <span class="preco-de">${fmt(p.precoOriginal)}</span>
           <span class="chip-desconto">-${p.desconto}%</span>

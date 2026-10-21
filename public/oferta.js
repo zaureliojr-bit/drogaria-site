@@ -33,10 +33,18 @@
      outra farmácia, ver o mesmo preço e concluir que a loja mente.
 
      São 44 produtos acima de 70% no catálogo de hoje. Ficam de fora
-     DESTA página até alguém da loja confirmar que o "de" é real. Na
-     vitrine continuam aparecendo como sempre — esta é uma decisão da
-     landing, não do catálogo. */
-  const DESCONTO_MAXIMO = 70;
+     DESTA página até alguém da loja confirmar que o "de" é real.
+
+     A vitrine passou a seguir o mesmo critério, por um motivo que só
+     apareceu quando a home foi olhada de verdade: o carrossel de
+     ofertas ordena por maior desconto, então esses produtos ocupavam
+     as primeiras posições da primeira tela do site. Lá eles continuam
+     à venda e com o mesmo preço — o que some é a comparação. */
+  /* O número mora no script.js agora (DESCONTO_IMPLAUSIVEL): a vitrine
+     passou a aplicar o mesmo critério, e duas cópias do mesmo 70
+     divergiriam no dia em que uma fosse ajustada. O fallback é para o
+     caso de esta página carregar sem o script.js. */
+  const DESCONTO_MAXIMO = typeof DESCONTO_IMPLAUSIVEL === "number" ? DESCONTO_IMPLAUSIVEL : 70;
 
   /* ---------- horário, escrito do jeito que se fala ---------- */
   function escreverHorario() {
