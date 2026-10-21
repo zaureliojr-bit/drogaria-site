@@ -47,8 +47,16 @@ function resumoDeTeste(extras = {}) {
             { dia: diaSP(2), pedidos: 4, faturamento: 300.0 },
             { dia: diaSP(1), pedidos: 3, faturamento: 99.98 }
         ],
-        topProdutos: [{ descricao: "Dipirona 500mg", ean: "7891106000888", unidades: 6, faturamento: 173.94 }],
-        recentes: [],
+        topProdutos: Array.from({ length: 10 }, (_, i) => ({
+            descricao: `Produto ${i + 1}`, ean: `789110600000${i}`,
+            unidades: 10 - i, faturamento: 100 - i
+        })),
+        recentes: Array.from({ length: 15 }, (_, i) => ({
+            ref: `P${100 + i}`, criado_em: Date.now() - i * 3600000,
+            cliente: `Cliente ${i + 1}`, telefone: "11999990000",
+            entrega: "Entrega", pagamento: "Pix", total: 50 + i,
+            tem_receita: 0, status: "novo"
+        })),
         aguardandoReceita: 0,
         maisProcurados: [],
         naoEncontrados: [],
@@ -211,6 +219,83 @@ console.log("\n5. nenhum pedido no período");
     conferir("e não sobra rodapé falando de melhor dia", rodape === "", rodape);
 
     await contexto.close();
+}
+
+/* ---- 6. as tabelas em páginas --------------------------------------- */
+console.log("\n6. cinco linhas por vez, e o resto a um toque");
+{
+    /* Seis tabelas empilhadas despejando tudo davam 65 linhas numa tela
+       só: quem abria o painel para ver o dia rolava seis vezes até o
+       fim, e as tabelas de baixo nunca eram lidas. */
+    const { pagina, contexto } = await abrirRelatorios(resumoDeTeste({
+        anterior: { pedidos: 10, faturamento: 850, ticket: 85 }
+    }));
+
+    const linhas = (id) => pagina.locator(`#${id} tbody tr`).count();
+
+    conferir("produtos mais vendidos mostra 5 de 10", await linhas("relProdutos") === 5,
+        String(await linhas("relProdutos")));
+    conferir("últimos pedidos mostra 5 de 15", await linhas("pedidos") === 5,
+        String(await linhas("pedidos")));
+
+    /* O rodapé é o que impede a página 1 de parecer a lista inteira. */
+    const conta = await pagina.textContent("#relProdutos .paginacao-conta");
+    conferir("e diz quanto é o resto", /1–5 de 10/.test(conta || ""), String(conta));
+
+    /* Voltar da primeira página não existe. */
+    const anteriorDesligado = await pagina.locator('#relProdutos [data-ir="-1"]').isDisabled();
+    conferir("na primeira página, voltar está desligado", anteriorDesligado);
+
+    await pagina.click('#relProdutos [data-ir="1"]');
+    await pagina.waitForTimeout(200);
+
+    const contaDepois = await pagina.textContent("#relProdutos .paginacao-conta");
+    conferir("avançar leva para a segunda", /6–10 de 10/.test(contaDepois || ""), String(contaDepois));
+
+    const primeiro = await pagina.textContent("#relProdutos tbody tr:first-child td");
+    conferir("e as linhas mudaram", /Produto 6/.test(primeiro || ""), String(primeiro));
+
+    const proximoDesligado = await pagina.locator('#relProdutos [data-ir="1"]').isDisabled();
+    conferir("na última página, avançar está desligado", proximoDesligado);
+
+    /* Paginar uma tabela não pode mexer na outra. */
+    const contaPedidos = await pagina.textContent("#pedidos .paginacao-conta");
+    conferir("a outra tabela continua na página dela",
+        /1–5 de 15/.test(contaPedidos || ""), String(contaPedidos));
+
+    /* O paginador fica ABAIXO da tabela, e a tabela ocupa o card.
+
+       Isto não é capricho de layout: o id desta caixa era "produtos", e
+       o painel carrega o style.css da loja, onde #produtos é a GRADE da
+       vitrine (display:grid com colunas de 155px). A tabela herdava
+       isso e nunca ocupou o card inteiro; com o paginador, os dois
+       viraram duas colunas e a navegação apareceu POR CIMA das linhas.
+       Uma colisão de nome de id entre duas telas diferentes. */
+    const geometria = await pagina.evaluate(() => {
+        const caixa = document.getElementById("relProdutos");
+        const t = caixa.querySelector("table").getBoundingClientRect();
+        const p = caixa.querySelector(".paginacao").getBoundingClientRect();
+        const c = caixa.getBoundingClientRect();
+        return { tabela: t.width / c.width, abaixo: p.top >= t.bottom - 1, display: getComputedStyle(caixa).display };
+    });
+
+    conferir(`a tabela ocupa o card — ${Math.round(geometria.tabela * 100)}%`,
+        geometria.tabela > 0.9, JSON.stringify(geometria));
+    conferir("e a navegação fica abaixo dela, não por cima",
+        geometria.abaixo, JSON.stringify(geometria));
+
+    /* Lista que cabe inteira não ganha navegação: seta que não leva a
+       lugar nenhum ensina a pessoa a ignorar a seta. */
+    await contexto.close();
+
+    const curta = await abrirRelatorios(resumoDeTeste({
+        topProdutos: [{ descricao: "Dipirona", ean: "789", unidades: 2, faturamento: 20 }]
+    }));
+
+    conferir("tabela de uma linha não mostra navegação",
+        await curta.pagina.locator("#relProdutos .paginacao").count() === 0);
+
+    await curta.contexto.close();
 }
 
 await navegador.close();

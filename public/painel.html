@@ -200,6 +200,33 @@
   .ponto-media { background: var(--tinta-suave); opacity: .5; }
   .ponto-hoje { background: var(--tag); }
 
+  /* A navegação das tabelas em páginas.
+
+     Sticky à esquerda porque a .tabela-wrap rola na horizontal no
+     celular: sem isso, a tabela de pedidos (sete colunas) levava os
+     botões para fora da tela junto com as últimas colunas. */
+  .paginacao {
+    position: sticky; left: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 8px 12px;
+    border-top: 1px solid var(--linha);
+    font-size: 11.5px; color: var(--tinta-suave);
+  }
+  .paginacao-conta { font-variant-numeric: tabular-nums; }
+  .paginacao-botoes { display: flex; align-items: center; gap: 6px; }
+  .paginacao-pagina { font-variant-numeric: tabular-nums; min-width: 56px; text-align: center; }
+
+  .paginacao button {
+    /* 30px de alvo, que é o mínimo que um dedo acerta sem errar na
+       linha de cima. */
+    min-width: 30px; height: 30px;
+    border: 1px solid var(--linha); border-radius: var(--raio-sm);
+    background: var(--branco); color: var(--tinta);
+    font-size: 16px; line-height: 1; cursor: pointer;
+  }
+  .paginacao button:hover:not(:disabled) { background: var(--marca-clara); border-color: var(--marca); }
+  .paginacao button:disabled { opacity: .35; cursor: default; }
+
   .vazio { padding: 26px 16px; text-align: center; color: var(--tinta-suave); font-size: 13px; }
 
   .iframe-padronizador {
@@ -1151,7 +1178,14 @@
 
     <div class="bloco">
       <h2>Produtos mais vendidos</h2>
-      <div class="tabela-wrap" id="produtos"></div>
+      <!-- id="relProdutos", e não "produtos": o painel carrega o
+           style.css da loja, onde #produtos é a GRADE de produtos da
+           vitrine (display:grid com colunas de 155px). A tabela daqui
+           herdava isso e nunca ocupava o card inteiro - dava para ver
+           no print, a tabela terminando no meio do branco. Com o
+           paginador, os dois viraram duas colunas lado a lado e a
+           navegação apareceu em cima das linhas. -->
+      <div class="tabela-wrap" id="relProdutos"></div>
     </div>
 
     <div class="bloco">
@@ -1428,6 +1462,89 @@ function tabela(colunas, linhas, vazio) {
       `<td class="${colunas[i].num ? "num-col" : ""} ${colunas[i].larga ? "larga" : ""}">${v}</td>`).join("")}</tr>`).join("")}</tbody>
   </table>`;
 }
+
+/* ---------------------------------------------------------------------
+   Tabela em páginas
+   ---------------------------------------------------------------------
+
+   A aba Relatórios tem seis tabelas empilhadas, e cada uma despejava
+   tudo que o servidor mandasse: 10 produtos, 10 buscas, 10 buscas sem
+   resultado, 15 pedidos, 20 clientes. São 65 linhas numa tela só, e
+   quem abre o painel para ver como foi o dia rola seis vezes até achar
+   o fim — as tabelas de baixo nunca eram lidas porque nunca chegavam
+   à altura dos olhos.
+
+   Cinco linhas por vez, com a navegação embaixo. O resto não sumiu:
+   está a um toque, e o rodapé diz quanto é o resto ("6–10 de 13"), que
+   é o que impede a página 1 de parecer a lista inteira.
+
+   A paginação é AQUI, sobre o que já foi baixado — e não no servidor.
+   São listas de dezenas de linhas, não de milhares: ir ao banco a cada
+   toque de seta seria uma ida de rede para economizar nada. */
+const LINHAS_POR_PAGINA = 5;
+
+const _tabelas = new Map();
+
+function tabelaPaginada(id, colunas, linhas, vazio, porPagina = LINHAS_POR_PAGINA) {
+
+  _tabelas.set(id, { colunas, linhas, vazio, porPagina, pagina: 0 });
+
+  desenharTabela(id);
+
+}
+
+function desenharTabela(id) {
+
+  const alvo = el(id);
+  const dados = _tabelas.get(id);
+  if (!alvo || !dados) return;
+
+  const { colunas, linhas, vazio, porPagina, pagina } = dados;
+
+  if (!linhas.length) {
+    alvo.innerHTML = `<div class="vazio">${esc(vazio)}</div>`;
+    return;
+  }
+
+  const paginas = Math.ceil(linhas.length / porPagina);
+  const inicio = pagina * porPagina;
+  const fim = Math.min(inicio + porPagina, linhas.length);
+
+  /* Cabe tudo numa página: não desenha navegação nenhuma. Seta que não
+     leva a lugar nenhum ensina a pessoa a ignorar a seta. */
+  const navegacao = paginas < 2 ? "" : `
+    <div class="paginacao">
+      <span class="paginacao-conta">${inicio + 1}–${fim} de ${linhas.length}</span>
+      <span class="paginacao-botoes">
+        <button type="button" data-tabela="${esc(id)}" data-ir="-1" ${pagina === 0 ? "disabled" : ""}
+                aria-label="Página anterior">‹</button>
+        <span class="paginacao-pagina">${pagina + 1} de ${paginas}</span>
+        <button type="button" data-tabela="${esc(id)}" data-ir="1" ${pagina + 1 >= paginas ? "disabled" : ""}
+                aria-label="Próxima página">›</button>
+      </span>
+    </div>`;
+
+  alvo.innerHTML = tabela(colunas, linhas.slice(inicio, fim), vazio) + navegacao;
+
+}
+
+/* Um ouvinte só, no documento: as tabelas são redesenhadas a cada troca
+   de período, e ouvintes presos aos botões morreriam com eles. */
+document.addEventListener("click", (ev) => {
+
+  const botao = ev.target.closest("[data-tabela]");
+  if (!botao) return;
+
+  const dados = _tabelas.get(botao.dataset.tabela);
+  if (!dados) return;
+
+  const paginas = Math.ceil(dados.linhas.length / dados.porPagina);
+
+  dados.pagina = Math.min(Math.max(dados.pagina + Number(botao.dataset.ir), 0), paginas - 1);
+
+  desenharTabela(botao.dataset.tabela);
+
+});
 
 /* ---------------------------------------------------------------------
    Estoque: o que rompeu, o que vai romper, o que está parado
@@ -2187,7 +2304,7 @@ async function carregar() {
   el("rotuloPeriodo").textContent = `últimos ${resumo.dias} dias`;
   desenharFaturamentoPorDia(resumo);
 
-  el("produtos").innerHTML = tabela(
+  tabelaPaginada("relProdutos",
     [{ titulo: "Produto", larga: true }, { titulo: "EAN" }, { titulo: "Unidades", num: true }, { titulo: "Faturamento", num: true }],
     resumo.topProdutos.map(p => [esc(p.descricao), esc(p.ean || "—"), p.unidades, dinheiro(p.faturamento)]),
     "Nenhum produto vendido no período."
@@ -2195,19 +2312,19 @@ async function carregar() {
 
   // Vem antes dos pedidos de propósito: é o único relatório que mostra
   // o que FALTA, e não o que já foi vendido.
-  el("naoEncontrados").innerHTML = tabela(
+  tabelaPaginada("naoEncontrados",
     [{ titulo: "O cliente procurou por", larga: true }, { titulo: "Vezes", num: true }, { titulo: "Última vez" }],
     (resumo.naoEncontrados || []).map(b => [esc(b.termo), b.buscas, dataHora(b.ultima)]),
     "Ninguém buscou algo que o site não tivesse. Bom sinal."
   );
 
-  el("maisProcurados").innerHTML = tabela(
+  tabelaPaginada("maisProcurados",
     [{ titulo: "Termo", larga: true }, { titulo: "Buscas", num: true }, { titulo: "Sem resultado", num: true }],
     (resumo.maisProcurados || []).map(b => [esc(b.termo), b.buscas, b.vazias || 0]),
     "Nenhuma busca registrada no período."
   );
 
-  el("pedidos").innerHTML = tabela(
+  tabelaPaginada("pedidos",
     [{ titulo: "Pedido" }, { titulo: "Quando" }, { titulo: "Cliente", larga: true }, { titulo: "Telefone" },
      { titulo: "Entrega" }, { titulo: "Total", num: true }, { titulo: "Situação" }],
     resumo.recentes.map(p => [
@@ -2217,7 +2334,7 @@ async function carregar() {
     "Nenhum pedido ainda."
   );
 
-  el("clientes").innerHTML = tabela(
+  tabelaPaginada("clientes",
     [{ titulo: "Cliente", larga: true }, { titulo: "Telefone" }, { titulo: "Pedidos", num: true },
      { titulo: "Total gasto", num: true }, { titulo: "Primeira" }, { titulo: "Última" }],
     clientes.clientes.map(c => [
