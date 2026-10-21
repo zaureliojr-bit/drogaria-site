@@ -81,14 +81,47 @@
   }
   .periodo button.ativo { background: var(--marca); border-color: var(--marca); color: var(--branco); }
 
-  .numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0 4px; }
+  /* Os números do topo: tamanho é hierarquia.
+     O faturamento do período ocupa duas colunas e tem o número maior;
+     "hoje" e o alerta de receita são cartões normais. Seis cartões
+     iguais faziam "Pedidos hoje 0" pesar o mesmo que o faturamento do
+     mês — e, numa farmácia que abre cedo, a tela passava a manhã
+     exibindo zeros em destaque. */
+  .numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 10px; margin: 12px 0 4px; }
   .num {
     background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio-md);
     padding: 14px 16px; box-shadow: var(--sombra-sm); min-width: 0;
+    display: flex; flex-direction: column; gap: 4px;
   }
-  .num span { display: block; font-size: 11.5px; color: var(--tinta-suave); margin-bottom: 5px; }
+  .num span { display: block; font-size: 11.5px; color: var(--tinta-suave); }
   .num strong { font-size: 20px; font-family: var(--fonte-preco); font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
-  .num.alerta strong { color: var(--erro); }
+
+  .num-destaque { grid-column: span 2; background: var(--marca); border-color: var(--marca); }
+  .num-destaque span { color: rgba(255,255,255,.75); }
+  .num-destaque strong { color: var(--branco); font-size: 30px; }
+
+  .num-hoje { background: var(--marca-xclara); }
+  .num-alerta { border-color: var(--erro); }
+  .num-alerta strong { color: var(--erro); }
+
+  /* A comparação com o período anterior. Discreta de propósito: ela
+     qualifica o número, não disputa com ele. */
+  .var {
+    font-style: normal; font-size: 11.5px; font-weight: 700;
+    display: inline-flex; align-items: baseline; gap: 5px; flex-wrap: wrap;
+  }
+  .var span { font-size: 11px; font-weight: 400; color: var(--tinta-suave); }
+  .var-sobe { color: var(--ok); }
+  .var-desce { color: var(--erro); }
+  .var-igual, .var-neutro { color: var(--tinta-suave); font-weight: 400; }
+  .num-destaque .var-sobe { color: #7BE8AE; }
+  .num-destaque .var-desce { color: #FFB4B0; }
+  .num-destaque .var span, .num-destaque .var-igual { color: rgba(255,255,255,.7); }
+
+  @media (max-width: 560px) {
+    .num-destaque { grid-column: span 2; }
+    .num-destaque strong { font-size: 26px; }
+  }
 
   .bloco { margin-top: 22px; }
   .bloco h2 { font-size: 14.5px; margin-bottom: 10px; display: flex; align-items: baseline; gap: 8px; }
@@ -110,11 +143,62 @@
   .pill-receita { background: #FFF3CD; color: #7A5B00; }
   .pill-entregue { background: #E6F4EC; color: var(--ok); }
 
-  /* barras do faturamento por dia: um gráfico simples resolve, e não
-     carrega biblioteca nenhuma para dentro do site */
-  .barras { display: flex; align-items: flex-end; gap: 3px; height: 90px; padding: 10px 12px; }
-  .barra { flex: 1; min-width: 0; background: var(--marca); border-radius: 3px 3px 0 0; min-height: 2px; }
+  /* Faturamento por dia. Barras de div, sem biblioteca: carregar um
+     pacote de gráficos no painel custaria mais que o gráfico inteiro.
+
+     O eixo é o calendário, com lugar para TODO dia do período. Antes
+     só os dias com pedido viravam barra, e 6 barras lado a lado em 30
+     dias liam-se como venda todo dia. */
+  .grafico-wrap { padding: 4px 2px 0; }
+  .barras { padding: 12px 12px 6px; }
+
+  .barras-grade {
+    position: relative;
+    display: flex; align-items: flex-end; gap: 2px; height: 130px;
+  }
+
+  /* A média do período, contando os dias vazios: é a linha que diz se
+     a barra de hoje está acima ou abaixo do normal da casa. */
+  .barras-grade::before {
+    content: ""; position: absolute; left: 0; right: 0;
+    bottom: var(--linha-media); height: 1px;
+    background: repeating-linear-gradient(to right,
+      var(--tinta-suave) 0 4px, transparent 4px 8px);
+    opacity: .45; pointer-events: none;
+  }
+
+  .barra {
+    flex: 1; min-width: 0; background: var(--marca);
+    border-radius: 3px 3px 0 0; min-height: 3px;
+    transition: background .15s;
+  }
   .barra:hover { background: var(--tag); }
+
+  /* Dia sem venda não ganha barra. A altura mínima de antes fazia um
+     dia zerado parecer uma venda pequena — exatamente o tipo de
+     "quase nada" que a tela não pode inventar. */
+  .barra-vazia { background: var(--papel-forte); min-height: 2px; }
+  .barra-melhor { background: var(--ok); }
+  .barra-hoje { background: var(--tag); }
+
+  .barras-eixo {
+    display: flex; justify-content: space-between;
+    font-size: 10.5px; color: var(--tinta-suave); margin-top: 6px;
+  }
+
+  .barras-rodape {
+    display: flex; flex-wrap: wrap; gap: 6px 18px;
+    padding: 10px 14px; border-top: 1px solid var(--linha);
+    font-size: 11.5px; color: var(--tinta-suave);
+  }
+  .barras-rodape b { color: var(--tinta); font-variant-numeric: tabular-nums; }
+  .barras-rodape i {
+    display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+    margin-right: 6px; vertical-align: baseline;
+  }
+  .ponto-melhor { background: var(--ok); }
+  .ponto-media { background: var(--tinta-suave); opacity: .5; }
+  .ponto-hoje { background: var(--tag); }
 
   .vazio { padding: 26px 16px; text-align: center; color: var(--tinta-suave); font-size: 13px; }
 
@@ -1059,7 +1143,10 @@
 
     <div class="bloco">
       <h2>Faturamento por dia <small id="rotuloPeriodo"></small></h2>
-      <div class="tabela-wrap"><div class="barras" id="barras"></div></div>
+      <div class="tabela-wrap grafico-wrap">
+        <div class="barras" id="barras"></div>
+        <div class="barras-rodape" id="barrasRodape"></div>
+      </div>
     </div>
 
     <div class="bloco">
@@ -1892,6 +1979,197 @@ function reaExportarCSV() {
 
 }
 
+/* ---------------------------------------------------------------------
+   Os números do topo
+   ---------------------------------------------------------------------
+
+   Eram seis cartões iguais, lado a lado, com o mesmo peso: "Pedidos
+   hoje 0" do mesmo tamanho que "Faturamento no período R$ 1.010,28".
+   Numa farmácia que abre cedo, metade da tela passava a manhã exibindo
+   zeros em destaque — e o número que paga as contas ficava perdido no
+   meio deles.
+
+   Agora há hierarquia. O faturamento do período é o cartão grande, com
+   o resto do período ao lado; "hoje" é um bloco menor, porque às 9h da
+   manhã ele é quase sempre zero e isso não é notícia.
+
+   E a comparação, que é o que faz número virar informação: a mesma
+   janela imediatamente anterior. "R$ 1.010 em 30 dias" não responde à
+   pergunta que a dona faz ao abrir a tela; "+18% sobre os 30 dias
+   anteriores" responde.
+
+   A comparação só aparece quando o servidor manda (resumo.anterior) e
+   quando havia o que comparar: variação percentual sobre base zero é
+   matematicamente infinita e visualmente ridícula — "+∞%" na primeira
+   semana de loja nova. */
+function variacaoHTML(agora, antes) {
+
+  if (!antes || antes <= 0) return "";
+
+  const variacao = ((agora - antes) / antes) * 100;
+
+  /* Abaixo de 1% é empate, e marcar empate com seta e cor é dar
+     notícia onde não houve nada. */
+  if (Math.abs(variacao) < 1) {
+    return `<em class="var var-igual">estável ante o período anterior</em>`;
+  }
+
+  const subiu = variacao > 0;
+
+  return `<em class="var ${subiu ? "var-sobe" : "var-desce"}">
+    ${subiu ? "▲" : "▼"} ${Math.abs(variacao).toFixed(0)}%
+    <span>ante os ${dias} dias anteriores</span>
+  </em>`;
+
+}
+
+function numerosHTML(resumo) {
+
+  const anterior = resumo.anterior;
+
+  return `
+    <div class="num num-destaque">
+      <span>Faturamento no período</span>
+      <strong>${dinheiro(resumo.periodo.faturamento)}</strong>
+      ${anterior ? variacaoHTML(resumo.periodo.faturamento, anterior.faturamento) : ""}
+    </div>
+
+    <div class="num">
+      <span>Pedidos no período</span>
+      <strong>${resumo.periodo.pedidos}</strong>
+      ${anterior ? variacaoHTML(resumo.periodo.pedidos, anterior.pedidos) : ""}
+    </div>
+
+    <div class="num">
+      <span>Ticket médio</span>
+      <strong>${dinheiro(resumo.periodo.ticket)}</strong>
+      ${anterior ? variacaoHTML(resumo.periodo.ticket, anterior.ticket) : ""}
+    </div>
+
+    <div class="num num-hoje">
+      <span>Hoje</span>
+      <strong>${dinheiro(resumo.hoje.faturamento)}</strong>
+      <em class="var var-neutro">${resumo.hoje.pedidos} ${resumo.hoje.pedidos === 1 ? "pedido" : "pedidos"}</em>
+    </div>
+
+    ${resumo.aguardandoReceita ? `
+      <div class="num num-alerta">
+        <span>Aguardando receita</span>
+        <strong>${resumo.aguardandoReceita}</strong>
+        <em class="var var-neutro">${resumo.aguardandoReceita === 1 ? "pedido parado" : "pedidos parados"} até a foto chegar</em>
+      </div>` : ""}
+  `;
+
+}
+
+/* ---------------------------------------------------------------------
+   Faturamento por dia
+   ---------------------------------------------------------------------
+
+   O gráfico mentia, e mentia para melhor. A consulta agrupa por dia e
+   só devolve os dias que TIVERAM pedido — com 13 pedidos em 30 dias,
+   chegavam 6 linhas, e a tela desenhava 6 barras lado a lado ocupando a
+   largura toda. Lido assim, parecia venda todo dia. Os 24 dias sem
+   pedido nenhum, que são a informação que importa numa loja começando,
+   simplesmente não existiam no desenho.
+
+   Agora o eixo é o CALENDÁRIO: um lugar para cada dia do período,
+   inclusive os vazios. É mais feio e é verdade — e dia vazio em loja
+   nova não é defeito, é o trabalho que falta fazer.
+
+   Sem biblioteca, de propósito: são barras de div, e carregar um pacote
+   de gráficos no painel custaria mais que o gráfico inteiro. */
+function diasDoPeriodo(quantos) {
+
+  /* O dia em São Paulo, não em UTC: o worker agrupa assim (ele desconta
+     3h antes de cortar a data), e um gráfico com um dia de diferença do
+     resto do painel é pior que gráfico nenhum. */
+  const agora = new Date(Date.now() - 3 * 3600000);
+
+  const dias = [];
+
+  for (let i = quantos - 1; i >= 0; i--) {
+    const d = new Date(agora.getTime() - i * 86400000);
+    dias.push(d.toISOString().slice(0, 10));
+  }
+
+  return dias;
+
+}
+
+function desenharFaturamentoPorDia(resumo) {
+
+  const caixa = el("barras");
+  if (!caixa) return;
+
+  const porDia = new Map((resumo.porDia || []).map(d => [d.dia, d]));
+  const dias = diasDoPeriodo(resumo.dias);
+
+  const valores = dias.map(dia => (porDia.get(dia) || {}).faturamento || 0);
+  const maior = Math.max(...valores, 0);
+
+  if (!maior) {
+    caixa.innerHTML = `<div class="vazio">Nenhum pedido no período.</div>`;
+    el("barrasRodape").innerHTML = "";
+    return;
+  }
+
+  /* A média conta os dias vazios. É ela que responde "quanto esta loja
+     fatura por dia", e a conta que ignora os dias parados responde
+     outra pergunta — mais bonita e menos útil. */
+  const media = valores.reduce((t, v) => t + v, 0) / valores.length;
+  const ondeOMaior = valores.indexOf(maior);
+
+  const rotulo = (dia) => {
+    const [a, m, d] = dia.split("-");
+    return `${d}/${m}`;
+  };
+
+  caixa.innerHTML = `
+    <div class="barras-grade" style="--linha-media:${Math.round((media / maior) * 100)}%">
+      ${dias.map((dia, i) => {
+
+        const info = porDia.get(dia) || { pedidos: 0, faturamento: 0 };
+        const altura = Math.round((valores[i] / maior) * 100);
+
+        /* Dia sem venda não ganha barra nenhuma. O desenho antigo dava
+           2px de altura mínima a todo mundo, e aí um dia zerado ficava
+           parecendo uma venda pequena. */
+        const classes = ["barra"];
+        if (!valores[i]) classes.push("barra-vazia");
+        if (i === ondeOMaior) classes.push("barra-melhor");
+
+        /* Hoje só ganha cor própria se teve venda. Pintado mesmo
+           zerado, o último dia virava um risco vermelho no pé do
+           gráfico — e vermelho no fim da série lê-se como alarme,
+           quando a verdade é só "o dia ainda não acabou". */
+        if (i === dias.length - 1 && valores[i]) classes.push("barra-hoje");
+
+        return `<div class="${classes.join(" ")}" style="height:${altura}%"
+          title="${esc(rotulo(dia))} — ${dinheiro(info.faturamento)} em ${info.pedidos} pedido(s)"></div>`;
+
+      }).join("")}
+    </div>
+    <div class="barras-eixo">
+      <span>${esc(rotulo(dias[0]))}</span>
+      <span>${esc(rotulo(dias[dias.length - 1]))}</span>
+    </div>`;
+
+  /* O que o gráfico sozinho não diz: quanto vale a barra mais alta,
+     quanto é a média e em quantos dias não houve venda. Sem isso, o
+     desenho é uma silhueta bonita sem número nenhum. */
+  const vazios = valores.filter(v => !v).length;
+
+  const hojeTemVenda = valores[valores.length - 1] > 0;
+
+  el("barrasRodape").innerHTML = `
+    <span><i class="ponto-melhor"></i>melhor dia ${esc(rotulo(dias[ondeOMaior]))}: <b>${dinheiro(maior)}</b></span>
+    ${hojeTemVenda ? `<span><i class="ponto-hoje"></i>hoje: <b>${dinheiro(valores[valores.length - 1])}</b></span>` : ""}
+    <span><i class="ponto-media"></i>média por dia: <b>${dinheiro(media)}</b></span>
+    <span>${vazios} ${vazios === 1 ? "dia sem venda" : "dias sem venda"}</span>`;
+
+}
+
 function pillStatus(p) {
   if (p.status === "entregue") return `<span class="pill pill-entregue">entregue</span>`;
   if (p.tem_receita && p.status === "novo") return `<span class="pill pill-receita">aguarda receita</span>`;
@@ -1904,22 +2182,10 @@ async function carregar() {
     api(`/clientes?limite=20`)
   ]);
 
-  el("numeros").innerHTML = `
-    <div class="num"><span>Pedidos hoje</span><strong>${resumo.hoje.pedidos}</strong></div>
-    <div class="num"><span>Faturamento hoje</span><strong>${dinheiro(resumo.hoje.faturamento)}</strong></div>
-    <div class="num"><span>Pedidos no período</span><strong>${resumo.periodo.pedidos}</strong></div>
-    <div class="num"><span>Faturamento no período</span><strong>${dinheiro(resumo.periodo.faturamento)}</strong></div>
-    <div class="num"><span>Ticket médio</span><strong>${dinheiro(resumo.periodo.ticket)}</strong></div>
-    <div class="num ${resumo.aguardandoReceita ? "alerta" : ""}"><span>Aguardando receita</span><strong>${resumo.aguardandoReceita}</strong></div>
-  `;
+  el("numeros").innerHTML = numerosHTML(resumo);
 
   el("rotuloPeriodo").textContent = `últimos ${resumo.dias} dias`;
-
-  const maior = Math.max(1, ...resumo.porDia.map(d => d.faturamento));
-  el("barras").innerHTML = resumo.porDia.length
-    ? resumo.porDia.map(d => `<div class="barra" style="height:${Math.round((d.faturamento / maior) * 100)}%"
-         title="${esc(d.dia)} — ${dinheiro(d.faturamento)} em ${d.pedidos} pedido(s)"></div>`).join("")
-    : `<div class="vazio">Nenhum pedido no período.</div>`;
+  desenharFaturamentoPorDia(resumo);
 
   el("produtos").innerHTML = tabela(
     [{ titulo: "Produto", larga: true }, { titulo: "EAN" }, { titulo: "Unidades", num: true }, { titulo: "Faturamento", num: true }],
