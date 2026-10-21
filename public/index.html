@@ -200,7 +200,14 @@
       autocomplete="off"
       aria-label="Buscar produtos"
       onkeydown="if(event.key==='Enter') buscar()"
+      role="combobox" aria-expanded="false" aria-controls="sugestoes" aria-autocomplete="list"
     >
+    <!-- 🔽 SUGESTÕES
+         Nasce vazia e só aparece com duas letras digitadas. Nome de
+         remédio é comprido e tem dosagem no meio ("Dipirona Sódica
+         500mg C/10"): quem está com dor de cabeça não quer digitar
+         tudo, quer ver a palavra e tocar nela. -->
+    <ul id="sugestoes" class="sugestoes" role="listbox" aria-label="Sugestões de busca" hidden></ul>
   </div>
   <button onclick="buscar()" class="btn-buscar">Buscar</button>
 </section>
@@ -387,6 +394,7 @@
 <!-- Antes do script.js: ele usa Receita.decidirReceita ao mapear cada
      produto. Ambos com defer, que preserva a ordem de execução. -->
 <script src="/receita.js" defer></script>
+<script src="/busca.js" defer></script>
 <script src="/estoque.js" defer></script>
 <script src="/script.js" defer></script>
 <script src="/loja.js" defer></script>

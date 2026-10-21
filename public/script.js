@@ -484,6 +484,13 @@ document.addEventListener("DOMContentLoaded", () => {
   el("busca")?.addEventListener("input", e => {
     clearTimeout(timeoutBusca);
     const valor = e.target.value;
+
+    /* As sugestões vêm SEM espera. Elas são uma leitura de lista já
+       carregada na memória, não uma ida ao servidor, e esperar 300ms
+       para desenhá-las seria inventar lentidão. O filtro da grade
+       continua com a espera, porque ele remonta a tela inteira. */
+    mostrarSugestoes(valor);
+
     timeoutBusca = setTimeout(() => {
       termoBusca = normalizar(valor);
       modoOfertas = false;
@@ -493,6 +500,20 @@ document.addEventListener("DOMContentLoaded", () => {
          estar certo nesse instante, que é quando a atendente copia. */
       sincronizarEndereco();
     }, 300);
+  });
+
+  /* Fechar a lista: tocar fora, e Esc.
+
+     Sem o Esc, no celular a lista fica tapando o primeiro resultado
+     depois que o teclado some — e o cliente não tem onde "clicar fora"
+     sem acertar um produto. */
+  document.addEventListener("click", (ev) => {
+    if (!ev.target.closest(".busca-wrapper")) fecharSugestoes();
+  });
+
+  el("busca")?.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") fecharSugestoes();
+    if (ev.key === "Enter") fecharSugestoes();
   });
 
   el("ordenacao")?.addEventListener("change", e => {
@@ -1559,9 +1580,60 @@ function verOfertas() {
 }
 
 /* =========================
+🔎 SUGESTÕES ENQUANTO SE DIGITA
+=========================
+A regra (o que sugerir e em que ordem) mora no busca.js, que roda sem
+navegador e tem teste. Aqui fica só o que é tela: montar, abrir e
+fechar a lista. */
+
+function fecharSugestoes() {
+  const caixa = el("sugestoes");
+  if (!caixa) return;
+  caixa.hidden = true;
+  caixa.innerHTML = "";
+  el("busca")?.setAttribute("aria-expanded", "false");
+}
+
+function mostrarSugestoes(valor) {
+
+  const caixa = el("sugestoes");
+  if (!caixa) return;
+
+  const lista = Busca.sugerir(produtos, valor, { limite: 6 });
+
+  if (!lista.length) return fecharSugestoes();
+
+  caixa.innerHTML = lista.map((item) => {
+
+    const partes = Busca.partesDoDestaque(item.nome, valor);
+
+    /* O trecho digitado vem em <b> para a pessoa enxergar por que
+       aquela linha está ali. Tudo escapado: nome de produto vem do
+       cadastro da farmácia, não daqui. */
+    const nome = `${esc(partes.antes)}<b>${esc(partes.meio)}</b>${esc(partes.depois)}`;
+
+    /* Link de verdade, com href: abre em nova aba, copia endereço e
+       continua funcionando se o script falhar. Mesma rota do card. */
+    return `<li role="option">
+      <a class="sugestao" href="${esc(urlProduto(item))}">
+        <svg class="ic" width="14" height="14" aria-hidden="true"><use href="#ic-search"></use></svg>
+        <span class="sugestao-nome">${nome}</span>
+        ${item.marca ? `<span class="sugestao-marca">${esc(item.marca)}</span>` : ""}
+      </a>
+    </li>`;
+
+  }).join("");
+
+  caixa.hidden = false;
+  el("busca")?.setAttribute("aria-expanded", "true");
+
+}
+
+/* =========================
 🔎 BUSCA E ORDENAÇÃO
 ========================= */
 function buscar() {
+  fecharSugestoes();
   clearTimeout(timeoutBusca);
   modoOfertas = false;
   termoBusca = normalizar(el("busca")?.value || "");
@@ -1616,6 +1688,19 @@ function aplicarFiltro() {
     const temSlide = !!banner.querySelector(".banner-slide");
     banner.style.display = (modoHome && temSlide) ? "" : "none";
   }
+
+  /* O encarte e os banners de parceiro ficavam. Buscar "dip" mostrava a
+     chamada do encarte e um banner de 400px de altura, e o primeiro
+     resultado caía abaixo da tela: o cliente digitava e não via resposta
+     nenhuma, só propaganda.
+
+     display "" e não hidden=false: os dois têm o atributo hidden como
+     estado de "não existe hoje" (sem encarte publicado, sem banner no
+     prazo). Devolver o display deixa esse estado decidir, em vez de
+     ressuscitar um bloco vazio na volta para a vitrine. */
+  [el("chamadaEncarte"), el("promos")].forEach((bloco) => {
+    if (bloco) bloco.style.display = modoHome ? "" : "none";
+  });
 
   /* A seta do cabeçalho acompanha a barra de resultado: as duas existem
      enquanto a vitrine estiver dando lugar a uma lista. Ela some na
@@ -2811,6 +2896,16 @@ function renderBannerOfertas() {
     .slice(0, 12);
 
   if (!ofertas.length) {
+
+    /* Esvazia, e não só esconde.
+
+       A seção nasce no HTML com três slides fixos ("COMPRE PELO SITE E
+       RETIRE NA LOJA"...), que existem como ponto de partida e são
+       substituídos pelas ofertas. Escondendo sem esvaziar, eles
+       continuam ali — e o aplicarFiltro, que decide pela presença de
+       slide, ressuscitava aquele carrossel amarelo antigo quando o
+       cliente voltava de uma busca numa loja sem oferta nenhuma. */
+    container.innerHTML = "";
     banner.style.display = "none";
     return;
   }

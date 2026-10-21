@@ -388,6 +388,72 @@ h1, h2 { font-family: var(--fonte-titulo); }
   color: var(--tinta);
 }
 
+/* ===== Sugestões enquanto se digita ===== */
+/* Solta sobre a página, presa ao campo. Dentro do .busca-wrapper, que
+   já é position: relative — e o .busca-container tem z-index maior que
+   o dos filtros, então ela cobre o que estiver embaixo em vez de
+   aparecer por trás. */
+.sugestoes {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--branco);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-md);
+  box-shadow: var(--sombra-md);
+  max-height: min(58vh, 340px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sugestao {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 10px;
+  border-radius: var(--raio-sm);
+  color: var(--tinta);
+  text-decoration: none;
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+
+/* Alvo de dedo: a lista aparece no celular, com o teclado aberto e a
+   tela cheia. Linha curta demais faz errar e abrir o produto vizinho. */
+@media (max-width: 639px) {
+  .sugestao { min-height: 44px; }
+}
+
+.sugestao:hover,
+.sugestao:focus-visible { background: var(--marca-clara); }
+
+.sugestao .ic { color: var(--tinta-suave); flex-shrink: 0; }
+
+.sugestao-nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* O trecho digitado em negrito: é o que mostra por que aquela linha
+   está ali. */
+.sugestao-nome b { font-weight: 800; }
+
+.sugestao-marca {
+  flex-shrink: 0;
+  color: var(--tinta-suave);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .busca-wrapper input::placeholder { color: var(--tinta-suave); }
 .busca-wrapper input:focus {
   background: var(--branco);
