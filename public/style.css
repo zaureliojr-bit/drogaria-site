@@ -648,21 +648,21 @@ h1, h2 { font-family: var(--fonte-titulo); }
   background: var(--linha);
 }
 
-/* Na tela larga os três itens eram três miniaturas de 46px espalhadas
-   por 1900px, com um tracinho no meio de cada vão. Parecia rodapé, não
-   oferta. A fileira passa a ter largura máxima e fica centralizada -
-   é a mesma caixa, só que com os produtos perto uns dos outros, que é
-   o que faz três itens lerem como um conjunto. */
-@media (min-width: 760px) {
-  .banner-grupo-itens {
-    max-width: 760px;
-    /* Alinhada pela esquerda, debaixo do título, e não centralizada:
-       centralizada ela virava um bloco solto no meio de uma caixa
-       vazia, sem relação visível com o "Ofertas do dia" no canto. */
-    margin-inline: 0 auto;
-  }
+/* Na tela larga quem preenche a caixa é a quantidade de oferta, não a
+   largura da fileira.
 
-  .banner-item img { width: 60px; height: 60px; }
+   A primeira tentativa foi limitar a fileira a 760px e encostá-la à
+   esquerda. Só mudou o vazio de lugar: três itens num canto e meia tela
+   em branco do lado. Quem resolve é o ofertasPorSlide() do script.js,
+   que mostra 4 ou 6 ofertas onde cabem 4 ou 6 — aqui ficam só os
+   tamanhos que acompanham. */
+@media (min-width: 760px) {
+  .banner-item img { width: 56px; height: 56px; }
+}
+
+@media (min-width: 1180px) {
+  .banner-item img { width: 64px; height: 64px; }
+  .banner-item b { font-size: 12.5px; }
 }
 
 .banner-item-img-wrap { position: relative; display: block; }

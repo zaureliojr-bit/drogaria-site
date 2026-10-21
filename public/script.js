@@ -521,6 +521,7 @@ document.addEventListener("DOMContentLoaded", () => {
   toggleEndereco();
   iniciarBanner();
   vigiarTetoGrudado();
+  vigiarLarguraDasOfertas();
   carregarBanners();
   carregarChamadaDoEncarte();
 });
@@ -2769,6 +2770,30 @@ function iniciarBanner() {
   }, 5000);
 }
 
+/* Quantas ofertas cabem em cada tela do carrossel.
+
+   Três era o número de todas as larguras, e no computador isso deixava
+   três miniaturas num canto e meia tela vazia do lado — foi o que a
+   loja viu e reclamou, com razão. Tentei primeiro limitar a largura da
+   fileira; só mudou o lugar do vazio.
+
+   O problema nunca foi a largura da fileira: eram três itens para
+   preencher 1440px. Então a tela larga mostra mais oferta, que é o que
+   ela tem espaço para mostrar. Os números saem da conta do item: cada
+   um precisa de uns 180px para o nome não quebrar em três linhas. */
+function ofertasPorSlide() {
+  const largura = window.innerWidth || 390;
+  if (largura >= 1180) return 6;
+  if (largura >= 760) return 4;
+  return 3;
+}
+
+/* Com qual medida o carrossel foi montado da última vez. Girar o
+   aparelho ou arrastar a janela muda a resposta do ofertasPorSlide(),
+   e sem isto o bloco ficaria com o desenho da largura antiga até a
+   próxima recarga. */
+let _slideDeOfertas = 0;
+
 /* monta o banner com produtos reais em oferta.
    Sem produto em oferta no momento, o banner fica escondido. */
 function renderBannerOfertas() {
@@ -2801,10 +2826,13 @@ function renderBannerOfertas() {
      foto para encher o carrossel. O produto não é escondido por não ter
      foto: ele continua na vitrine, na busca e no filtro de ofertas. */
   const comFoto = ofertas.filter(p => p.imagem);
-  const lista = comFoto.length >= 3 ? comFoto : ofertas;
+  const porSlide = ofertasPorSlide();
+  const lista = comFoto.length >= porSlide ? comFoto : ofertas;
 
   const grupos = [];
-  for (let i = 0; i < lista.length; i += 3) grupos.push(lista.slice(i, i + 3));
+  for (let i = 0; i < lista.length; i += porSlide) grupos.push(lista.slice(i, i + porSlide));
+
+  _slideDeOfertas = porSlide;
 
   container.innerHTML = grupos.map(grupo => `
     <div class="banner-slide banner-slide-grupo">
@@ -2832,6 +2860,20 @@ function renderBannerOfertas() {
   `).join("");
 
   iniciarBanner();
+}
+
+/* Redesenha o carrossel quando a largura muda de faixa — e só então.
+   Redesenhar a cada pixel de arrasto jogaria fora o slide que a pessoa
+   está olhando sem necessidade nenhuma. */
+function vigiarLarguraDasOfertas() {
+  let timer = null;
+
+  window.addEventListener("resize", () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (ofertasPorSlide() !== _slideDeOfertas) renderBannerOfertas();
+    }, 200);
+  });
 }
 
 /* clique em um item do banner: adiciona direto no carrinho.

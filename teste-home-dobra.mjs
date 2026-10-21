@@ -146,6 +146,26 @@ console.log("\n2. no computador nada disso se aplica");
     conferir("e o primeiro produto continua perto do topo",
         m.primeiroProduto !== null && m.primeiroProduto < 500, String(m.primeiroProduto));
 
+    /* A caixa de ofertas tem de PREENCHER a tela larga.
+
+       Três itens numa tela de 1440 deixavam meia caixa vazia, e a
+       primeira tentativa de arrumar (limitar a largura da fileira) só
+       mudou o vazio de lugar. Quem resolve é a quantidade: onde cabe
+       mais oferta, aparece mais oferta. */
+    const porTela = await pagina.locator(".banner-slide.ativo .banner-item").count();
+    conferir(`a tela larga mostra mais de 3 ofertas por vez — ${porTela}`,
+        porTela > 3, String(porTela));
+
+    /* E a fileira ocupa a caixa, em vez de se encolher num canto. */
+    const ocupa = await pagina.evaluate(() => {
+        const fileira = document.querySelector(".banner-slide.ativo .banner-grupo-itens");
+        const caixa = document.querySelector(".banner-container");
+        if (!fileira || !caixa) return 0;
+        return fileira.getBoundingClientRect().width / caixa.getBoundingClientRect().width;
+    });
+    conferir(`e ocupa a largura da caixa — ${Math.round(ocupa * 100)}%`,
+        ocupa > 0.8, String(ocupa));
+
     await contexto.close();
 }
 
