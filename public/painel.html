@@ -3483,11 +3483,15 @@ function linhaEditorImagem(p) {
       </div>`
     : `<span class="editor-imagem-status" data-erro="1">Sem EAN na planilha - não dá pra salvar aqui.</span>`;
 
-  const apagar = p.ean
-    ? `<button type="button" class="btn-apagar-produto"
-        data-apagar-produto="${esc(p.ean)}" data-codigo-produto="${esc(p.codigo)}" data-nome-produto="${esc(p.nome)}"
-      >Apagar</button>`
-    : "";
+  // O botão aparece mesmo sem EAN. A exclusão é pelo CÓDIGO - é ele que
+  // a importação compara para não trazer o produto de volta -, e o item
+  // sem EAN é justamente o caso típico de quem precisa sair da vitrine:
+  // taxa de entrega cadastrada como produto, item interno da loja.
+  // Enquanto o botão dependia do EAN, esses eram os únicos que não
+  // tinham como ser apagados.
+  const apagar = `<button type="button" class="btn-apagar-produto"
+        data-apagar-produto="${esc(p.ean || "")}" data-codigo-produto="${esc(p.codigo)}" data-nome-produto="${esc(p.nome)}"
+      >Apagar</button>`;
 
   return [esc(p.codigo), esc(p.nome), esc(p.marca), editor, apagar];
 
