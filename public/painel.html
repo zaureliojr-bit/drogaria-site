@@ -1901,7 +1901,7 @@ function pillStatus(p) {
 async function carregar() {
   const [resumo, clientes] = await Promise.all([
     api(`/resumo?dias=${dias}`),
-    api(`/clientes?limite=100`)
+    api(`/clientes?limite=20`)
   ]);
 
   el("numeros").innerHTML = `
