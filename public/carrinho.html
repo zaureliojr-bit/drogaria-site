@@ -193,6 +193,25 @@
       <!-- O resumo de valores existe aqui, e não só na barra fixa, porque
            na hora de confirmar o cliente quer ver subtotal e frete
            separados — a barra mostra só o total. -->
+      <!-- 🎟️ CUPOM
+           Fica ACIMA do resumo porque é o que muda o resumo. Embaixo do
+           total, o cliente só descobre o campo depois de já ter lido o
+           número que o cupom ia mudar.
+
+           Quem valida é o servidor: o desconto que aparece aqui veio de
+           lá. Calculado no navegador, qualquer pessoa abriria o console
+           e inventaria um código — e a atendente veria um desconto com
+           cara de legítimo no pedido. -->
+      <div class="cupom-caixa">
+        <label class="cupom-rotulo" for="cupom">Tem um cupom de desconto?</label>
+        <div class="cupom-linha">
+          <input type="text" id="cupom" placeholder="Digite o código"
+                 autocomplete="off" autocapitalize="characters" maxlength="40">
+          <button type="button" id="aplicarCupom" class="btn-cupom">Aplicar</button>
+        </div>
+        <p id="cupomRecado" class="cupom-recado" hidden></p>
+      </div>
+
       <div class="carrinho-resumo">
         <div class="linha-resumo">
           <span>Subtotal</span>
@@ -201,6 +220,10 @@
         <div class="linha-resumo" id="linhaFrete" hidden>
           <span>Taxa de entrega</span>
           <span id="resumoFrete">R$ 0,00</span>
+        </div>
+        <div class="linha-resumo linha-resumo-desconto" id="linhaDesconto" hidden>
+          <span id="rotuloDesconto">Desconto</span>
+          <span id="resumoDesconto">R$ 0,00</span>
         </div>
         <div class="linha-resumo linha-resumo-total">
           <span>Total</span>

@@ -354,6 +354,7 @@
     padding: 10px 14px; background: var(--papel); font-size: 12.5px;
     color: var(--tinta-suave);
   }
+  .pedido-cupom { color: var(--ok); }
   .pedido-total strong {
     font-family: var(--fonte-preco); font-variant-numeric: tabular-nums;
     font-size: 16px; color: var(--tinta);
@@ -674,6 +675,7 @@
     <div class="abas" id="abas">
       <button data-aba="fila" class="ativo">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
       <button data-aba="promocoes">Promoções</button>
+      <button data-aba="cupons">Cupons</button>
       <button data-aba="banners">Banners</button>
       <button data-aba="encarte">Encarte</button>
       <button data-aba="relatorios">Relatórios</button>
@@ -1155,6 +1157,100 @@
       <div class="fila" id="listaEncartes"></div>
 
     </div>
+
+    <!-- ===== ABA: CUPONS =====
+         O site não cobra nada: o pedido vira mensagem de WhatsApp e o
+         dinheiro troca de mão no balcão. O cupom é uma INSTRUÇÃO para
+         quem vai cobrar — por isso ele aparece na fila, junto do
+         pedido, e por isso quem valida é o servidor. -->
+    <div id="abaCupons" hidden>
+
+      <form class="form-banner" id="formCupom" autocomplete="off">
+        <h2>Novo cupom</h2>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Código</span>
+            <input type="text" id="cupomCodigo" maxlength="40" required
+                   placeholder="Ex.: BEMVINDO10" style="text-transform:uppercase">
+          </label>
+          <label class="campo">
+            <span>Tipo</span>
+            <select id="cupomTipo">
+              <option value="valor">Valor em reais</option>
+              <option value="percentual">Porcentagem</option>
+              <option value="frete">Frete grátis</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo" id="campoCupomValor">
+            <span id="cupomValorRotulo">Desconto (R$)</span>
+            <input type="number" id="cupomValor" min="0" step="0.01" value="10">
+          </label>
+          <label class="campo">
+            <!-- O mínimo não é detalhe: "R$ 10 de desconto" sem mínimo
+                 transforma um pedido de R$ 12 em R$ 2, e a loja paga
+                 para entregar. -->
+            <span>Só em pedidos a partir de (R$)</span>
+            <input type="number" id="cupomMinimo" min="0" step="0.01" value="0">
+          </label>
+        </div>
+
+        <div class="campo-duplo" id="campoCupomTeto" hidden>
+          <label class="campo">
+            <!-- 20% num pedido de R$ 800 é R$ 160, e não era isso que a
+                 promoção queria dizer. -->
+            <span>Desconto máximo (R$) — 0 = sem teto</span>
+            <input type="number" id="cupomTeto" min="0" step="0.01" value="0">
+          </label>
+          <span></span>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Começa em (opcional)</span>
+            <input type="date" id="cupomInicio">
+          </label>
+          <label class="campo">
+            <span>Vale até (opcional)</span>
+            <input type="date" id="cupomFim">
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Limite de usos no total — 0 = sem limite</span>
+            <input type="number" id="cupomLimiteTotal" min="0" step="1" value="0">
+          </label>
+          <label class="campo">
+            <!-- É este que impede o cupom de boas-vindas de rodar toda
+                 semana no mesmo telefone. -->
+            <span>Por cliente — 0 = sem limite</span>
+            <input type="number" id="cupomLimitePessoa" min="0" step="1" value="1">
+          </label>
+        </div>
+
+        <label class="campo">
+          <span>Descrição (só para você)</span>
+          <input type="text" id="cupomDescricao" maxlength="120"
+                 placeholder="Ex.: divulgação no Instagram de outubro">
+        </label>
+
+        <div id="cupomAviso"></div>
+
+        <div class="form-acoes">
+          <button type="submit" class="principal">Criar cupom</button>
+        </div>
+      </form>
+
+      <div class="bloco">
+        <h2>Cupons <small>desligar não apaga: o histórico é o que diz se a promoção valeu</small></h2>
+        <div class="tabela-wrap" id="listaCupons"></div>
+      </div>
+
+    </div><!-- /abaCupons -->
 
     <!-- ===== ABA: RELATÓRIOS ===== -->
     <div id="abaRelatorios" hidden>
@@ -2287,6 +2383,167 @@ function desenharFaturamentoPorDia(resumo) {
 
 }
 
+/* ---------------------------------------------------------------------
+   Cupons
+   ---------------------------------------------------------------------
+   A tela só junta o formulário e manda; quem decide se um cupom vale é
+   o worker, toda vez, inclusive na hora do pedido. Aqui não há conta
+   nenhuma de desconto de propósito: cálculo no navegador é cálculo que
+   qualquer um reescreve. */
+const ROTULO_TIPO_CUPOM = {
+  valor: "R$ de desconto",
+  percentual: "% de desconto",
+  frete: "frete grátis"
+};
+
+function descreverCupom(c) {
+  if (c.tipo === "frete") return "Frete grátis";
+  if (c.tipo === "percentual") {
+    return `${numeroBR(c.valor)}%` + (c.teto > 0 ? ` (até ${dinheiro(c.teto)})` : "");
+  }
+  return dinheiro(c.valor);
+}
+
+/* O prazo escrito como a loja fala. "Sem prazo" é informação: cupom sem
+   validade é cupom que alguém vai achar daqui a dois anos. */
+function prazoDoCupom(c) {
+  if (!c.inicio && !c.fim) return "sem prazo";
+  if (c.inicio && c.fim) return `${dataCurta(c.inicio)} a ${dataCurta(c.fim)}`;
+  if (c.fim) return `até ${dataCurta(c.fim)}`;
+  return `a partir de ${dataCurta(c.inicio)}`;
+}
+
+async function carregarCupons() {
+
+  const alvo = el("listaCupons");
+  if (!alvo) return;
+
+  try {
+
+    const { cupons } = await api("/cupons");
+
+    tabelaPaginada("listaCupons",
+      [{ titulo: "Código" }, { titulo: "Desconto" }, { titulo: "Mínimo", num: true },
+       { titulo: "Prazo" }, { titulo: "Usos", num: true },
+       { titulo: "Descontado", num: true }, { titulo: "" }],
+      (cupons || []).map((c) => [
+        `<strong>${esc(c.codigo)}</strong>${c.ativo ? "" : ' <span class="pill pill-novo">desligado</span>'}`
+         + (c.descricao ? `<br><small>${esc(c.descricao)}</small>` : ""),
+        esc(descreverCupom(c)),
+        c.minimo > 0 ? dinheiro(c.minimo) : "—",
+        esc(prazoDoCupom(c)),
+        /* "3 de 50" diz mais que "3": é o que mostra se a promoção
+           pegou ou se o código nunca chegou a ninguém. */
+        c.limite_total > 0 ? `${c.usos} de ${c.limite_total}` : String(c.usos),
+        dinheiro(c.descontado),
+        c.ativo
+          ? `<button type="button" class="btn-apagar-produto" data-desligar-cupom="${esc(c.codigo)}">Desligar</button>`
+          : ""
+      ]),
+      "Nenhum cupom ainda."
+    );
+
+  } catch (erro) {
+
+    /* Loja que ainda não rodou o schema-cupons.sql cai aqui. Dizer o
+       que fazer é melhor que "erro 500". */
+    alvo.innerHTML = `<div class="vazio">Não consegui ler os cupons: ${esc(erro.message)}<br>
+      <small>Se esta farmácia é nova, falta rodar o <strong>schema-cupons.sql</strong> no banco dela.</small></div>`;
+
+  }
+
+}
+
+function avisoCupom(texto, erro = true) {
+  el("cupomAviso").innerHTML = texto
+    ? `<div class="${erro ? "erro" : "ok"}">${esc(texto)}</div>`
+    : "";
+}
+
+/* O rótulo do campo muda com o tipo: "Desconto (R$)" e "Desconto (%)"
+   são números muito diferentes, e um campo que diz R$ recebendo 10 para
+   virar 10% é o jeito de criar um cupom errado sem perceber. */
+el("cupomTipo")?.addEventListener("change", () => {
+  const tipo = el("cupomTipo").value;
+  el("campoCupomValor").hidden = tipo === "frete";
+  el("campoCupomTeto").hidden = tipo !== "percentual";
+  el("cupomValorRotulo").textContent = tipo === "percentual" ? "Desconto (%)" : "Desconto (R$)";
+});
+
+el("formCupom")?.addEventListener("submit", async (ev) => {
+
+  ev.preventDefault();
+  avisoCupom("");
+
+  const corpo = {
+    codigo: el("cupomCodigo").value,
+    tipo: el("cupomTipo").value,
+    valor: numeroBR(el("cupomValor").value),
+    minimo: numeroBR(el("cupomMinimo").value),
+    teto: numeroBR(el("cupomTeto").value),
+    inicio: el("cupomInicio").value,
+    fim: el("cupomFim").value,
+    limiteTotal: numeroBR(el("cupomLimiteTotal").value),
+    limitePessoa: numeroBR(el("cupomLimitePessoa").value),
+    descricao: el("cupomDescricao").value
+  };
+
+  try {
+
+    const r = await fetch(`${API.replace(/\/+$/, "")}/cupons`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify(corpo)
+    });
+
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+
+    avisoCupom(`Cupom ${dados.codigo} criado.`, false);
+    el("cupomCodigo").value = "";
+    el("cupomDescricao").value = "";
+
+    await carregarCupons();
+
+  } catch (erro) {
+    avisoCupom("Não consegui criar: " + erro.message);
+  }
+
+});
+
+el("listaCupons")?.addEventListener("click", async (ev) => {
+
+  const botao = ev.target.closest("[data-desligar-cupom]");
+  if (!botao) return;
+
+  const codigo = botao.dataset.desligarCupom;
+
+  /* Desligar não apaga, mas também não tem desfazer na tela — e um
+     cupom desligado por engano no meio de uma campanha é cliente
+     chegando com código que "parou de funcionar". */
+  if (!confirm(`Desligar o cupom ${codigo}? Ele para de valer agora.`)) return;
+
+  botao.disabled = true;
+
+  try {
+
+    const r = await fetch(`${API.replace(/\/+$/, "")}/cupons/excluir`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ codigo })
+    });
+
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
+    await carregarCupons();
+
+  } catch (erro) {
+    botao.disabled = false;
+    avisoCupom("Não consegui desligar: " + erro.message);
+  }
+
+});
+
 function pillStatus(p) {
   if (p.status === "entregue") return `<span class="pill pill-entregue">entregue</span>`;
   if (p.tem_receita && p.status === "novo") return `<span class="pill pill-receita">aguarda receita</span>`;
@@ -2724,7 +2981,13 @@ function cartaoPedido(p) {
       <div class="pedido-itens">${itens || '<div class="vazio">Pedido sem itens registrados.</div>'}</div>
 
       <div class="pedido-total">
-        <span>Subtotal ${dinheiro(p.subtotal)}${p.frete ? " · Frete " + dinheiro(p.frete) : ""}</span>
+        <!-- O cupom aparece aqui, ao lado do subtotal, e não num canto
+             da tela: quem vai cobrar é quem lê esta linha. Um total
+             menor que a soma dos itens, sem explicação, é o caminho
+             mais curto para alguém "corrigir" o valor no balcão e
+             cobrar o preço cheio de um cliente que tinha desconto. -->
+        <span>Subtotal ${dinheiro(p.subtotal)}${p.frete ? " · Frete " + dinheiro(p.frete) : ""}${
+          p.desconto > 0 ? ` · <b class="pedido-cupom">Cupom ${esc(p.cupom || "")} −${dinheiro(p.desconto)}</b>` : ""}</span>
         <strong>${dinheiro(p.total)}</strong>
       </div>
 
@@ -4845,6 +5108,7 @@ el("abas").addEventListener("click", (ev) => {
   const aba = btn.dataset.aba;
   el("abaFila").hidden = aba !== "fila";
   el("abaPromocoes").hidden = aba !== "promocoes";
+  el("abaCupons").hidden = aba !== "cupons";
   el("abaBanners").hidden = aba !== "banners";
   el("abaEncarte").hidden = aba !== "encarte";
   el("abaRelatorios").hidden = aba !== "relatorios";
@@ -4869,6 +5133,8 @@ el("abas").addEventListener("click", (ev) => {
   // fica aberta o dia inteiro e não precisa recarregá-los a cada
   // atualização dela.
   if (aba === "relatorios") carregar().catch(() => tentar());
+
+  if (aba === "cupons") carregarCupons();
 
   /* Só ao abrir a aba: são três varreduras do estoque inteiro, e a
      fila fica aberta o dia todo. */

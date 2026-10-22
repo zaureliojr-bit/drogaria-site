@@ -2338,11 +2338,103 @@ function valorFreteAtual() {
   return freteCalculado.valor;
 }
 
+/* =========================
+🎟️ CUPOM DE DESCONTO
+=========================
+Quem valida é o SERVIDOR. O que mora aqui é só o que a tela mostra: o
+código digitado e o desconto que veio de lá.
+
+Validar no navegador seria mais rápido e estaria errado — o site não
+cobra nada, o pedido vira mensagem de WhatsApp e quem cobra é a pessoa
+do balcão. Um cupom inventado no console apareceria para ela como
+qualquer outro, e ela daria o desconto.
+
+O cupom é reconferido no envio do pedido, e lá o servidor refaz o total.
+Entre aplicar e finalizar cabe de tudo: o cupom expirar, o carrinho
+mudar de valor, alguém editar o JSON. */
+let cupomAplicado = null;
+
+function descontoAtual() {
+  return cupomAplicado ? Number(cupomAplicado.desconto) || 0 : 0;
+}
+
+function recadoDoCupom(texto, tipo) {
+  const alvo = el("cupomRecado");
+  if (!alvo) return;
+  alvo.hidden = !texto;
+  alvo.textContent = texto || "";
+  alvo.dataset.tipo = tipo || "";
+}
+
+/* O cupom cai sozinho quando o carrinho muda de valor.
+
+   Sem isto, quem aplica "R$ 10 acima de R$ 50" e depois tira itens até
+   R$ 30 fecha o pedido com o desconto na tela — e o servidor recusa na
+   hora do envio, com a pessoa já achando que pagou menos. Melhor
+   avisar agora, com o carrinho aberto, do que no WhatsApp. */
+async function reconferirCupom() {
+  if (!cupomAplicado) return;
+  await aplicarCupom(cupomAplicado.codigo, { silencioso: true });
+}
+
+async function aplicarCupom(codigoBruto, { silencioso = false } = {}) {
+
+  const codigo = String(codigoBruto ?? el("cupom")?.value ?? "").trim().toUpperCase();
+
+  if (!codigo) {
+    cupomAplicado = null;
+    recadoDoCupom("");
+    atualizarTotais();
+    return;
+  }
+
+  if (!API_PEDIDOS_D1) return;
+
+  const botao = el("aplicarCupom");
+  if (botao && !silencioso) { botao.disabled = true; botao.textContent = "Conferindo…"; }
+
+  try {
+
+    const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/cupom/validar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        codigo,
+        subtotal: subtotalCarrinho(),
+        frete: valorFreteAtual(),
+        telefone: el("telefone")?.value || ""
+      })
+    });
+
+    const dados = await resposta.json().catch(() => ({}));
+
+    if (dados.valido) {
+      cupomAplicado = { codigo: dados.codigo, desconto: dados.desconto, tipo: dados.tipo };
+      recadoDoCupom(`Cupom ${dados.codigo} aplicado.`, "ok");
+    } else {
+      cupomAplicado = null;
+      recadoDoCupom(dados.motivo || "Cupom não encontrado.", "erro");
+    }
+
+  } catch (e) {
+    /* Sem rede, o cupom não entra — e dizer isso é melhor que deixar a
+       pessoa achando que entrou e descobrir no balcão. */
+    cupomAplicado = null;
+    recadoDoCupom("Não consegui conferir o cupom agora. Tente de novo.", "erro");
+  }
+
+  if (botao && !silencioso) { botao.disabled = false; botao.textContent = "Aplicar"; }
+
+  atualizarTotais();
+
+}
+
 function atualizarTotais() {
   const subtotal = subtotalCarrinho();
   const qtd = carrinho.reduce((a, b) => a + b.qtd, 0);
   const frete = valorFreteAtual();
-  const totalGeral = subtotal + frete;
+  const desconto = Math.min(descontoAtual(), subtotal + frete);
+  const totalGeral = Math.max(subtotal + frete - desconto, 0);
 
   el("total") && (el("total").textContent = fmt(totalGeral));
   el("qtd") && (el("qtd").textContent = qtd);
@@ -2356,6 +2448,15 @@ function atualizarTotais() {
      taxa que ninguém vai pagar. */
   el("resumoSubtotal") && (el("resumoSubtotal").textContent = fmt(subtotal));
   el("resumoTotal") && (el("resumoTotal").textContent = fmt(totalGeral));
+
+  const linhaDesconto = el("linhaDesconto");
+  if (linhaDesconto) {
+    linhaDesconto.hidden = !desconto;
+    el("rotuloDesconto") &&
+      (el("rotuloDesconto").textContent =
+        cupomAplicado ? `Desconto (${cupomAplicado.codigo})` : "Desconto");
+    el("resumoDesconto") && (el("resumoDesconto").textContent = "− " + fmt(desconto));
+  }
 
   const linhaFrete = el("linhaFrete");
   if (linhaFrete) {
@@ -3061,7 +3162,8 @@ function finalizar() {
 
   const subtotal = subtotalCarrinho();
   const frete = tipoEntrega === "Entrega" ? valorFreteAtual() : 0;
-  const totalGeral = subtotal + frete;
+  const desconto = Math.min(descontoAtual(), subtotal + frete);
+  const totalGeral = Math.max(subtotal + frete - desconto, 0);
 
   // código curto para casar o WhatsApp com a linha da planilha
   const ref = gerarNumeroDoPedido();
@@ -3092,6 +3194,11 @@ function finalizar() {
 
     m += `\nSubtotal: ${fmt(subtotal)}`;
     if (tipoEntrega === "Entrega") m += `\nTaxa de entrega: ${fmt(frete)}`;
+    /* O cupom vai escrito na mensagem, com o código.
+       Quem vai cobrar é a pessoa do balcão, e um total menor que a soma
+       dos itens, sem explicação, é o caminho mais curto para ela
+       "corrigir" o valor e cobrar o preço cheio de quem tinha desconto. */
+    if (desconto > 0) m += `\nDesconto (${cupomAplicado.codigo}): -${fmt(desconto)}`;
     m += `\n*TOTAL: ${fmt(totalGeral)}*\n`;
 
     m += `\n👤 ${nome}`;
@@ -3152,6 +3259,10 @@ function finalizar() {
         subtotal,
         frete,
         total: totalGeral,
+        /* O código vai; o DESCONTO não. Quem recalcula é o servidor, com
+           o cupom conferido de novo na hora — mandar o número daqui
+           seria pedir para o navegador dizer quanto quer pagar. */
+        cupom: cupomAplicado ? cupomAplicado.codigo : "",
         temReceita: itensControleEspecial.length > 0,
         itens: carrinho.map(item => ({
           ean: eanDoItem(item),

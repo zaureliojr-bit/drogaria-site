@@ -1665,6 +1665,75 @@ body.sem-barra-carrinho .carrinho { display: none; }
   gap: 8px;
 }
 
+/* ===== Cupom de desconto ===== */
+/* Discreto: quem não tem cupom não pode tropeçar nele no caminho do
+   botão de finalizar, e quem tem procura por ele de propósito. */
+.cupom-caixa {
+  background: var(--branco);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-md);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.cupom-rotulo {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tinta-suave);
+  margin-bottom: 7px;
+}
+
+.cupom-linha { display: flex; gap: 8px; }
+
+.cupom-linha input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-sm);
+  background: var(--papel-forte);
+  font-family: var(--fonte-corpo);
+  font-size: 13.5px;
+  /* O código é sempre maiúsculo. Mostrar assim enquanto se digita evita
+     a dúvida de "será que precisa ser maiúsculo?" — e o servidor aceita
+     dos dois jeitos de qualquer forma. */
+  text-transform: uppercase;
+  color: var(--tinta);
+}
+
+.cupom-linha input:focus {
+  outline: none;
+  background: var(--branco);
+  border-color: var(--marca);
+  box-shadow: 0 0 0 3px var(--marca-clara);
+}
+
+.btn-cupom {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--marca);
+  border-radius: var(--raio-sm);
+  background: var(--branco);
+  color: var(--marca);
+  font-family: var(--fonte-corpo);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-cupom:hover:not(:disabled) { background: var(--marca-clara); }
+.btn-cupom:disabled { opacity: .6; cursor: default; }
+
+.cupom-recado { margin: 8px 0 0; font-size: 12.5px; font-weight: 600; }
+.cupom-recado[data-tipo="ok"] { color: var(--ok); }
+/* A recusa não é vermelha de alarme: ela quase sempre diz o que fazer
+   ("vale a partir de R$ 50"), e vermelho faz a pessoa parar em vez de
+   ler. */
+.cupom-recado[data-tipo="erro"] { color: var(--tinta-suave); }
+
+.linha-resumo-desconto { color: var(--ok); font-weight: 700; }
+
 .aviso-privacidade {
   font-size: 11px;
   line-height: 1.5;

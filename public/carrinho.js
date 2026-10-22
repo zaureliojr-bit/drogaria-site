@@ -68,6 +68,34 @@
     if (box && !box.hidden && !box.querySelector(".aviso-vazio")) mostrarConteudo();
   }, 12000);
 
+  /* ---------- cupom ----------
+     A regra mora no script.js (aplicarCupom), que é quem fala com o
+     servidor; aqui ficam só os gatilhos desta página. */
+  document.getElementById("aplicarCupom")
+    ?.addEventListener("click", () => aplicarCupom());
+
+  document.getElementById("cupom")?.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Enter") return;
+    ev.preventDefault();
+    aplicarCupom();
+  });
+
+  /* O cupom é reconferido quando o carrinho ou a entrega mudam.
+
+     Quem aplica "R$ 10 acima de R$ 50" e depois tira itens até R$ 30
+     continuaria vendo o desconto na tela — e o servidor recusaria só no
+     envio, com a pessoa já achando que ia pagar menos. E o cupom de
+     frete grátis muda de valor quando o CEP muda a taxa. */
+  ["itens", "tipoEntrega", "cep"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("change", () => reconferirCupom());
+  });
+
+  document.getElementById("itens")?.addEventListener("click", () => {
+    /* o clique no + / − do item já redesenhou os totais; o cupom vai
+       atrás, depois que a quantidade nova está valendo */
+    setTimeout(() => reconferirCupom(), 120);
+  });
+
   /* A barra fixa da vitrine mostra o total; aqui o cabeçalho já mostra, e
      a barra duplicaria a informação em cima do botão de finalizar. */
   document.body.classList.add("sem-barra-carrinho");
