@@ -695,16 +695,16 @@
         <span class="fila-som-grupo">
           <label class="fila-som">
             <input type="checkbox" id="somLigado" checked>
-            Apitar enquanto houver pedido novo
+            Tocar até o pedido ser aceito
           </label>
-          <button type="button" id="testarSom" class="btn-testar-som">Testar som</button>
+          <button type="button" id="testarSom" class="btn-testar-som">Testar o toque</button>
         </span>
       </div>
 
       <div id="somBloqueado" class="som-bloqueado" hidden>
         O navegador está com o som bloqueado nesta aba. Clique em
-        <strong>Testar som</strong> aqui em cima para liberar — sem isso o
-        painel não vai apitar quando entrar pedido.
+        <strong>Testar o toque</strong> aqui em cima para liberar — sem isso
+        o painel não vai tocar quando entrar pedido.
       </div>
 
       <div class="fila" id="fila"></div>
@@ -2498,23 +2498,103 @@ function mostrarEstadoDoSom() {
   aviso.hidden = !travado;
 }
 
+/* O TOQUE: campainha de telefone de disco.
+   =========================
+
+   Eram três notinhas de sino, em onda senoidal e volume 0,25. Duas
+   coisas davam errado numa farmácia:
+
+     - senoide é a forma de onda que menos "aparece". Ela não tem
+       harmônico nenhum, então some no barulho do balcão, do ar
+       condicionado e da televisão da sala de espera — justo os três
+       lugares onde o painel fica;
+     - três notas que sobem terminam em acorde. Acorde soa como aviso
+       de aplicativo, o tipo de som que a gente aprende a ignorar.
+
+   O telefone antigo é o oposto, e não por nostalgia: ele foi desenhado
+   em 1890 para atravessar uma casa inteira. São duas campainhas de
+   metal com afinação diferente e um martelo batendo entre as duas umas
+   vinte vezes por segundo. É isso que faz o "trriiimmm" — e é esse
+   tremor rápido que o ouvido humano não consegue deixar de escutar.
+
+   Aqui são dois osciladores triangulares nessas duas afinações, com um
+   LFO quadrado alternando qual dos dois está tocando. Triangular, e não
+   senoidal, para ter o metal; quadrada no LFO para o martelo bater
+   seco, sem deslizar de um lado para o outro.
+
+   Tudo gerado na hora, como antes: um .mp3 seria mais um arquivo para
+   carregar, e o navegador bloqueia áudio até a pessoa clicar de
+   qualquer jeito. */
+const TOQUE = {
+  campainhaA: 1180,     // as duas campainhas do aparelho de disco
+  campainhaB: 980,
+  martelo: 22,          // batidas por segundo entre uma e outra
+  duracao: 1.3,         // uma badalada, como a do telefone de verdade
+  volume: 0.85          // era 0,25
+};
+
 function apitar() {
   if (!el("somLigado")?.checked) return;
   if (!audio || audio.state !== "running") { prepararSom(); return; }
+
   try {
-    [0, 0.18, 0.36].forEach((atraso, i) => {
-      const osc = audio.createOscillator();
+
+    const agora = audio.currentTime;
+    const fim = agora + TOQUE.duracao;
+
+    /* Compressor na saída: com dois osciladores em volume alto, a soma
+       estoura e vira chiado. Ele segura o pico sem derrubar o volume
+       médio, que é justamente o que faz o som PARECER mais alto. */
+    const limitador = audio.createDynamicsCompressor();
+    limitador.threshold.value = -10;
+    limitador.ratio.value = 12;
+    limitador.attack.value = 0.003;
+    limitador.connect(audio.destination);
+
+    const mestre = audio.createGain();
+    mestre.gain.setValueAtTime(0.0001, agora);
+    mestre.gain.exponentialRampToValueAtTime(TOQUE.volume, agora + 0.012);
+    mestre.gain.setValueAtTime(TOQUE.volume, fim - 0.08);
+    mestre.gain.exponentialRampToValueAtTime(0.0001, fim);
+    mestre.connect(limitador);
+
+    /* O martelo. A onda quadrada vale +1 e -1; multiplicada por 0,5 e
+       somada ao 0,5 de base, ela liga uma campainha enquanto desliga a
+       outra — que é o que o martelo físico faz. */
+    const martelo = audio.createOscillator();
+    martelo.type = "square";
+    martelo.frequency.value = TOQUE.martelo;
+
+    const paraA = audio.createGain();
+    paraA.gain.value = 0.5;
+    const paraB = audio.createGain();
+    paraB.gain.value = -0.5;
+
+    martelo.connect(paraA);
+    martelo.connect(paraB);
+
+    const osciladores = [martelo];
+
+    [[TOQUE.campainhaA, paraA], [TOQUE.campainhaB, paraB]].forEach(([hz, modulador]) => {
+
+      const campainha = audio.createOscillator();
+      campainha.type = "triangle";
+      campainha.frequency.value = hz;
+
       const vol = audio.createGain();
-      osc.type = "sine";
-      osc.frequency.value = i === 2 ? 1046 : 784;   // sol, sol, dó
-      vol.gain.setValueAtTime(0.0001, audio.currentTime + atraso);
-      vol.gain.exponentialRampToValueAtTime(0.25, audio.currentTime + atraso + 0.02);
-      vol.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + atraso + 0.16);
-      osc.connect(vol); vol.connect(audio.destination);
-      osc.start(audio.currentTime + atraso);
-      osc.stop(audio.currentTime + atraso + 0.18);
+      vol.gain.value = 0.5;        // base, que o martelo faz oscilar
+      modulador.connect(vol.gain);
+
+      campainha.connect(vol);
+      vol.connect(mestre);
+
+      osciladores.push(campainha);
+
     });
-  } catch (e) { /* idem */ }
+
+    osciladores.forEach((osc) => { osc.start(agora); osc.stop(fim + 0.02); });
+
+  } catch (e) { /* sem áudio, a tela ainda funciona */ }
 }
 
 function avisarNaTela(quantos) {
@@ -2676,7 +2756,16 @@ function cartaoPedido(p) {
    esperando. Antes isso era tratado como "não é novidade, não apita" —
    mas um pedido parado em "novo" precisa de atenção, tenha ele chegado
    agora ou há uma hora. */
-const INTERVALO_ALARME = 20000;
+/* De 20 segundos para 4. Vinte segundos de silêncio entre uma badalada
+   e outra é tempo suficiente para alguém atender o balcão, voltar e
+   achar que o som parou — e alarme que parece ter parado é alarme que
+   não cumpre a função.
+
+   Quatro segundos é a cadência de um telefone tocando de verdade (uma
+   badalada, uma pausa curta, de novo). Ele só para quando o pedido sai
+   de "novo", e quem tira é o botão "Iniciar separação". Enquanto o
+   pedido estiver parado esperando alguém, o painel toca. */
+const INTERVALO_ALARME = 4000;
 let timerAlarme = null;
 
 function ajustarAlarme() {
