@@ -288,6 +288,146 @@ console.log("\n6. a oferta que ficou mais cara que o preço normal");
     await contexto.close();
 }
 
+/* =====================================================================
+   PARTE 2 — o painel, onde o número é digitado
+   ===================================================================== */
+
+/* O defeito que esta parte existe para impedir de voltar:
+
+     digitado   3 por R$ 19,99
+     gravado    3 por R$ 1.999,00
+     na tela    "ignorada"
+
+   O <input type="number"> devolve o decimal com PONTO em qualquer
+   idioma ("19.99"), e a leitura tratava ponto como separador de
+   milhar. A trava que recusa oferta mais cara que o preço normal
+   funcionou direito — em cima de um número que ninguém digitou.
+
+   É a pior forma de erro de dinheiro: silenciosa, e com a tela dando
+   uma explicação convincente e errada. */
+
+const PRODUTOS_PAINEL = {
+    produtos: [
+        { codigo: "043024", ean: "7891106004001",
+          descricao: "Dipirona 1g Com/10 Comprimidos",
+          marca: "EMS", precoVenda: 14.99, categoria: "GENERICO", estoque: 30 }
+    ]
+};
+
+async function abrirPromocoes() {
+
+    const contexto = await navegador.newContext({ viewport: { width: 1280, height: 950 } });
+    const pagina = await contexto.newPage();
+
+    const enviados = [];
+
+    await pagina.route(/raw\.githubusercontent/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify(PRODUTOS_PAINEL)
+    }));
+
+    await pagina.route("**/farmatech-pedidos-proxy*/**", async (rota) => {
+
+        const url = new URL(rota.request().url());
+
+        const responder = (dados) => rota.fulfill({
+            status: 200, contentType: "application/json",
+            headers: { "Access-Control-Allow-Origin": "*" },
+            body: JSON.stringify(dados)
+        });
+
+        if (url.pathname === "/promocoes/quantidade" && rota.request().method() === "POST") {
+            let corpo = null;
+            try { corpo = JSON.parse(rota.request().postData() || "null"); } catch { /* lixo */ }
+            enviados.push(corpo);
+            return responder({ sucesso: true, gravados: 1 });
+        }
+
+        if (url.pathname === "/sessao") {
+            return responder({ dono: false, loja: { slug: "mais-barato", nome: "Drogaria Mais Barato", temSenhaPropria: true } });
+        }
+        if (url.pathname === "/promocoes/todas") {
+            return responder({ promocoes: [], lotes: [], quantidade: [] });
+        }
+        if (url.pathname === "/fila") return responder({ pedidos: [], abertos: ["novo"] });
+
+        return responder({ ok: true, cupons: [], clientes: [], banners: [],
+                           promocoes: [], lotes: [], encartes: [], pendente: false });
+    });
+
+    await pagina.goto(BASE + "/painel", { waitUntil: "domcontentloaded" });
+    await pagina.fill("#senha", "senha-qualquer");
+    await pagina.click("#btnEntrar");
+    await pagina.waitForSelector("#conteudo:not([style*=\'display: none\'])", { timeout: 20000 });
+
+    await pagina.click('[data-aba="promocoes"]');
+    await pagina.waitForSelector("#promoCorpo tr", { timeout: 15000 });
+
+    return { pagina, contexto, enviados };
+}
+
+console.log("\n7. o valor digitado é o valor gravado");
+{
+    const { pagina, contexto, enviados } = await abrirPromocoes();
+
+    await pagina.click('#promoCorpo input[type="checkbox"]');
+    await pagina.waitForTimeout(300);
+
+    await pagina.selectOption("#promoQtdTipo", "pacote");
+    await pagina.fill("#promoQtdQuantidade", "3");
+    await pagina.fill("#promoQtdPreco", "19.99");
+
+    pagina.once("dialog", (d) => d.accept());
+    await pagina.click("#promoQtdAplicar");
+    await pagina.waitForTimeout(1200);
+
+    const corpo = enviados[0] || {};
+
+    /* 1999 era o que chegava ao banco. Três unidades a R$ 14,99 custam
+       R$ 44,97, então a oferta "mais cara" era recusada e a tela dizia
+       "ignorada" — uma explicação convincente para um número que
+       ninguém digitou. */
+    conferir("o preço do pacote vai como 19,99, e não 1999",
+        corpo.preco === 19.99, JSON.stringify(corpo));
+
+    conferir("e a quantidade também", corpo.quantidade === 3, JSON.stringify(corpo));
+
+    await contexto.close();
+}
+
+console.log("\n8. e a oferta volta a valer");
+{
+    /* A prova do outro lado: com 19,99 de verdade, a mesma trava que
+       recusava agora aceita — ela nunca esteve errada. */
+    const conta = (q) => ({
+        tipo: "pacote", quantidade: 3, preco: 19.99, qtd: q
+    });
+
+    const contexto = await navegador.newContext();
+    const pagina = await contexto.newPage();
+    await pagina.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+    await pagina.waitForTimeout(1500);
+
+    const resultado = await pagina.evaluate(() => ({
+        certo: PromoQtd.rotulo({ tipo: "pacote", quantidade: 3, preco: 19.99 }, 14.99),
+        errado: PromoQtd.rotulo({ tipo: "pacote", quantidade: 3, preco: 1999 }, 14.99),
+        total: PromoQtd.aplicar({ tipo: "pacote", quantidade: 3, preco: 19.99 }, 3, 14.99).total
+    }));
+
+    conferir("3 por R$ 19,99 numa dipirona de R$ 14,99 é oferta",
+        resultado.certo === "3 por R$ 19,99", resultado.certo);
+
+    conferir("e três unidades custam 19,99", resultado.total === 19.99,
+        String(resultado.total));
+
+    /* A trava continua de pé para o caso que ela existe para pegar. */
+    conferir("3 por R$ 1.999,00 continua sendo ignorada",
+        resultado.errado === "", resultado.errado);
+
+    await contexto.close();
+}
+
 await navegador.close();
 
 console.log(falhas === 0 ? "\nTudo certo.\n" : `\n${falhas} falha(s).\n`);

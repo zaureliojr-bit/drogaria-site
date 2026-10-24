@@ -1718,9 +1718,35 @@ const dataCurta = ms => new Date(ms).toLocaleDateString("pt-BR", { day: "2-digit
 /* A planilha do PDV escreve preço como "1.234,56". Number() disso dá
    NaN, e NaN vira R$ 0,00 na tela — um produto de R$ 1.234 apareceria
    como de graça. */
+/* Lê um número que pode vir de dois lugares com regras OPOSTAS sobre o
+   ponto, e é essa diferença que já custou uma promoção errada no ar:
+
+     - digitado num <input type="number">, o navegador SEMPRE devolve o
+       decimal com PONTO ("19.99"), não importa o idioma dele. Quem
+       digita 19,99 numa farmácia brasileira recebe aqui "19.99";
+
+     - vindo de texto em formato brasileiro ("1.234,56"), o ponto é
+       separador de milhar e a vírgula é o decimal.
+
+   A versão antiga aplicava sempre a segunda regra. Resultado: "3 por
+   R$ 19,99" entrava no banco como R$ 1.999,00 — e a trava que recusa
+   oferta mais cara que o preço normal fazia seu trabalho em cima de um
+   número que ninguém tinha digitado. O mesmo valia para um cupom de
+   R$ 12,50, que virava R$ 1.250.
+
+   A regra agora é a vírgula: ela é o que distingue os dois formatos.
+   Tendo vírgula, é brasileiro; não tendo, é o que o campo numérico
+   entregou e já está pronto. */
 const numeroBR = v => {
   if (typeof v === "number") return v;
-  const n = Number(String(v ?? "").trim().replace(/\./g, "").replace(",", "."));
+
+  const texto = String(v ?? "").trim();
+  if (!texto) return 0;
+
+  const n = Number(texto.includes(",")
+    ? texto.replace(/\./g, "").replace(",", ".")
+    : texto);
+
   return Number.isFinite(n) ? n : 0;
 };
 

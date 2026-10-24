@@ -49,11 +49,24 @@
             .toLowerCase().trim();
     }
 
+    /* Ponto é decimal ou milhar conforme a origem, e confundir os dois
+       aqui é preço errado no anúncio: um <input type="number"> devolve
+       "19.99" (ponto decimal, em qualquer idioma), enquanto um texto
+       em formato brasileiro escreve "1.234,56" (ponto de milhar).
+       A vírgula é o que distingue os dois. */
     function numero(valor) {
-        var n = typeof valor === "number" ? valor : parseFloat(
-            String(valor || "").replace(/\./g, "").replace(",", ".")
-        );
+
+        if (typeof valor === "number") return isFinite(valor) ? valor : 0;
+
+        var texto = String(valor === undefined || valor === null ? "" : valor).trim();
+        if (!texto) return 0;
+
+        var n = Number(texto.indexOf(",") >= 0
+            ? texto.replace(/\./g, "").replace(",", ".")
+            : texto);
+
         return isFinite(n) ? n : 0;
+
     }
 
     /* ------------------------------------------------------------------

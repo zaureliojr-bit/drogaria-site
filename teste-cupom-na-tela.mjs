@@ -222,6 +222,85 @@ console.log("\n4. o pedido manda o código, não o desconto");
     await contexto.close();
 }
 
+/* ---- o cupom com centavos, criado no painel -------------------------- */
+console.log("\nO valor digitado no painel é o valor do cupom");
+{
+    /* O mesmo defeito que fez "3 por R$ 19,99" virar R$ 1.999: o
+       <input type="number"> devolve o decimal com PONTO em qualquer
+       idioma, e a leitura tratava ponto como separador de milhar.
+
+       Aqui ele era pior e mais silencioso: um cupom de R$ 12,50 virava
+       R$ 1.250 de desconto, e nada na tela recusaria isso. O primeiro
+       a descobrir seria o cliente, no caixa, com o pedido inteiro de
+       graça. Passou despercebido até agora porque todo cupom criado
+       tinha valor redondo. */
+
+    const contexto = await navegador.newContext({ viewport: { width: 1280, height: 950 } });
+    const pagina = await contexto.newPage();
+
+    const enviados = [];
+
+    await pagina.route(/raw\.githubusercontent/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify(CATALOGO)
+    }));
+
+    await pagina.route("**/farmatech-pedidos-proxy*/**", async (rota) => {
+
+        const url = new URL(rota.request().url());
+
+        const responder = (dados) => rota.fulfill({
+            status: 200, contentType: "application/json",
+            headers: { "Access-Control-Allow-Origin": "*" },
+            body: JSON.stringify(dados)
+        });
+
+        if (url.pathname === "/cupons" && rota.request().method() === "POST") {
+            let corpo = null;
+            try { corpo = JSON.parse(rota.request().postData() || "null"); } catch { /* lixo */ }
+            enviados.push(corpo);
+            return responder({ ok: true, codigo: (corpo || {}).codigo });
+        }
+
+        if (url.pathname === "/sessao") {
+            return responder({ dono: false, loja: { slug: "mais-barato", nome: "Drogaria Mais Barato", temSenhaPropria: true } });
+        }
+        if (url.pathname === "/fila") return responder({ pedidos: [], abertos: ["novo"] });
+
+        return responder({ ok: true, cupons: [], clientes: [], banners: [],
+                           promocoes: [], lotes: [], encartes: [], pendente: false });
+    });
+
+    await pagina.goto(BASE + "/painel", { waitUntil: "domcontentloaded" });
+    await pagina.fill("#senha", "senha-qualquer");
+    await pagina.click("#btnEntrar");
+    await pagina.waitForSelector("#conteudo:not([style*='display: none'])", { timeout: 20000 });
+
+    await pagina.click('[data-aba="cupons"]');
+    await pagina.waitForTimeout(800);
+
+    await pagina.fill("#cupomCodigo", "CENTAVOS");
+    await pagina.selectOption("#cupomTipo", "valor");
+    await pagina.fill("#cupomValor", "12.50");
+    await pagina.fill("#cupomMinimo", "79.90");
+    await pagina.click('#formCupom button[type="submit"]');
+    await pagina.waitForTimeout(1200);
+
+    const corpo = enviados[0] || {};
+
+    conferir("R$ 12,50 de desconto vai como 12,5, e não 1250",
+        corpo.valor === 12.5, JSON.stringify(corpo));
+
+    /* O mínimo errado é o outro lado da mesma moeda: um cupom com
+       mínimo de R$ 7.990 nunca valeria para ninguém, e a loja passaria
+       a campanha inteira achando que o cupom "não pega". */
+    conferir("e o pedido mínimo como 79,9", corpo.minimo === 79.9,
+        JSON.stringify(corpo));
+
+    await contexto.close();
+}
+
 await navegador.close();
 
 console.log(falhas === 0 ? "\nTudo certo.\n" : `\n${falhas} falha(s).\n`);
