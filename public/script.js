@@ -2345,8 +2345,12 @@ function renderCarrinho() {
         <small>${fmt(p.preco)} cada</small>
         ${rotulo ? `<small class="item-oferta">${esc(rotulo)}</small>` : ""}
         ${conta.economia > 0
-            ? `<small class="item-oferta-conta">${p.qtd} por ${fmt(conta.total)}
-                 <span>(economia de ${fmt(conta.economia)})</span></small>`
+            /* "Você paga", e não "3 por R$ 19,99": quando a quantidade
+               fecha o pacote exato, essa segunda frase era idêntica ao
+               rótulo logo acima e a linha ficava gaguejando. Esta diz
+               o que a de cima não diz — o que sai do bolso agora. */
+            ? `<small class="item-oferta-conta">Você paga ${fmt(conta.total)}
+                 <span>· economia de ${fmt(conta.economia)}</span></small>`
             : ""}
         ${convite ? `<small class="item-oferta-convite">${esc(convite)}</small>` : ""}
       </div>
