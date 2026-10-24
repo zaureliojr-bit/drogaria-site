@@ -2138,6 +2138,12 @@ function mais(codigo) {
 
   atualizarQtdNaTela(codigo);
   salvar();
+
+  /* Depois de todas as recusas, nunca antes: esgotado e controlado
+     saem por cima, e marcar ali diria que a visita chegou ao carrinho
+     sem nada ter entrado nele. */
+  marcarEtapa("carrinho");
+
   return true;
 }
 
@@ -3493,6 +3499,84 @@ if ("serviceWorker" in navigator) {
 }
 
 /* =========================
+📉 O FUNIL DA LOJA
+========================= */
+/* Quatro números, na mesma unidade: de cada 100 visitas, quantas
+   buscaram, quantas chegaram ao carrinho, quantas pediram.
+
+   O que a farmácia faz com isso é olhar ONDE A CONTA CAI. Se muita
+   gente põe no carrinho e pouca gente pede, o problema é o fim da
+   compra — frete, forma de pagamento, o botão do WhatsApp. Se quase
+   ninguém busca, o problema é a vitrine. Um número só ("entraram 300")
+   não aponta para nada.
+
+   CADA ETAPA CONTA UMA VEZ POR ABA
+
+   Sem isso os números não se comparam: uma pessoa abre cinco páginas e
+   busca três vezes, e "300 páginas" ao lado de "90 buscas" não diria
+   que 30% buscaram. O que lembra o que já foi mandado é um registro no
+   sessionStorage, que morre quando a aba fecha.
+
+   ESSE REGISTRO NUNCA SAI DAQUI. O corpo que vai ao worker tem uma
+   palavra — "visita", "busca", "carrinho" — e nada mais. É por isso que
+   não há cookie, não há identificador e não há banner de consentimento:
+   numa farmácia o que a pessoa procura é informação de saúde, e o jeito
+   mais seguro de guardar isso é não ter como ligar a ninguém.
+
+   A quarta etapa, "pedido", não é marcada aqui — quem a conta é o
+   worker, quando o pedido entra de verdade. Daqui o site poderia dizer
+   "pedido" sem pedido nenhum, e o funil mostraria mais vendas do que a
+   loja fez. */
+
+const ETAPAS_MARCADAS = "funil-etapas";
+
+function marcarEtapa(etapa) {
+
+    try {
+
+        /* sessionStorage pode estar bloqueado (aba privada, cookies
+           desligados). Aí o funil perde essa visita, e está tudo bem:
+           é estatística, não é o pedido de ninguém. */
+        const jaFoi = sessionStorage.getItem(ETAPAS_MARCADAS) || "";
+
+        if (jaFoi.split(",").includes(etapa)) return;
+
+        sessionStorage.setItem(
+            ETAPAS_MARCADAS,
+            jaFoi ? jaFoi + "," + etapa : etapa
+        );
+
+    } catch {
+        /* sem onde lembrar, não marca: contar a mesma aba cinco vezes
+           estragaria a comparação entre as etapas, que é o único
+           motivo de o funil existir */
+        return;
+    }
+
+    const corpo = JSON.stringify({ etapa });
+
+    try {
+
+        // text/plain pelo mesmo motivo do /busca: sendBeacon não
+        // sobrevive a uma verificação de CORS. O worker lê como JSON.
+        const pacote = new Blob([corpo], { type: "text/plain" });
+
+        if (navigator.sendBeacon?.(API_PEDIDOS_D1 + "/funil", pacote)) return;
+
+        fetch(API_PEDIDOS_D1 + "/funil", {
+            method: "POST",
+            body: corpo,
+            keepalive: true,
+            headers: { "Content-Type": "text/plain" }
+        }).catch(() => {});
+
+    } catch {
+        /* idem: contagem não pode atrapalhar quem está comprando */
+    }
+
+}
+
+/* =========================
 🔎 O QUE OS CLIENTES PROCURAM
 ========================= */
 /* Registra o termo digitado na busca, para o painel da loja responder
@@ -3531,6 +3615,14 @@ function anotarBusca(termo, resultados) {
     // sobrescreve sempre: o termo mais novo é o que o cliente quis
     // dizer, e o anterior era só o caminho até ele
     buscaPendente = { termo, resultados };
+
+    /* A etapa "buscou" do funil é marcada aqui, e não no envio lá
+       embaixo: o envio só acontece quando o cliente toca em Buscar,
+       aperta Enter ou sai da página, e quem digita, olha a lista que
+       apareceu e clica num produto nunca passaria por lá — mesmo tendo
+       buscado. O marcarEtapa conta uma vez por aba, então chamar a cada
+       refiltragem não infla nada. */
+    marcarEtapa("busca");
 
 }
 
@@ -3577,6 +3669,11 @@ function enviarBuscaPendente() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+
+    /* A primeira etapa do funil. Uma vez por aba, em qualquer página do
+       site: quem entra pela página de um produto compartilhado no
+       WhatsApp é uma visita igual a quem entra pela home. */
+    marcarEtapa("visita");
 
     // O botão "Buscar" já chama buscar(), que fecha a busca por lá.
     el("busca")?.addEventListener("keydown", (e) => {
