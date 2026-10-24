@@ -133,6 +133,67 @@ console.log("\n4. o endereço fica pronto para copiar da barra");
     await contexto.close();
 }
 
+/* ---- 5. sair da busca também limpa o endereço ------------------------ */
+console.log("\n5. voltar para a vitrine não deixa a busca na barra");
+{
+    /* O defeito, visto na loja: buscar "Goodvit", voltar para a vitrine
+       e a barra continuar dizendo ?busca=Goodvit com os destaques da
+       semana na tela. É esse endereço que a atendente copia para o
+       WhatsApp — o cliente abriria uma página diferente da que ela
+       estava vendo. E um F5 traria de volta a busca que ela já tinha
+       deixado. */
+    const { pagina, contexto } = await abrir("/?busca=ibuprofeno");
+
+    conferir("a busca está na barra",
+        new URL(pagina.url()).searchParams.get("busca") === "ibuprofeno", pagina.url());
+
+    await pagina.click('[data-acao="voltar-vitrine"]');
+    await pagina.waitForTimeout(900);
+
+    conferir("voltando para a vitrine, o parâmetro some",
+        !new URL(pagina.url()).searchParams.has("busca"), pagina.url());
+
+    /* A prova de que a barra e a tela passaram a dizer a mesma coisa:
+       recarregar o endereço devolve a MESMA tela, e não a busca. */
+    await pagina.reload({ waitUntil: "domcontentloaded" });
+    await pagina.waitForTimeout(2500);
+
+    const campo = await pagina.inputValue("#busca");
+    conferir("e recarregar não ressuscita a busca", campo === "", campo);
+
+    await contexto.close();
+}
+
+/* ---- 6. as outras portas de saída da busca --------------------------- */
+console.log("\n6. categoria e ofertas idem");
+{
+    const { pagina, contexto } = await abrir("/?busca=ibuprofeno");
+
+    await pagina.click('#filtros [data-acao="filtrar"]');
+    await pagina.waitForTimeout(900);
+
+    conferir("entrar numa categoria tira a busca da barra",
+        !new URL(pagina.url()).searchParams.has("busca"), pagina.url());
+
+    await contexto.close();
+}
+
+{
+    const { pagina, contexto } = await abrir("/?busca=ibuprofeno");
+
+    /* Chamado direto, e não pelo chip: o chip "Ofertas" só aparece
+       quando o catálogo tem alguma, e este catálogo de teste é o que as
+       outras provas deste arquivo contam card por card. A função é a
+       mesma que o chip chama. */
+    await pagina.evaluate(() => verOfertas());
+    await pagina.waitForTimeout(900);
+
+    conferir("abrir as ofertas também",
+        !new URL(pagina.url()).searchParams.has("busca"), pagina.url());
+
+    await contexto.close();
+}
+
 function location0(u) { return new URL(u).searchParams.has("busca"); }
 
 await navegador.close();

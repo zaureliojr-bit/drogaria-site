@@ -597,7 +597,19 @@ document.addEventListener("produtosProntos", (ev) => {
    replaceState, e não pushState: digitar "ibuprofeno" dispara a busca a
    cada tecla, e com pushState o botão "voltar" teria de ser apertado
    dez vezes para sair da página. Com replace, o endereço fica sempre
-   certo e o "voltar" leva de onde a pessoa veio. */
+   certo e o "voltar" leva de onde a pessoa veio.
+
+   E SAIR DA BUSCA TAMBÉM MEXE NO ENDEREÇO. Isto faltava: o parâmetro
+   entrava quando alguém buscava e não saía quando a pessoa voltava
+   para a vitrine, escolhia uma categoria ou abria as ofertas. A tela
+   mostrava os destaques da semana e a barra continuava dizendo
+   ?busca=Goodvit — que é justamente o endereço que a atendente copia
+   para mandar no WhatsApp. O cliente abriria uma página diferente da
+   que ela estava vendo, e um F5 traria de volta a busca que ela já
+   tinha deixado.
+
+   Por isso o sincronizarEndereco é chamado em todo caminho que muda o
+   que está na grade, e não só no que entra na busca. */
 function enderecoDaBusca() {
 
     const termo = (el("busca")?.value || "").trim();
@@ -1459,6 +1471,7 @@ function filtrarCategoria(familiaId) {
 
   marcarChipAtivo(categoriaAtual);
   aplicarFiltro();
+  sincronizarEndereco();
 
   if (categoriaAtual !== "todas") {
     rolarParaResultados();
@@ -1561,6 +1574,7 @@ function voltarParaVitrine() {
 
   marcarChipAtivo("todas");
   aplicarFiltro();
+  sincronizarEndereco();
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1576,6 +1590,7 @@ function verOfertas() {
 
   marcarChipAtivo("ofertas");
   aplicarFiltro();
+  sincronizarEndereco();
   rolarParaResultados();
 }
 
