@@ -488,6 +488,22 @@
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
   }
   .promo-barra strong { font-size: 13px; color: var(--marca-escura); }
+
+  /* A oferta de quantidade ganha linha própria, separada por um traço.
+
+     Não é organização: é para a tela dizer que as duas CONVIVEM. "R$
+     5,90 cada, ou 3 por R$ 15" é como a farmácia anuncia, e tudo no
+     mesmo bloco faria parecer que preencher uma apaga a outra. */
+  .promo-qtd-linha {
+    flex-basis: 100%;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding-top: 10px; border-top: 1px dashed var(--marca);
+  }
+  .promo-qtd-linha .campo-linha { display: flex; align-items: center; gap: 6px; }
+  .promo-qtd-linha span { font-size: 13px; color: var(--marca-escura); }
+  .promo-barra input[type=number]#promoQtdLeve,
+  .promo-barra input[type=number]#promoQtdPague,
+  .promo-barra input[type=number]#promoQtdQuantidade { width: 64px; }
   .promo-barra select, .promo-barra input {
     padding: 8px 10px; font-size: 13px; font-family: var(--fonte-corpo);
     border: 1.5px solid var(--linha); border-radius: var(--raio-sm);
@@ -1085,6 +1101,38 @@
 
         <button type="button" id="promoAplicar" class="principal">Aplicar</button>
         <button type="button" id="promoTirar" class="perigo">Tirar promoção</button>
+
+        <!-- Segunda linha, separada da de cima de propósito: são duas
+             promoções diferentes e elas CONVIVEM. "R$ 5,90 cada, ou 3
+             por R$ 15" é como a farmácia anuncia, e um formulário só
+             faria parecer que escolher uma apaga a outra. -->
+        <div class="promo-qtd-linha">
+          <strong>Oferta de quantidade</strong>
+
+          <label class="campo-linha">
+            <select id="promoQtdTipo">
+              <option value="">Nenhuma</option>
+              <option value="leve-pague">Leve … pague …</option>
+              <option value="pacote">… por R$ …</option>
+            </select>
+          </label>
+
+          <label class="campo-linha" id="campoLevePague" hidden>
+            <span>Leve</span>
+            <input type="number" id="promoQtdLeve" min="2" step="1" value="3">
+            <span>pague</span>
+            <input type="number" id="promoQtdPague" min="1" step="1" value="2">
+          </label>
+
+          <label class="campo-linha" id="campoPacote" hidden>
+            <input type="number" id="promoQtdQuantidade" min="2" step="1" value="3">
+            <span>por R$</span>
+            <input type="number" id="promoQtdPreco" min="0" step="0.01" value="10">
+          </label>
+
+          <button type="button" id="promoQtdAplicar" class="principal" hidden>Aplicar oferta</button>
+          <button type="button" id="promoQtdTirar" class="perigo">Tirar oferta</button>
+        </div>
       </div>
 
       <div id="promoLotes" class="promo-lotes"></div>
@@ -1099,6 +1147,7 @@
               <th class="num-col">Tabela</th>
               <th class="num-col">Promoção</th>
               <th class="num-col">Desconto</th>
+              <th>Oferta</th>
               <th>Prazo</th>
             </tr>
           </thead>
@@ -1645,6 +1694,10 @@
      nunca sugerir anúncio de medicamento que exige prescrição — o que
      a RDC 96/2008 proíbe e o que faz o Google e o Meta suspenderem a
      conta da loja. -->
+<!-- A conta das ofertas de quantidade, a mesma que o site usa: a
+     validação do painel e o que o cliente paga têm de sair do mesmo
+     lugar, ou um dia divergem e a loja descobre no caixa. -->
+<script src="promoQtd.js"></script>
 <script src="receita.js"></script>
 <!-- A regra do "o que anunciar": roda sem navegador e tem teste
      (teste-anunciar.mjs). A tela aqui só desenha o que ela devolve. -->
@@ -3863,6 +3916,10 @@ const PROMO_MAX_LOTE = 500;
 
 let promocoes = new Map();     // codigo -> { preco, inicio, fim, ativo, lote }
 let lotesDePromocao = [];
+
+/* As ofertas de quantidade ("leve 3 pague 2", "3 por R$ 10"). Mapa à
+   parte da `promocoes` porque as duas convivem no mesmo produto. */
+let ofertasQtd = new Map();
 let promoFiltrados = [];
 let promoMostrando = PROMO_POR_PAGINA;
 let promoMarcados = new Set();
@@ -3879,6 +3936,7 @@ async function carregarPromocoes() {
   const dados = await api("/promocoes/todas");
   promocoes = new Map((dados.promocoes || []).map(p => [String(p.codigo), p]));
   lotesDePromocao = dados.lotes || [];
+  ofertasQtd = new Map((dados.quantidade || []).map(o => [String(o.codigo), o]));
 
   montarFiltrosDePromocao();
   pintarLotes();
@@ -3973,6 +4031,23 @@ function pintarPromocoes() {
       ? `${promo.inicio ? promo.inicio.split("-").reverse().join("/") : "já"} → ${promo.fim ? promo.fim.split("-").reverse().join("/") : "sem fim"}`
       : promo ? "sem prazo" : (valendo != null ? "da planilha" : "—");
 
+    /* A oferta de quantidade é mostrada pelo MESMO cálculo do site
+       (promoQtd.js). Assim, uma oferta que ficou mais cara que o preço
+       normal — a planilha reexportou mais barato e ninguém reviu —
+       aparece aqui marcada como ignorada, em vez de a loja descobrir
+       pelo cliente que ela não está pegando. */
+    const oferta = ofertasQtd.get(String(p.codigo));
+    const precoDeHoje = valendo != null ? valendo : p.preco;
+
+    let celulaOferta = `<span class="promo-sem">—</span>`;
+
+    if (oferta && oferta.ativo) {
+      const rotulo = PromoQtd.rotulo(oferta, precoDeHoje);
+      celulaOferta = rotulo
+        ? `<span class="promo-preco-novo">${esc(rotulo)}</span>`
+        : `<span class="promo-inutil" title="Sai mais cara que o preço normal, então o site ignora">ignorada</span>`;
+    }
+
     return `
       <tr>
         <td><input type="checkbox" data-codigo="${esc(p.codigo)}" ${promoMarcados.has(p.codigo) ? "checked" : ""}></td>
@@ -3981,9 +4056,10 @@ function pintarPromocoes() {
         <td class="num-col">${dinheiro(p.preco)}</td>
         <td class="num-col">${celulaPromo}</td>
         <td class="num-col">${celulaDesconto}</td>
+        <td>${celulaOferta}</td>
         <td>${esc(prazo)}</td>
       </tr>`;
-  }).join("") || `<tr><td colspan="7"><div class="vazio">Nenhum produto com esses filtros.</div></td></tr>`;
+  }).join("") || `<tr><td colspan="8"><div class="vazio">Nenhum produto com esses filtros.</div></td></tr>`;
 
   el("promoContagem").textContent =
     `${visiveis.length} de ${promoFiltrados.length} produto(s)` +
@@ -4129,6 +4205,125 @@ el("promoTirar").addEventListener("click", async () => {
   } catch (e) {
     avisoPromo("Não consegui remover: " + e.message);
   }
+});
+
+/* ---------- as ofertas de quantidade ---------- */
+/* A conta é a MESMA do site (promoQtd.js), de propósito: a validação
+   daqui e o que o cliente vai pagar precisam sair do mesmo lugar, ou um
+   dia divergem e a loja descobre no caixa. */
+
+function ofertaDoFormulario() {
+
+  const tipo = el("promoQtdTipo").value;
+  if (!tipo) return null;
+
+  return tipo === "leve-pague"
+    ? { tipo, leve: Number(el("promoQtdLeve").value),
+        pague: Number(el("promoQtdPague").value) }
+    : { tipo, quantidade: Number(el("promoQtdQuantidade").value),
+        preco: numeroBR(el("promoQtdPreco").value) };
+
+}
+
+/* Mostra só os campos do tipo escolhido: "leve 3 pague 2" e "3 por
+   R$ 10" não têm nenhum campo em comum, e os dois na tela ao mesmo
+   tempo é o jeito de alguém preencher um e aplicar o outro. */
+el("promoQtdTipo").addEventListener("change", () => {
+  const tipo = el("promoQtdTipo").value;
+  el("campoLevePague").hidden = tipo !== "leve-pague";
+  el("campoPacote").hidden = tipo !== "pacote";
+  el("promoQtdAplicar").hidden = !tipo;
+  avisoPromo("");
+});
+
+el("promoQtdAplicar").addEventListener("click", async () => {
+
+  const marcados = [...promoMarcados];
+  if (!marcados.length) return;
+
+  const oferta = ofertaDoFormulario();
+  if (!oferta) return avisoPromo("Escolha o tipo da oferta.");
+
+  if (marcados.length > PROMO_MAX_LOTE) {
+    return avisoPromo(`São ${marcados.length} produtos. O máximo por vez é ${PROMO_MAX_LOTE} — use os filtros para dividir.`);
+  }
+
+  /* A validação é por produto porque a resposta depende do preço de
+     cada um: "3 por R$ 10" é promoção numa fralda de R$ 5 e cobrança
+     indevida numa de R$ 3. O primeiro erro já para — avisar um e
+     aplicar o resto deixaria a loja sem saber o que entrou. */
+  const erroGeral = PromoQtd.erroDeCadastro(oferta, 0);
+  if (erroGeral) return avisoPromo(erroGeral);
+
+  const ignorados = [];
+
+  for (const codigo of marcados) {
+    const p = catalogo.get(codigo);
+    if (!p) continue;
+    const preco = precoValendo(p) != null ? precoValendo(p) : p.preco;
+    if (PromoQtd.erroDeCadastro(oferta, preco)) ignorados.push(p.nome);
+  }
+
+  const resumo = PromoQtd.rotulo(oferta, 100) || "esta oferta";
+
+  if (!confirm(`Aplicar "${resumo}" em ${marcados.length} produto(s)?` +
+      (ignorados.length
+        ? `\n\nAtenção: em ${ignorados.length} deles a oferta sai mais cara que o preço normal, e o site vai ignorá-la. Ex.: ${ignorados[0]}`
+        : ""))) return;
+
+  const botao = el("promoQtdAplicar");
+  botao.disabled = true; botao.textContent = "Aplicando…";
+
+  try {
+
+    const r = await fetch(`${API.replace(/\/+$/, "")}/promocoes/quantidade`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        codigos: marcados,
+        ...oferta,
+        inicio: el("promoInicio").value,
+        fim: el("promoFim").value,
+        lote: el("promoLote").value.trim() || null
+      })
+    });
+
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+
+    promoMarcados.clear();
+    await carregarPromocoes();
+    avisoPromo(`Oferta aplicada em ${dados.gravados} produto(s).`, "ok");
+
+  } catch (e) {
+    avisoPromo("Não consegui aplicar: " + e.message);
+  } finally {
+    botao.disabled = false; botao.textContent = "Aplicar oferta";
+  }
+
+});
+
+el("promoQtdTirar").addEventListener("click", async () => {
+
+  const marcados = [...promoMarcados].filter(c => ofertasQtd.has(String(c)));
+
+  if (!marcados.length) return avisoPromo("Nenhum dos marcados tem oferta de quantidade.");
+  if (!confirm(`Tirar a oferta de quantidade de ${marcados.length} produto(s)?`)) return;
+
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/promocoes/quantidade/excluir`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ codigos: marcados })
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    promoMarcados.clear();
+    await carregarPromocoes();
+    avisoPromo("Ofertas removidas.", "ok");
+  } catch (e) {
+    avisoPromo("Não consegui remover: " + e.message);
+  }
+
 });
 
 /* ---------- desfazer um lote inteiro ---------- */

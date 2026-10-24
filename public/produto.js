@@ -148,6 +148,18 @@ function renderProdutoDetalhe(p) {
       ` : `
         <span class="preco preco-detalhe">${precoGrandeHTML(p.preco)}</span>
       `}
+
+      <!-- A oferta de quantidade, onde o cliente decide quantas vai
+           levar. É a tela mais importante para ela: no card há espaço
+           para o rótulo, mas é aqui que a pessoa escolhe o número. -->
+      ${PromoQtd.rotulo(p.ofertaQtd, p.preco) ? `
+        <div class="produto-oferta-qtd">
+          <strong>${esc(PromoQtd.rotulo(p.ofertaQtd, p.preco))}</strong>
+          <span>levando ${PromoQtd.tamanhoDoPacote(p.ofertaQtd)},
+                sai por ${fmt(PromoQtd.precoDoPacote(p.ofertaQtd, p.preco)
+                              / PromoQtd.tamanhoDoPacote(p.ofertaQtd))} cada</span>
+        </div>
+      ` : ""}
     </div>
 
     <!-- É aqui, e só aqui, que o número de unidades aparece: esta é a

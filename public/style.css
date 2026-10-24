@@ -1089,6 +1089,17 @@ h1, h2 { font-family: var(--fonte-titulo); }
 .card-mini .faixa { margin: 0 -10px; font-size: 9.5px; padding: 4px 8px; }
 
 .faixa-oferta   { background: var(--tag-clara);   color: var(--tag-escura); }
+
+/* A oferta de quantidade tem faixa própria, e mais forte que a de
+   oferta comum: "Leve 3 pague 2" é a promoção inteira numa frase, e é
+   o que faz a pessoa parar no card. Fundo cheio em vez de clarinho
+   porque ela disputa atenção com o preço logo abaixo. */
+.faixa-oferta-qtd {
+  background: var(--tag); color: #fff; font-weight: 700;
+  /* O rótulo é mais comprido que "Oferta" e não pode empurrar o card:
+     num nome grande ele corta com reticências em vez de quebrar. */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .faixa-controle { background: #E4F2EA;            color: var(--ok); }
 .faixa-receita  { background: var(--marca-clara); color: var(--marca); }
 
@@ -1599,6 +1610,37 @@ body.sem-barra-carrinho .carrinho { display: none; }
   font-size: 11px;
   font-family: var(--fonte-preco);
   font-variant-numeric: tabular-nums;
+}
+
+/* As três linhas da oferta de quantidade dentro do item do carrinho.
+
+   Cada uma só aparece quando tem o que dizer, e as cores separam o que
+   são: o rótulo é a promessa, a conta é o que ela fez com esta linha, e
+   o convite é o único que pede alguma coisa. */
+/* A oferta de quantidade na página do produto. Ganha caixa própria
+   porque é aqui que a pessoa escolhe o número de unidades, e o "sai por
+   X cada" é a conta que ela faria de cabeça — e faria errado. */
+.produto-oferta-qtd {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--tag-clara); border-radius: var(--raio-md);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.produto-oferta-qtd strong { color: var(--tag-escura); font-size: 15px; }
+.produto-oferta-qtd span { color: var(--tinta-suave); font-size: 12.5px; }
+
+.item-oferta {
+  display: block; color: var(--tag-escura) !important; font-weight: 700;
+}
+.item-oferta-conta { display: block; color: var(--ok) !important; }
+.item-oferta-conta span { opacity: .8; }
+
+/* O convite ("Leve mais 1 e pague só 2") é o que transforma a promoção
+   em venda — sem ele ela só existe para quem já ia levar três. Com
+   fundo, porque é um pedido, não uma informação. */
+.item-oferta-convite {
+  display: inline-block; margin-top: 3px;
+  background: var(--tag-clara); color: var(--tag-escura) !important;
+  padding: 2px 7px; border-radius: 20px; font-weight: 700;
 }
 
 .item-qtd {

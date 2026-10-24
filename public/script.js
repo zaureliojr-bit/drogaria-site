@@ -646,11 +646,13 @@ manda no preço promocional enquanto a promoção estiver valendo. */
 async function aplicarPromocoesDoPainel() {
   if (!API_PEDIDOS_D1) return;
 
-  let promocoes;
+  let promocoes, ofertasDeQuantidade;
   try {
     const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/promocoes`, { cache: "no-cache" });
     if (!resposta.ok) throw new Error("HTTP " + resposta.status);
-    promocoes = (await resposta.json()).promocoes || [];
+    const corpo = await resposta.json();
+    promocoes = corpo.promocoes || [];
+    ofertasDeQuantidade = corpo.quantidade || [];
   } catch (e) {
     /* Sem o painel, vale o que veio da planilha. Preço de tabela é o
        preço certo; o cliente paga mais caro do que poderia, o que é
@@ -658,6 +660,22 @@ async function aplicarPromocoesDoPainel() {
        mais confirmar seria pior. */
     console.info("Promoções do painel indisponíveis; valendo o preço da planilha.", e);
     return;
+  }
+
+  /* As ofertas de quantidade ("leve 3 pague 2", "3 por R$ 10") vêm na
+     mesma resposta e ficam penduradas no produto, cruas. Quem decide se
+     valem e quanto custam é o promoQtd.js, no momento de somar — porque
+     o preço unitário pode mudar depois daqui (promoção do painel,
+     reexportação) e uma oferta congelada agora ficaria errada. */
+  const ofertas = new Map(
+    ofertasDeQuantidade.map(o => [String(o.codigo), o])
+  );
+
+  if (ofertas.size) {
+    produtos.forEach(p => {
+      const oferta = ofertas.get(String(p.codigo));
+      if (oferta) p.ofertaQtd = oferta;
+    });
   }
 
   if (!promocoes.length) return;
@@ -1923,9 +1941,14 @@ function cardHTML(p, mini = false) {
     ? `<div class="faixa faixa-receita">${icone("receita", 11)}Retém receita</div>`
     : p.confirmarReceita
       ? `<div class="faixa faixa-controle">${icone("receita", 11)}Envie a receita</div>`
-      : p.emOferta && !p.descontoSuspeito
-        ? `<div class="faixa faixa-oferta">${icone("tag", 11)}Oferta</div>`
-        : `<div class="faixa faixa-vazia" aria-hidden="true"></div>`;
+      : rotuloDaOfertaQtd(p)
+        /* A oferta de quantidade vem ANTES de "Oferta" porque diz mais:
+           "Leve 3 pague 2" é a promoção inteira numa frase, enquanto
+           "Oferta" só avisa que existe desconto e manda procurar. */
+        ? `<div class="faixa faixa-oferta-qtd">${icone("tag", 11)}${esc(rotuloDaOfertaQtd(p))}</div>`
+        : p.emOferta && !p.descontoSuspeito
+          ? `<div class="faixa faixa-oferta">${icone("tag", 11)}Oferta</div>`
+          : `<div class="faixa faixa-vazia" aria-hidden="true"></div>`;
 
   // Quem fabrica, abaixo do nome. É o que separa dois genéricos de mesmo
   // princípio ativo com preços diferentes — no card antigo essa informação
@@ -2300,19 +2323,41 @@ function renderCarrinho() {
     return;
   }
 
-  container.innerHTML = carrinho.map(p => `
+  container.innerHTML = carrinho.map(p => {
+
+    const conta = contaDoItem(p);
+    const oferta = ofertaDoItem(p);
+
+    /* Três informações diferentes, e cada uma só aparece quando tem o
+       que dizer:
+         o rótulo da oferta       — sempre que ela existe
+         o que esta linha custou  — só quando a oferta mudou a conta,
+                                    senão "R$ 5,00 cada" já responde
+         o convite                — só quando falta pouco para o
+                                    próximo pacote */
+    const rotulo = oferta ? PromoQtd.rotulo(oferta, p.preco) : "";
+    const convite = oferta ? PromoQtd.convite(oferta, p.qtd, p.preco) : "";
+
+    return `
     <div class="item">
       <div class="item-info">
         <b>${esc(p.nome)}</b>
         <small>${fmt(p.preco)} cada</small>
+        ${rotulo ? `<small class="item-oferta">${esc(rotulo)}</small>` : ""}
+        ${conta.economia > 0
+            ? `<small class="item-oferta-conta">${p.qtd} por ${fmt(conta.total)}
+                 <span>(economia de ${fmt(conta.economia)})</span></small>`
+            : ""}
+        ${convite ? `<small class="item-oferta-convite">${esc(convite)}</small>` : ""}
       </div>
       <div class="item-qtd">
         <button class="qtd-btn" data-acao="menos" data-codigo="${esc(p.codigo)}" aria-label="Remover uma unidade de ${esc(p.nome)}">−</button>
         <span>${p.qtd}</span>
         <button class="qtd-btn" data-acao="mais" data-codigo="${esc(p.codigo)}" aria-label="Adicionar uma unidade de ${esc(p.nome)}">+</button>
       </div>
-    </div>
-  `).join("");
+    </div>`;
+
+  }).join("");
 
   atualizarAvisoControleEspecial();
 }
@@ -2345,11 +2390,44 @@ function atualizarAvisoControleEspecial() {
   }
 }
 
+/* O rótulo da oferta de quantidade de um produto, ou "" quando ele não
+   tem nenhuma — ou quando a que tem saiu mais cara que o preço normal e
+   o promoQtd.js a descartou. */
+function rotuloDaOfertaQtd(p) {
+  return p && p.ofertaQtd ? PromoQtd.rotulo(p.ofertaQtd, p.preco) : "";
+}
+
 /* =========================
 💰 TOTAIS
 ========================= */
+/* A oferta de quantidade que vale para um item do carrinho, hoje.
+
+   Vem do produto no catálogo, e não do item guardado: o carrinho
+   sobrevive a recarga e a troca de dia, e uma oferta que terminou
+   ontem não pode continuar valendo no carrinho de quem deixou a aba
+   aberta desde então. */
+function ofertaDoItem(item) {
+  const p = produtos.find(x => String(x.codigo) === String(item.codigo));
+  return p ? (p.ofertaQtd || null) : null;
+}
+
+/* O que esta linha do carrinho custa, já com a oferta aplicada.
+
+   A conta mora no promoQtd.js, que roda sem navegador e tem teste.
+   Aqui só se escolhe a oferta e se entrega o preço do dia. */
+function contaDoItem(item) {
+  return PromoQtd.aplicar(ofertaDoItem(item), item.qtd, item.preco);
+}
+
 function subtotalCarrinho() {
-  return carrinho.reduce((a, b) => a + b.preco * b.qtd, 0);
+  return carrinho.reduce((a, b) => a + contaDoItem(b).total, 0);
+}
+
+/* Quanto as ofertas de quantidade tiraram do subtotal. Vai escrito na
+   tela e na mensagem do WhatsApp: desconto que ninguém vê é desconto
+   que a loja deu sem receber crédito por dar. */
+function economiaDasOfertas() {
+  return carrinho.reduce((a, b) => a + contaDoItem(b).economia, 0);
 }
 
 function valorFreteAtual() {
@@ -3194,7 +3272,25 @@ function finalizar() {
     let m = `🛒 NOVO PEDIDO — ${ref}\n\n`;
 
     carrinho.forEach(p => {
-      m += `${p.qtd}x ${p.nome} - ${fmt(p.preco * p.qtd)}\n`;
+
+      const conta = contaDoItem(p);
+
+      m += `${p.qtd}x ${p.nome} - ${fmt(conta.total)}\n`;
+
+      /* A oferta vai ESCRITA, com o rótulo que o cliente viu.
+
+         Quem cobra é a pessoa do balcão, e uma linha de 3 unidades por
+         R$ 10 quando a etiqueta diz R$ 4,50 parece erro do site. Sem a
+         explicação ela "corrige" para R$ 13,50 — e quem confiou na
+         promoção paga mais caro por causa dela. É a mesma razão de o
+         cupom ir escrito na mensagem.
+
+         Sem acento e sem "·" de propósito, como o resto: isto viaja
+         dentro da URL do wa.me. */
+      if (conta.economia > 0) {
+        m += ` Oferta: ${PromoQtd.rotulo(ofertaDoItem(p), p.preco)}`
+           + ` (${fmt(p.preco)} cada fora da oferta)\n`;
+      }
 
       if (!comCodigos) return;
 
@@ -3213,7 +3309,13 @@ function finalizar() {
       m += `\n_Pedido longo: os códigos de barras foram para a planilha, na referência ${ref}._\n`;
     }
 
+    /* O subtotal já vem com as ofertas aplicadas. Dizer quanto elas
+       economizaram é o que faz o cliente perceber que a promoção
+       funcionou — e é o que a loja quer que ele perceba. */
+    const economia = economiaDasOfertas();
+
     m += `\nSubtotal: ${fmt(subtotal)}`;
+    if (economia > 0) m += `\nVoce economizou nas ofertas: ${fmt(economia)}`;
     if (tipoEntrega === "Entrega") m += `\nTaxa de entrega: ${fmt(frete)}`;
     /* O cupom vai escrito na mensagem, com o código.
        Quem vai cobrar é a pessoa do balcão, e um total menor que a soma
@@ -3290,13 +3392,25 @@ function finalizar() {
            que diz se o anúncio valeu. */
         campanha: campanhaDeOrigem(),
         temReceita: itensControleEspecial.length > 0,
-        itens: carrinho.map(item => ({
-          ean: eanDoItem(item),
-          codigo: item.codigo,
-          descricao: item.nome,
-          qtd: item.qtd,
-          preco: item.preco
-        }))
+        itens: carrinho.map(item => {
+
+          const conta = contaDoItem(item);
+
+          return {
+            ean: eanDoItem(item),
+            codigo: item.codigo,
+            descricao: item.nome,
+            qtd: item.qtd,
+            /* O que a linha CUSTOU dividido pelas unidades, e não o
+               preço de etiqueta. O worker regrava total_item como
+               qtd x preco, e e esse total que alimenta o faturamento e
+               "produtos mais vendidos". Mandando o preco cheio, uma
+               loja com "3 por R$ 10" veria no relatorio um faturamento
+               que nao teve - e decidiria compra em cima dele. */
+            preco: item.qtd > 0 ? conta.total / item.qtd : item.preco
+          };
+
+        })
       })
     }).catch(err => console.error("Erro ao gravar no histórico:", err));
   }
