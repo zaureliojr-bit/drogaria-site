@@ -2986,7 +2986,12 @@ async function calcularFrete({ automatico = false } = {}) {
        saber — senão uma diferença na entrega vira discussão no balcão. */
     mostrarResultadoFrete(
       coords.aproximado
-        ? `${base}. Valor estimado pela região: não achamos essa rua no mapa, então a farmacêutica confirma a taxa no WhatsApp.`
+        /* "Nosso time de vendas", e não "a farmacêutica": conferir taxa
+           de entrega é atendimento, não ato farmacêutico. Quem responde
+           o WhatsApp sobre frete é quem está no balcão. A farmacêutica
+           continua nomeada onde o assunto é dela — receita, controlado,
+           orientação sobre medicamento. */
+        ? `${base}. Valor estimado pela região: não achamos essa rua no mapa, então nosso time de vendas confirma a taxa no WhatsApp.`
         : base,
       "ok"
     );
