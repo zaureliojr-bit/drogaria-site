@@ -250,6 +250,48 @@
   }
   .funil-queda b { color: var(--erro); font-variant-numeric: tabular-nums; }
 
+  /* Os cartões de "o que anunciar".
+
+     Lista e não grade: cada sugestão tem um texto para copiar, e texto
+     em coluna estreita vira três linhas de duas palavras. O que o dono
+     faz aqui é ler o motivo, decidir e copiar — nesta ordem, uma de
+     cada vez. */
+  .sugestao {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 14px; border-bottom: 1px solid var(--linha);
+  }
+  .sugestao:last-child { border-bottom: 0; }
+
+  .sugestao img, .sugestao-sem-foto {
+    width: 64px; height: 64px; flex: 0 0 64px;
+    object-fit: contain; background: var(--papel);
+    border-radius: var(--raio-sm);
+  }
+
+  .sugestao-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+  .sugestao-topo { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .sugestao-topo strong { font-size: 13.5px; }
+
+  /* O motivo é o que decide o gasto, então tem cor de texto normal e
+     não de legenda. */
+  .sugestao-motivo { font-size: 12.5px; color: var(--tinta); }
+  .sugestao-preco { font-size: 12px; color: var(--tinta-suave); }
+  .sugestao-preco b { color: var(--tinta); font-size: 14px; }
+  .sugestao-preco s { opacity: .6; }
+
+  .sugestao-texto {
+    width: 100%; resize: vertical;
+    border: 1px solid var(--linha); border-radius: var(--raio-sm);
+    padding: 8px 10px; font: inherit; font-size: 12px; line-height: 1.45;
+    background: var(--papel); color: var(--tinta);
+  }
+
+  .sugestao-acoes { display: flex; gap: 12px; align-items: center; font-size: 12px; }
+
+  /* Explica um campo sem virar parágrafo de manual. */
+  .dica { font-size: 11.5px; color: var(--tinta-suave); line-height: 1.45; margin-top: -4px; }
+
   /* A navegação das tabelas em páginas.
 
      Sticky à esquerda porque a .tabela-wrap rola na horizontal no
@@ -729,6 +771,7 @@
       <button data-aba="banners">Banners</button>
       <button data-aba="encarte">Encarte</button>
       <button data-aba="relatorios">Relatórios</button>
+      <button data-aba="marketing">Marketing</button>
       <button data-aba="estoque">Estoque</button>
       <button data-aba="reativacao">Reativação</button>
       <button data-aba="catalogo">Catálogo</button>
@@ -1364,6 +1407,82 @@
 
     </div><!-- /abaRelatorios -->
 
+    <!-- ===== ABA: MARKETING =====
+         Duas perguntas, nesta ordem, porque é nesta ordem que o dono
+         gasta o dinheiro: o que anunciar, e se o que foi anunciado
+         vendeu.
+
+         O Meta responde "47 cliques" e o Google responde "R$ 80
+         gastos". Nenhum dos dois enxerga o carrinho desta farmácia —
+         quem sabe que saíram três pedidos de R$ 280 é este painel. -->
+    <div id="abaMarketing" hidden>
+
+      <div class="bloco">
+        <h2>O que anunciar nesta semana
+          <small>tirado das buscas do site, do estoque e das promoções</small></h2>
+        <!-- Entra no texto do anúncio. Fica no navegador de quem usa o
+             painel: é uma frase, muda de loja para loja e não vale uma
+             rota nova no worker. -->
+        <label class="campo campo-linha">
+          <span>Prazo de entrega, como vai no anúncio</span>
+          <input type="text" id="marketingPrazo" maxlength="40"
+                 placeholder="Ex.: até 2 horas">
+        </label>
+        <div id="anunciarAviso" class="barras-rodape"></div>
+        <div id="anunciarLista"></div>
+      </div>
+
+      <div class="bloco">
+        <h2>Procuraram e você não tinha
+          <small>lista de compras, não de anúncio</small></h2>
+        <div class="tabela-wrap" id="anunciarFaltando"></div>
+      </div>
+
+      <form class="form-banner" id="formCampanha" autocomplete="off">
+        <h2>Nova campanha</h2>
+
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Nome</span>
+            <input type="text" id="campanhaNome" maxlength="80" required
+                   placeholder="Ex.: Instagram outubro — fraldas">
+          </label>
+          <label class="campo">
+            <span>Onde</span>
+            <select id="campanhaCanal">
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+              <option value="google">Google</option>
+              <option value="whatsapp">WhatsApp</option>
+              <!-- Papel também pode ter número: QR code impresso carrega
+                   carimbo igual a link clicado. -->
+              <option value="panfleto">Panfleto / QR code</option>
+              <option value="outro">Outro</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="campo">
+          <span>Quanto já gastou nela (R$)</span>
+          <input type="number" id="campanhaGasto" min="0" step="0.01" value="0">
+        </label>
+
+        <p class="dica">Sem este valor o painel mostra visitas e pedidos,
+          mas não consegue dizer quanto custou cada venda. Volte aqui e
+          atualize conforme for gastando.</p>
+
+        <div class="form-acoes">
+          <button type="submit" class="principal">Criar campanha</button>
+        </div>
+      </form>
+
+      <div class="bloco">
+        <h2>Campanhas <small>gastei quanto, vendi quanto · <span id="campanhaPeriodo"></span></small></h2>
+        <div class="tabela-wrap" id="listaCampanhas"></div>
+      </div>
+
+    </div><!-- /abaMarketing -->
+
     <!-- ===== ABA: ESTOQUE =====
          Ruptura e encalhe, calculados da fotografia diária que o agente
          manda do PC da farmácia. As três listas respondem à mesma conta
@@ -1522,6 +1641,14 @@
      exatamente onde morava o defeito que mandava a mensagem para a
      pessoa errada — ver o cabeçalho dele. -->
 <script src="reativacao.js"></script>
+<!-- Antes do anunciar.js: ele consulta Receita.decidirReceita para
+     nunca sugerir anúncio de medicamento que exige prescrição — o que
+     a RDC 96/2008 proíbe e o que faz o Google e o Meta suspenderem a
+     conta da loja. -->
+<script src="receita.js"></script>
+<!-- A regra do "o que anunciar": roda sem navegador e tem teste
+     (teste-anunciar.mjs). A tela aqui só desenha o que ela devolve. -->
+<script src="anunciar.js"></script>
 
 <script>
 /* Endereço do worker de pedidos. Precisa ser o mesmo valor que está em
@@ -1559,6 +1686,10 @@ let dias = 30;
    no cabeçalho, e o worker confere a senha CONTRA AQUELA loja: mandar o
    slug de outra farmácia com a senha errada não entra. */
 let lojaAtual = sessionStorage.getItem("painelLoja") || "";
+
+/* O nome como a farmácia se chama, para entrar no texto do anúncio
+   montado na aba Marketing. */
+let lojaNome = "";
 
 /* Verdadeiro quando quem entrou é o dono da plataforma. Serve só para
    mostrar a aba Lojas — a permissão de verdade é do worker, que recusa
@@ -2721,6 +2852,329 @@ el("listaCupons")?.addEventListener("click", async (ev) => {
 
 });
 
+/* ---------------------------------------------------------------------
+   Marketing
+   ---------------------------------------------------------------------
+   Duas perguntas, e nenhuma delas o Google ou o Meta responde:
+
+     o que anunciar  — eles não conhecem o estoque nem as buscas daqui
+     se vendeu        — eles contam clique, não pedido
+
+   A regra do "o que anunciar" mora no anunciar.js, que roda sem
+   navegador e tem teste. Aqui é só tela: buscar os quatro dados,
+   entregar à regra e desenhar o que ela devolver.
+
+   O prazo de entrega fica no navegador de quem usa o painel, e não no
+   banco: é uma frase que entra no texto do anúncio, muda de loja para
+   loja e não vale uma rota nova no worker. */
+const PRAZO_GUARDADO = "marketing-prazo-entrega";
+
+let campanhasCarregadas = [];
+
+function baseDoSite() {
+  /* O mesmo endereço do botão "Ver o site": ele já resolveu se esta
+     farmácia tem domínio próprio no ar ou se ainda usa o da
+     plataforma. Montar outro aqui seria arriscar gerar, dentro do
+     anúncio pago, um link que não abre. */
+  const link = el("verSite");
+  return (link && link.href) ? link.href.replace(/\/+$/, "") : "";
+}
+
+function prazoDeEntrega() {
+  try { return localStorage.getItem(PRAZO_GUARDADO) || ""; } catch { return ""; }
+}
+
+async function carregarMarketing() {
+
+  const campo = el("marketingPrazo");
+
+  if (campo && !campo.dataset.ligado) {
+    campo.dataset.ligado = "1";
+    campo.value = prazoDeEntrega();
+    /* Redesenha ao sair do campo, e não a cada tecla: o texto do
+       anúncio ficaria piscando palavra por palavra enquanto se
+       digita. */
+    campo.addEventListener("change", () => {
+      try { localStorage.setItem(PRAZO_GUARDADO, campo.value.trim()); } catch { /* aba privada */ }
+      carregarSugestoes();
+    });
+  }
+
+  /* As campanhas primeiro, de propósito: é delas que sai o carimbo que
+     vai nos links das sugestões. Em paralelo, a primeira rodada sairia
+     sem carimbo nenhum. */
+  await carregarCampanhas();
+  await carregarSugestoes();
+
+}
+
+async function carregarCampanhas() {
+
+  const alvo = el("listaCampanhas");
+  if (!alvo) return;
+
+  try {
+
+    const { campanhas, dias } = await api("/campanhas?dias=30");
+
+    campanhasCarregadas = campanhas || [];
+
+    tabelaPaginada("listaCampanhas",
+      [{ titulo: "Campanha", larga: true }, { titulo: "Visitas", num: true },
+       { titulo: "Pedidos", num: true }, { titulo: "Vendeu", num: true },
+       { titulo: "Gastou", num: true }, { titulo: "Custo por pedido", num: true },
+       { titulo: "Retorno", num: true }, { titulo: "" }],
+      campanhasCarregadas.map((c) => [
+        `<strong>${esc(c.nome)}</strong>${c.ativa ? "" : ' <span class="pill pill-novo">desligada</span>'}`
+          + `<br><small>${esc(c.canal)} · <code>?c=${esc(c.id)}</code></small>`,
+        c.visitas,
+        c.pedidos,
+        dinheiro(c.receita),
+        dinheiro(c.gasto),
+        /* As duas contas que decidem se a campanha continua no mês que
+           vem. Feitas aqui e não de cabeça: "gastei 80 e vendi 280"
+           parece ótimo até alguém lembrar que a margem não é o total. */
+        c.pedidos > 0 && c.gasto > 0 ? dinheiro(c.gasto / c.pedidos) : "—",
+        c.gasto > 0 ? `<strong>${(c.receita / c.gasto).toFixed(1)}×</strong>` : "—",
+        `<button type="button" class="btn-apagar-produto"
+                 data-copiar-campanha="${esc(c.id)}">Copiar link</button>`
+          + (c.ativa
+            ? ` <button type="button" class="btn-apagar-produto"
+                        data-desligar-campanha="${esc(c.id)}">Desligar</button>`
+            : "")
+      ]),
+      "Nenhuma campanha ainda. Crie uma acima e cole o link no anúncio."
+    );
+
+    el("campanhaPeriodo") && (el("campanhaPeriodo").textContent = `últimos ${dias} dias`);
+
+  } catch (erro) {
+
+    /* Loja que ainda não rodou o schema-campanhas.sql cai aqui. */
+    alvo.innerHTML = `<div class="vazio">Não consegui ler as campanhas: ${esc(erro.message)}<br>
+      <small>Se esta farmácia é nova, falta rodar o <strong>schema-campanhas.sql</strong> no banco dela.</small></div>`;
+
+  }
+
+}
+
+async function carregarSugestoes() {
+
+  const alvo = el("anunciarLista");
+  if (!alvo) return;
+
+  alvo.innerHTML = `<div class="vazio">Lendo buscas, estoque e catálogo…</div>`;
+
+  try {
+
+    /* O estoque pode faltar (farmácia sem o extrator instalado) sem que
+       isso derrube o resto: ele entra como veto e como motivo, e as
+       buscas sozinhas já dão sugestão. Por isso o catch individual. */
+    const [resumo, catalogo, estoque] = await Promise.all([
+      api("/resumo?dias=30"),
+      carregarCatalogo(),
+      api("/estoque/analise?limite=50").catch(() => null)
+    ]);
+
+    const produtos = [...catalogo.values()].map((p) => ({
+      codigo: p.codigo, ean: p.ean, nome: p.nome, descricao: p.descricao,
+      preco: p.preco, promo: p.promoPlanilha, estoque: p.estoque,
+      imagem: p.imagem, tarja: p.tarja,
+      /* O campo que mais importa desta lista. É a categoria do Farmax
+         que diz o que é medicamento e o que é controlado — o catálogo
+         publicado quase nunca traz tarja, e sem ela um Bactrim seria
+         sugerido para anúncio. */
+      categoria: p.categoria,
+      bloqueioPresencial: p.bloqueioPresencial,
+      receitaRemota: p.receitaRemota,
+      confirmarReceita: p.confirmarReceita
+    }));
+
+    const ativa = campanhasCarregadas.filter((c) => c.ativa)[0];
+
+    const { sugestoes, faltando } = Anunciar.sugerir({
+      produtos,
+      maisProcurados: resumo.maisProcurados || [],
+      naoEncontrados: resumo.naoEncontrados || [],
+      parado: (estoque && estoque.parado) || [],
+      rompidos: (estoque && estoque.rompidos) || [],
+      vaoRomper: (estoque && estoque.vaoRomper) || [],
+      loja: { nome: lojaNome, entrega: prazoDeEntrega(), site: baseDoSite() },
+      campanha: ativa ? ativa.id : "",
+      limite: 6
+    });
+
+    desenharSugestoes(sugestoes, ativa, !estoque);
+
+    tabelaPaginada("anunciarFaltando",
+      [{ titulo: "O cliente procurou por", larga: true }, { titulo: "Vezes", num: true }],
+      faltando.map((f) => [esc(f.termo), f.buscas]),
+      "Ninguém procurou algo que você não tivesse."
+    );
+
+  } catch (erro) {
+    alvo.innerHTML = `<div class="vazio">Não consegui montar as sugestões: ${esc(erro.message)}</div>`;
+  }
+
+}
+
+const ROTULO_DO_MOTIVO = {
+  procurado: "já procuram aqui",
+  oferta: "está com desconto",
+  parado: "dinheiro parado"
+};
+
+function desenharSugestoes(sugestoes, campanhaAtiva, semEstoque) {
+
+  const avisos = [];
+
+  if (!campanhaAtiva) {
+    /* Sem campanha, o link sai sem carimbo — e sem carimbo não há como
+       saber depois se o anúncio vendeu, que é metade do motivo desta
+       aba existir. */
+    avisos.push(`<span>Crie uma campanha abaixo para o link vir carimbado e dar para medir.</span>`);
+  } else {
+    avisos.push(`<span>os links já vêm carimbados com <b>${esc(campanhaAtiva.nome)}</b></span>`);
+  }
+
+  if (semEstoque) {
+    avisos.push(`<span>sem a fotografia de estoque, não dá para vetar o que está acabando</span>`);
+  }
+
+  /* Dito na tela, e não só no código: o dono vai estranhar não ver
+     dipirona na lista, e é melhor ele ler o motivo aqui do que concluir
+     que o painel está quebrado. */
+  avisos.push(`<span>remédio não entra: anúncio de medicamento tem exigências
+    (advertência, registro ANVISA) que este texto não carrega</span>`);
+
+  el("anunciarAviso").innerHTML = avisos.join("");
+
+  if (!sugestoes.length) {
+    el("anunciarLista").innerHTML = `<div class="vazio">
+      Nenhuma sugestão esta semana.<br>
+      <small>Faltam buscas no site, estoque ou promoção ativa — e sugestão fraca
+      gasta o mesmo dinheiro que uma boa.</small></div>`;
+    return;
+  }
+
+  el("anunciarLista").innerHTML = sugestoes.map((s, i) => `
+    <div class="sugestao">
+      ${s.imagem ? `<img src="${esc(s.imagem)}" alt="" loading="lazy">` : `<div class="sugestao-sem-foto"></div>`}
+      <div class="sugestao-corpo">
+        <div class="sugestao-topo">
+          <strong>${esc(s.nome)}</strong>
+          <span class="pill pill-novo">${esc(ROTULO_DO_MOTIVO[s.tipo] || s.tipo)}</span>
+        </div>
+        <p class="sugestao-motivo">${esc(s.motivo)}</p>
+        <p class="sugestao-preco">
+          ${s.promo > 0 && s.promo < s.preco
+            ? `<s>${dinheiro(s.preco)}</s> <b>${dinheiro(s.promo)}</b>`
+            : `<b>${dinheiro(s.preco)}</b>`}
+          · ${s.estoque} em estoque
+        </p>
+        <textarea class="sugestao-texto" readonly rows="2"
+                  id="textoSugestao${i}">${esc(s.texto)}\n${esc(s.link)}</textarea>
+        <div class="sugestao-acoes">
+          <button type="button" class="btn-apagar-produto" data-copiar-sugestao="${i}">Copiar texto e link</button>
+          <a href="${esc(s.link)}" target="_blank" rel="noopener">Ver no site</a>
+        </div>
+      </div>
+    </div>`).join("");
+
+}
+
+/* Copiar é o botão mais usado desta aba: o dono vai daqui para o
+   Instagram colar. navigator.clipboard falha em contexto sem HTTPS e em
+   navegador antigo, então o select() fica como reserva — e o aviso diz
+   o que aconteceu, porque botão de copiar que não copia em silêncio faz
+   a pessoa colar o texto anterior sem perceber. */
+async function copiarTexto(texto, botao) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    const antes = botao.textContent;
+    botao.textContent = "Copiado!";
+    setTimeout(() => { botao.textContent = antes; }, 1500);
+  } catch {
+    alert("Não consegui copiar sozinho. O texto está selecionado — use Ctrl+C.");
+  }
+}
+
+el("anunciarLista")?.addEventListener("click", (ev) => {
+  const botao = ev.target.closest("[data-copiar-sugestao]");
+  if (!botao) return;
+  const campo = el("textoSugestao" + botao.dataset.copiarSugestao);
+  if (!campo) return;
+  campo.select();
+  copiarTexto(campo.value, botao);
+});
+
+el("listaCampanhas")?.addEventListener("click", async (ev) => {
+
+  const copiar = ev.target.closest("[data-copiar-campanha]");
+
+  if (copiar) {
+    const id = copiar.dataset.copiarCampanha;
+    const base = baseDoSite();
+    copiarTexto(`${base}/?c=${encodeURIComponent(id)}`, copiar);
+    return;
+  }
+
+  const desligar = ev.target.closest("[data-desligar-campanha]");
+  if (!desligar) return;
+
+  const id = desligar.dataset.desligarCampanha;
+
+  /* Desligar não apaga: o que ela vendeu continua no relatório, que é
+     o que a loja vai olhar no mês que vem para decidir se repete. */
+  if (!confirm(`Desligar a campanha ${id}? O histórico dela continua aqui.`)) return;
+
+  desligar.disabled = true;
+
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/campanhas/excluir`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ id })
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    await carregarMarketing();
+  } catch (erro) {
+    desligar.disabled = false;
+    alert("Não consegui desligar: " + erro.message);
+  }
+
+});
+
+el("formCampanha")?.addEventListener("submit", async (ev) => {
+
+  ev.preventDefault();
+
+  const corpo = {
+    nome: el("campanhaNome").value,
+    canal: el("campanhaCanal").value,
+    gasto: numeroBR(el("campanhaGasto").value)
+  };
+
+  try {
+
+    const r = await fetch(`${API.replace(/\/+$/, "")}/campanhas`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify(corpo)
+    });
+
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+
+    el("campanhaNome").value = "";
+    await carregarMarketing();
+
+  } catch (erro) {
+    alert("Não consegui criar a campanha: " + erro.message);
+  }
+
+});
+
 function pillStatus(p) {
   if (p.status === "entregue") return `<span class="pill pill-entregue">entregue</span>`;
   if (p.tem_receita && p.status === "novo") return `<span class="pill pill-receita">aguarda receita</span>`;
@@ -3068,7 +3522,17 @@ async function carregarCatalogo() {
         marca: (p.marca || p.laboratorio || "").trim(),
         preco: numeroBR(p.precoVenda),
         promoPlanilha: numeroBR(p.precoPromocao),
-        estoque: numeroBR(p.estoque)
+        estoque: numeroBR(p.estoque),
+        /* Para a aba Marketing decidir o que NUNCA pode ser anunciado.
+           Vai cru, do jeito que o catálogo publica: quem interpreta é o
+           Receita.decidirReceita, que é a mesma regra da vitrine. Ter
+           duas leituras de tarja em dois lugares é como uma delas
+           fica velha e o site passa a anunciar controlado. */
+        tarja: p.tarja || "",
+        bloqueioPresencial: p.bloqueioPresencial === true,
+        receitaRemota: p.receitaRemota === true,
+        confirmarReceita: p.confirmarReceita === true,
+        descricao: p.descricao || ""
       });
     }
   } catch (e) {
@@ -4584,6 +5048,7 @@ async function carregarSessao() {
     const s = await api("/sessao");
     souDono = !!s.dono;
     if (s.loja && s.loja.slug) lojaAtual = s.loja.slug;
+    if (s.loja && s.loja.nome) lojaNome = s.loja.nome;
     el("botaoAbaLojas").hidden = !souDono;
 
     /* O nome da filial no cabeçalho é o que evita o erro mais caro
@@ -5290,6 +5755,7 @@ el("abas").addEventListener("click", (ev) => {
   el("abaBanners").hidden = aba !== "banners";
   el("abaEncarte").hidden = aba !== "encarte";
   el("abaRelatorios").hidden = aba !== "relatorios";
+  el("abaMarketing").hidden = aba !== "marketing";
   el("abaEstoque").hidden = aba !== "estoque";
   el("abaReativacao").hidden = aba !== "reativacao";
   el("abaCatalogo").hidden = aba !== "catalogo";
@@ -5313,6 +5779,10 @@ el("abas").addEventListener("click", (ev) => {
   if (aba === "relatorios") carregar().catch(() => tentar());
 
   if (aba === "cupons") carregarCupons();
+
+  /* Só ao abrir: a aba junta resumo, catálogo e estoque, que são três
+     consultas pesadas, e a fila fica aberta o dia todo. */
+  if (aba === "marketing") carregarMarketing();
 
   /* Só ao abrir a aba: são três varreduras do estoque inteiro, e a
      fila fica aberta o dia todo. */

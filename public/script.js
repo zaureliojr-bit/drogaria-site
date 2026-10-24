@@ -3284,6 +3284,11 @@ function finalizar() {
            o cupom conferido de novo na hora — mandar o número daqui
            seria pedir para o navegador dizer quanto quer pagar. */
         cupom: cupomAplicado ? cupomAplicado.codigo : "",
+        /* De onde veio esta venda, se veio de algum anúncio nos últimos
+           7 dias. Vazio é o caso normal — a maioria dos pedidos não vem
+           de campanha nenhuma, e é justamente a comparação com esses
+           que diz se o anúncio valeu. */
+        campanha: campanhaDeOrigem(),
         temReceita: itensControleEspecial.length > 0,
         itens: carrinho.map(item => ({
           ean: eanDoItem(item),
@@ -3514,6 +3519,154 @@ if ("serviceWorker" in navigator) {
 }
 
 /* =========================
+📣 DE ONDE A VISITA VEIO
+========================= */
+/* O painel monta o link do anúncio com um carimbo no fim
+   (?c=instagram-outubro). Quem clica chega com ele, e é isso que
+   permite dizer depois: esta campanha custou R$ 80 e trouxe 3 pedidos.
+
+   O Meta e o Google não respondem isso. Eles contam clique; o carrinho
+   desta farmácia eles não enxergam. Sem a ponte, o dono decide onde pôr
+   o dinheiro do mês por quantidade de clique, que não paga conta.
+
+   SETE DIAS, E A ÚLTIMA CAMPANHA
+
+   O carimbo fica no localStorage (não no sessionStorage, como o funil):
+   quem vê o anúncio no almoço e compra à noite tem de continuar
+   contando para a campanha. Vale a ÚLTIMA clicada — se a pessoa veio
+   pelo Instagram e depois pelo Google, a venda é do Google, que foi
+   quem a trouxe na hora de comprar.
+
+   E O ENDEREÇO É LIMPO LOGO DEPOIS DE LIDO
+
+   Sem isso, o cliente que recebeu o anúncio e mandou o link para a tia
+   no WhatsApp faria a tia entrar como clique da campanha — e a loja
+   pagaria mentalmente por uma visita que o anúncio não comprou. O
+   carimbo vale para quem clicou, uma vez.
+
+   Continua sem identificar ninguém: o que vai ao worker é o nome da
+   campanha, e nada mais. */
+
+const CAMPANHA_GUARDADA = "campanha-de-origem";
+const CAMPANHA_VALE_DIAS = 7;
+const CAMPANHA_JA_CONTADA = "campanha-contada";
+
+function limparIdCampanha(valor) {
+    return String(valor || "")
+        .toLowerCase()
+        .normalize("NFD").replace(/[̀-ͯ]/g, "")
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40);
+}
+
+/* A campanha que vale para esta pessoa agora, ou "" se não há nenhuma
+   dentro do prazo. */
+function campanhaDeOrigem() {
+
+    try {
+
+        const cru = localStorage.getItem(CAMPANHA_GUARDADA);
+        if (!cru) return "";
+
+        const guardado = JSON.parse(cru);
+
+        if (!guardado || !guardado.id) return "";
+
+        const idade = Date.now() - (guardado.quando || 0);
+
+        if (idade > CAMPANHA_VALE_DIAS * 86400000) {
+            localStorage.removeItem(CAMPANHA_GUARDADA);
+            return "";
+        }
+
+        return limparIdCampanha(guardado.id);
+
+    } catch {
+        return "";
+    }
+
+}
+
+/* Lido do endereço, guardado, contado e apagado da barra — nesta
+   ordem. Roda assim que o HTML fica de pé, sem esperar o catálogo: a
+   pessoa pode fechar a aba antes de a lista de produtos chegar, e a
+   visita que o anúncio pagou tem de contar assim mesmo. */
+function anotarCampanhaDoEndereco() {
+
+    let id = "";
+
+    try {
+        const parametros = new URLSearchParams(location.search);
+
+        /* Dois nomes porque há dois caminhos: ?c= é o link curto que o
+           painel gera, e utm_campaign é o que o Meta e o Google
+           carimbam sozinhos quando a opção está ligada lá. Perder a
+           segunda forma seria perder justamente as campanhas montadas
+           fora daqui. */
+        id = limparIdCampanha(
+            parametros.get("c") || parametros.get("utm_campaign") || ""
+        );
+    } catch {
+        return;
+    }
+
+    if (!id) return;
+
+    try {
+        localStorage.setItem(CAMPANHA_GUARDADA,
+            JSON.stringify({ id, quando: Date.now() }));
+    } catch {
+        /* armazenamento bloqueado: a visita ainda é contada abaixo, só
+           o pedido que vier depois não saberá de onde veio */
+    }
+
+    contarVisitaDaCampanha(id);
+
+    /* Tira o carimbo da barra. O endereço que sobra é o mesmo que a
+       atendente copia, e agora ele não arrasta a campanha junto. */
+    try {
+        const url = new URL(location.href);
+        url.searchParams.delete("c");
+        ["utm_campaign", "utm_source", "utm_medium", "utm_content", "utm_term"]
+            .forEach((p) => url.searchParams.delete(p));
+        history.replaceState(null, "", url.pathname + (url.search || "") + url.hash);
+    } catch {
+        /* navegador sem history: fica o endereço com carimbo, que é
+           feio e não quebra nada */
+    }
+
+}
+
+/* Uma contagem por aba e por campanha, como o funil: a mesma pessoa
+   abrindo o link duas vezes não é dois cliques comprados. */
+function contarVisitaDaCampanha(id) {
+
+    try {
+        const jaFoi = sessionStorage.getItem(CAMPANHA_JA_CONTADA) || "";
+        if (jaFoi.split(",").includes(id)) return;
+        sessionStorage.setItem(CAMPANHA_JA_CONTADA, jaFoi ? jaFoi + "," + id : id);
+    } catch {
+        return;
+    }
+
+    const corpo = JSON.stringify({ campanha: id });
+
+    try {
+        const pacote = new Blob([corpo], { type: "text/plain" });
+        if (navigator.sendBeacon?.(API_PEDIDOS_D1 + "/campanha", pacote)) return;
+
+        fetch(API_PEDIDOS_D1 + "/campanha", {
+            method: "POST", body: corpo, keepalive: true,
+            headers: { "Content-Type": "text/plain" }
+        }).catch(() => {});
+    } catch {
+        /* estatística não pode atrapalhar quem está comprando */
+    }
+
+}
+
+/* =========================
 📉 O FUNIL DA LOJA
 ========================= */
 /* Quatro números, na mesma unidade: de cada 100 visitas, quantas
@@ -3684,6 +3837,11 @@ function enviarBuscaPendente() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+
+    /* Antes do funil, de propósito: o carimbo da campanha some da barra
+       de endereço aqui, e tudo que leia a URL depois tem de ver o
+       endereço já limpo. */
+    anotarCampanhaDoEndereco();
 
     /* A primeira etapa do funil. Uma vez por aba, em qualquer página do
        site: quem entra pela página de um produto compartilhado no
