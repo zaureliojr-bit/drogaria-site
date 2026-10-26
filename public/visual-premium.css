@@ -234,3 +234,243 @@ body {
     transform: none;
   }
 }
+
+
+/* Segunda camada: consistência de marca e hierarquia visual. */
+:root {
+  --marca: #302783;
+  --marca-escura: #211b63;
+  --marca-clara: #f0effb;
+  --marca-xclara: #f7f6ff;
+  --papel: #f7f8fc;
+  --papel-forte: #f0f1f7;
+  --papel-vidro: rgba(247, 248, 252, .92);
+  --linha: #e5e6f0;
+  --raio-sm: 8px;
+  --raio-md: 12px;
+  --raio-lg: 16px;
+  --raio-botao: 11px;
+  --sombra-sm: 0 2px 8px rgba(33, 27, 99, .045);
+  --sombra-md: 0 10px 24px rgba(33, 27, 99, .10);
+  --sombra-lg: 0 -8px 26px rgba(33, 27, 99, .14);
+}
+
+.header {
+  background: linear-gradient(115deg, #211b63 0%, #302783 62%, #43399a 100%);
+}
+
+.header-carrinho {
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 12px;
+  background: rgba(255,255,255,.09);
+  transition: background .18s ease, transform .18s ease;
+}
+
+.header-carrinho:hover {
+  background: rgba(255,255,255,.17);
+  transform: translateY(-1px);
+}
+
+.header-whats {
+  border-radius: 11px;
+  box-shadow: 0 3px 10px rgba(0,0,0,.10);
+}
+
+.busca-container {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.filtros-wrap {
+  border-bottom-color: #e7e6f4;
+}
+
+.filtros button,
+.filtros a {
+  min-height: 36px;
+}
+
+.banner {
+  max-width: 1280px;
+}
+
+.banner-container {
+  background: #fff;
+}
+
+.banner-slide.ativo {
+  will-change: opacity, transform;
+}
+
+.mais-vendidos,
+.promos,
+.barra-resultado {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.mais-vendidos h2,
+.promos h2 {
+  font-size: clamp(16px, 1.6vw, 20px);
+  line-height: 1.3;
+  font-weight: 800;
+  color: #24213f;
+}
+
+#produtos {
+  max-width: 1280px;
+  margin: 0 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.card,
+.card-mini {
+  border-color: #e6e7f0;
+  box-shadow: 0 3px 10px rgba(33, 27, 99, .045);
+}
+
+.card {
+  padding: 10px;
+  gap: 9px;
+}
+
+.card .produto-foto {
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff 0%, #fbfbff 100%);
+}
+
+.card .produto-nome-link {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #29283c;
+}
+
+.card .preco {
+  color: #28216f;
+  font-size: 17px;
+  letter-spacing: -.35px;
+}
+
+.btn-add {
+  min-height: 40px;
+  box-shadow: 0 2px 5px rgba(48, 39, 131, .12);
+}
+
+.btn-add:hover {
+  box-shadow: 0 5px 12px rgba(48, 39, 131, .18);
+}
+
+.card .produto-foto:focus-visible,
+.card .produto-nome-link:focus-visible,
+.btn-add:focus-visible,
+.btn-buscar:focus-visible,
+.header a:focus-visible,
+.carrinho-barra:focus-visible {
+  outline: 3px solid rgba(105, 94, 198, .65);
+  outline-offset: 3px;
+}
+
+.carrinho {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.carrinho-barra {
+  background: linear-gradient(105deg, #211b63, #302783);
+}
+
+.carrinho-barra-cta {
+  background: #f5d94e;
+  color: #211b63;
+  font-weight: 800;
+}
+
+.toast {
+  border: 1px solid rgba(48, 39, 131, .12);
+}
+
+/* Grade com 4 produtos por linha em telas grandes, sem apertar os cards. */
+@media (min-width: 640px) {
+  #produtos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .card {
+    padding: 12px;
+    gap: 10px;
+  }
+}
+
+@media (min-width: 980px) {
+  #produtos {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .card .produto-nome-link {
+    font-size: 13.5px;
+  }
+
+  .card .preco {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 1280px) {
+  #produtos {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+@media (max-width: 639px) {
+  .header {
+    gap: 7px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .header-carrinho {
+    gap: 5px;
+    padding: 7px 8px;
+  }
+
+  .busca-container {
+    gap: 8px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  #produtos {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .card {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .card .produto-nome-link {
+    font-size: 12px;
+  }
+
+  .card .preco {
+    font-size: 16px;
+  }
+
+  .btn-add {
+    min-height: 38px;
+    font-size: 12px;
+  }
+
+  .mais-vendidos {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
