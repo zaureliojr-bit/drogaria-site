@@ -489,6 +489,24 @@
   }
   .promo-barra strong { font-size: 13px; color: var(--marca-escura); }
 
+  /* Os sete dias do horário, um por linha. Grade e não tabela porque no
+     celular a tabela rola para o lado e o sábado sai da tela. */
+  .horario-grade { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+  .horario-linha {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .horario-linha > span:first-child { min-width: 92px; color: var(--tinta); }
+  .horario-linha input[type=time] {
+    padding: 6px 8px; font-size: 13px; font-family: var(--fonte-corpo);
+    border: 1.5px solid var(--linha); border-radius: var(--raio-sm);
+    background: var(--branco); color: var(--tinta);
+  }
+  /* Dia fechado fica visivelmente apagado: "08:00 às 00:00" num campo
+     vazio lê-se como horário, e não como ausência dele. */
+  .horario-linha.fechado { opacity: .55; }
+  .horario-linha label { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+
   /* A oferta de quantidade ganha linha própria, separada por um traço.
 
      Não é organização: é para a tela dizer que as duas CONVIVEM. "R$
@@ -866,9 +884,22 @@
       </div>
 
       <div class="form-banner" style="margin-top:20px;">
-        <strong>Cadastrar uma filial nova</strong>
+        <strong id="tituloFormFilial">Cadastrar uma filial nova</strong>
 
-        <p class="lojas-explica" style="margin:0;">
+        <!-- O mesmo formulário serve para cadastrar e para editar.
+
+             Dois formulários com os mesmos trinta campos envelheceriam
+             separados: alguém acrescenta um campo no de cadastro, o de
+             edição não ganha, e a partir daí editar uma filial APAGA
+             aquele campo. Um só não tem como divergir de si mesmo. -->
+        <label class="campo">
+          <span>O que você quer fazer</span>
+          <select id="filialAlvo">
+            <option value="">Cadastrar uma filial nova</option>
+          </select>
+        </label>
+
+        <p class="lojas-explica" id="explicaFormFilial" style="margin:0;">
           Preencha e salve. A filial nasce desligada; depois disso faltam
           dois cliques no painel da Cloudflare — criar o banco de dados
           dela e ligá-lo a este worker —, e esta tela confere se você fez
@@ -1012,6 +1043,19 @@
                    proporção fixa — é o que garante que o texto continue
                    legível sobre o fundo.</small>
           </label>
+        </div>
+
+        <!-- O horário só aparece editando: no cadastro ele nasce com o
+             padrão da casa, e sete linhas de relógio num formulário que
+             já é longo fariam desistir de cadastrar. Mudar o horário,
+             por outro lado, é das coisas que mais se faz depois. -->
+        <div id="blocoHorario" hidden>
+          <label class="campo">
+            <span>Horário de funcionamento</span>
+            <small>Dia sem horário é dia fechado — é assim que "não
+                   abrimos domingo" chega ao cliente.</small>
+          </label>
+          <div id="linhasHorario" class="horario-grade"></div>
         </div>
 
         <button type="button" id="btnCriarFilial" class="principal">Cadastrar filial</button>
@@ -5406,6 +5450,16 @@ async function carregarLojas() {
   }
   mostrarMarcaAtual();
 
+  /* O seletor de cadastrar/editar, com a mesma precaução: quem está no
+     meio de uma edição não pode ser jogado de volta para "nova filial"
+     só porque a lista foi redesenhada. */
+  const editando = el("filialAlvo").value;
+  el("filialAlvo").innerHTML =
+    `<option value="">Cadastrar uma filial nova</option>` + opcoes;
+  if (editando && lojasDaPlataforma.some(l => l.slug === editando)) {
+    el("filialAlvo").value = editando;
+  }
+
   /* Sem await: são até cinco segundos de espera por filial, e a lista já
      está na tela com um link que funciona. Quando as respostas chegarem,
      os botões cujo subdomínio estiver de pé trocam sozinhos. */
@@ -5560,7 +5614,219 @@ async function criarFilial() {
   }
 }
 
-el("btnCriarFilial").addEventListener("click", criarFilial);
+/* ---------- o mesmo formulário edita uma filial que já existe --------- */
+/* Faltava desde o começo, e a falta aparecia no pior momento: a farmácia
+   troca de WhatsApp, muda de endereço, o farmacêutico responsável sai —
+   e o único caminho era mexer no banco pelo console do D1, à mão.
+
+   O APELIDO NÃO MUDA, e o campo fica travado para dizer isso antes de
+   alguém tentar: ele é o endereço do site, o prefixo das imagens e o
+   nome do banco. Trocá-lo renomearia a etiqueta e deixaria tudo o que
+   ela identifica apontando para o lugar antigo. */
+
+const DIAS_DA_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta",
+                        "Quinta", "Sexta", "Sábado"];
+
+/* Os campos do formulário, e a chave com que cada um viaja. A lista é
+   usada nos dois sentidos — preencher ao abrir, montar o corpo ao
+   salvar —, e é isso que impede um campo de entrar em um só dos dois. */
+const CAMPOS_FILIAL = [
+  ["novaNome",          "nome",              "nome"],
+  ["novaRazao",         "razaoSocial",       "razao_social"],
+  ["novaCnpj",          "cnpj",              "cnpj"],
+  ["novaLogradouro",    "logradouro",        "logradouro"],
+  ["novaNumero",        "numeroEndereco",    "numero"],
+  ["novaComplemento",   "complemento",       "complemento"],
+  ["novaBairro",        "bairro",            "bairro"],
+  ["novaCidade",        "cidade",            "cidade"],
+  ["novaUf",            "uf",                "uf"],
+  ["novaCep",           "cep",               "cep"],
+  ["novaWhats",         "whatsapp",          "whatsapp"],
+  ["novaFarmaceutico",  "farmaceutico",      "farmaceutico"],
+  ["novaCrf",           "crf",               "crf"],
+  ["novaRotulo",        "rotuloResponsavel", "rotulo_responsavel"],
+  ["novaAutorizacao",   "autorizacao",       "autorizacao"],
+  ["novaLicenca",       "licencaMs",         "licenca_ms"],
+  ["novaRaio",          "raioEntregaKm",     "raio_entrega_km"],
+  ["novaFreteGratis",   "freteGratisAcima",  "frete_gratis_acima"],
+  ["novaFuso",          "fuso",              "fuso"]
+];
+
+function editandoFilial() {
+  return (el("filialAlvo").value || "").trim();
+}
+
+function montarLinhasDeHorario(horario) {
+
+  const porDia = new Map((horario || []).map(h => [Number(h.dia), h]));
+
+  el("linhasHorario").innerHTML = DIAS_DA_SEMANA.map((nome, dia) => {
+    const h = porDia.get(dia);
+    const aberto = !!(h && h.abre && h.fecha);
+    return `
+      <div class="horario-linha${aberto ? "" : " fechado"}" data-dia="${dia}">
+        <span>${nome}</span>
+        <label>
+          <input type="checkbox" data-abre-fecha ${aberto ? "checked" : ""}>
+          abre
+        </label>
+        <input type="time" data-hora="abre"  value="${aberto ? esc(h.abre) : ""}">
+        <span>às</span>
+        <input type="time" data-hora="fecha" value="${aberto ? esc(h.fecha) : ""}">
+      </div>`;
+  }).join("");
+
+}
+
+/* Desmarcar "abre" limpa os relógios, e marcar devolve um horário
+   plausível: um dia marcado como aberto com os campos vazios viraria
+   "fechado" na gravação, sem a pessoa entender por quê. */
+el("linhasHorario").addEventListener("change", (ev) => {
+  const caixa = ev.target.closest("[data-abre-fecha]");
+  if (!caixa) return;
+  const linha = caixa.closest(".horario-linha");
+  const abre = linha.querySelector('[data-hora="abre"]');
+  const fecha = linha.querySelector('[data-hora="fecha"]');
+  linha.classList.toggle("fechado", !caixa.checked);
+  if (caixa.checked) {
+    if (!abre.value) abre.value = "08:00";
+    if (!fecha.value) fecha.value = "20:00";
+  } else {
+    abre.value = ""; fecha.value = "";
+  }
+});
+
+function horarioDoFormulario() {
+  return [...el("linhasHorario").querySelectorAll(".horario-linha")]
+    .map((linha) => ({
+      dia: Number(linha.dataset.dia),
+      abre: linha.querySelector('[data-hora="abre"]').value,
+      fecha: linha.querySelector('[data-hora="fecha"]').value
+    }))
+    .filter((h) => h.abre && h.fecha);
+}
+
+function limparFormularioDeFilial() {
+  CAMPOS_FILIAL.forEach(([id]) => {
+    const campo = el(id);
+    if (!campo) return;
+    if (campo.tagName === "SELECT") campo.selectedIndex = 0;
+    else if (campo.type === "number") campo.value = id === "novaRaio" ? "8" : "0";
+    else campo.value = "";
+  });
+  el("novaSlug").value = "";
+  el("novaSlug").dataset.mexido = "";
+  el("novaCor").dataset.escolhida = "";
+}
+
+async function trocarModoDaFilial() {
+
+  const slug = editandoFilial();
+
+  el("tituloFormFilial").textContent = slug
+    ? "Editar filial" : "Cadastrar uma filial nova";
+
+  el("btnCriarFilial").textContent = slug
+    ? "Salvar alterações" : "Cadastrar filial";
+
+  el("blocoHorario").hidden = !slug;
+
+  /* O apelido fica travado editando, e não escondido: ele é a chave de
+     tudo, e quem administra precisa vê-lo para conferir que está na
+     filial certa. */
+  el("novaSlug").readOnly = !!slug;
+
+  if (!slug) {
+    el("explicaFormFilial").textContent =
+      "Preencha e salve. A filial nasce desligada; depois disso faltam dois "
+      + "cliques no painel da Cloudflare — criar o banco de dados dela e "
+      + "ligá-lo a este worker —, e esta tela confere se você fez certo "
+      + "antes de deixar ligar.";
+    limparFormularioDeFilial();
+    return;
+  }
+
+  el("explicaFormFilial").textContent =
+    "O apelido não muda: ele é o endereço do site, o prefixo das imagens "
+    + "e o nome do banco. Para trocar de endereço, cadastre outra filial "
+    + "e desligue esta. Ligar e desligar continua na lista acima.";
+
+  avisoLojas("");
+
+  try {
+
+    const { loja, horario } = await api("/lojas/" + encodeURIComponent(slug));
+
+    el("novaSlug").value = loja.slug;
+
+    CAMPOS_FILIAL.forEach(([id, , coluna]) => {
+      const campo = el(id);
+      if (!campo) return;
+      const valor = loja[coluna];
+      campo.value = valor === null || valor === undefined ? "" : String(valor);
+    });
+
+    montarLinhasDeHorario(horario);
+
+  } catch (erro) {
+    avisoLojas("Não consegui ler a filial: " + erro.message);
+    el("filialAlvo").value = "";
+    trocarModoDaFilial();
+  }
+
+}
+
+el("filialAlvo").addEventListener("change", trocarModoDaFilial);
+
+async function salvarFilial() {
+
+  const slug = editandoFilial();
+  if (!slug) return criarFilial();
+
+  const nome = (el("novaNome").value || "").trim();
+  if (!nome) return avisoLojas("A farmácia precisa de um nome.");
+
+  const botao = el("btnCriarFilial");
+  botao.disabled = true;
+
+  try {
+
+    const corpo = { horario: horarioDoFormulario() };
+    CAMPOS_FILIAL.forEach(([id, chave]) => {
+      const campo = el(id);
+      if (campo) corpo[chave] = campo.value;
+    });
+
+    const r = await fetch(`${API.replace(/\/+$/, "")}/lojas/${encodeURIComponent(slug)}`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify(corpo)
+    });
+
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+
+    /* A marca vai junto se alguém escolheu uma nova — é o mesmo campo
+       do cadastro, e separá-la daria duas telas para a mesma edição. */
+    const avisos = await enviarMarcaDaFilial(slug);
+
+    await carregarLojas();
+    el("filialAlvo").value = slug;
+
+    avisoLojas(
+      `${nome} atualizada.` +
+      (avisos.length ? " Só que " + avisos.join(" e ") + " — dá para repetir depois." : ""),
+      avisos.length > 0);
+
+  } catch (erro) {
+    avisoLojas("Não consegui salvar: " + erro.message);
+  } finally {
+    botao.disabled = false;
+  }
+
+}
+
+el("btnCriarFilial").addEventListener("click", salvarFilial);
 
 /* ---------- a marca de uma filial, editável a qualquer momento ---------- */
 

@@ -42,6 +42,9 @@ const LOJAS = [
 
 const conferencias = {};
 
+/* O que foi salvo em cada edição de filial. */
+const edicoes = [];
+
 let falhas = 0;
 function conferir(descricao, condicao, detalhe = "") {
     if (condicao) console.log(`  ok   ${descricao}`);
@@ -185,6 +188,42 @@ async function abrirPainel({ dono, subdominiosNoAr = [] }) {
             if (loja) loja.ativo = JSON.parse(pedido.postData() || "{}").ativo === false ? 0 : 1;
             return responder({ sucesso: true, slug: ligando[1], ativo: !!(loja && loja.ativo) });
         }
+        /* Ler e editar uma filial. */
+        const umaLoja = url.pathname.match(/^\/lojas\/([a-z0-9-]+)$/);
+
+        if (umaLoja && pedido.method() === "GET") {
+            if (!dono) return responder({ erro: "Só o dono da plataforma edita filial." }, 403);
+            const loja = LOJAS.find(l => l.slug === umaLoja[1]);
+            if (!loja) return responder({ erro: "Não achei." }, 404);
+            return responder({
+                loja: Object.assign({
+                    razao_social: "Farmácia do Centro LTDA",
+                    cnpj: "11.111.111/0001-11",
+                    logradouro: "Rua Antiga", numero: "100", complemento: "",
+                    bairro: "Centro", cep: "78000-000",
+                    whatsapp: "65900000000", telefone: "",
+                    farmaceutico: "Dra. Maria Silva", crf: "CRF-MT 1234",
+                    rotulo_responsavel: "Farmacêutica responsável",
+                    autorizacao: "", licenca_ms: "",
+                    raio_entrega_km: 8, frete_gratis_acima: 0,
+                    fuso: "America/Sao_Paulo"
+                }, loja),
+                horario: [0, 1, 2, 3, 4, 5, 6].map(dia => ({
+                    dia, abre: "07:00", fecha: "21:30"
+                }))
+            });
+        }
+
+        if (umaLoja && pedido.method() === "POST") {
+            if (!dono) return responder({ erro: "Só o dono da plataforma edita filial." }, 403);
+            const corpo = JSON.parse(pedido.postData() || "{}");
+            if (corpo.slug !== undefined && corpo.slug !== umaLoja[1]) {
+                return responder({ erro: "O apelido da filial não muda." }, 400);
+            }
+            edicoes.push({ slug: umaLoja[1], corpo });
+            return responder({ sucesso: true, slug: umaLoja[1] });
+        }
+
         if (url.pathname === "/fila") return responder({ pedidos: [], abertos: ["novo"] });
         if (url.pathname === "/resumo") {
             return responder({
@@ -693,6 +732,113 @@ console.log("\n6. o link de mandar para o cliente");
         '#listaLojas [data-slug="mais-barato"]', "title");
     conferir("e o que o mouse mostra é o mesmo que o clique copia",
         titulo === comDominio, titulo);
+
+    await contexto.close();
+}
+
+/* ---- editar uma filial já cadastrada --------------------------------- */
+console.log("\nEditar filial: o mesmo formulário, sem um segundo igual");
+{
+    /* Faltava desde o começo, e a falta aparecia no pior momento: a
+       farmácia troca de WhatsApp, muda de endereço, o farmacêutico sai
+       — e o único caminho era o console do D1, à mão. */
+    edicoes.length = 0;
+
+    const { pagina, contexto } = await abrirPainel({ dono: true });
+    await entrar(pagina, "chave-de-dono");
+
+    await pagina.click("#botaoAbaLojas");
+    /* "attached", e não visível: <option> dentro de um <select> nunca é
+       visível para o Playwright. */
+    await pagina.waitForSelector("#filialAlvo option[value='farma-centro']",
+        { state: "attached", timeout: 15000 });
+
+    conferir("o formulário começa em 'cadastrar'",
+        (await pagina.textContent("#tituloFormFilial")) === "Cadastrar uma filial nova",
+        await pagina.textContent("#tituloFormFilial"));
+
+    await pagina.selectOption("#filialAlvo", "farma-centro");
+    await pagina.waitForTimeout(900);
+
+    conferir("escolher uma filial vira edição",
+        (await pagina.textContent("#tituloFormFilial")) === "Editar filial",
+        await pagina.textContent("#tituloFormFilial"));
+
+    /* Editar às cegas é reescrever o que estava certo: o formulário
+       chega preenchido com o que já está gravado. */
+    conferir("os campos vêm preenchidos",
+        (await pagina.inputValue("#novaNome")) === "Farmácia do Centro"
+        && (await pagina.inputValue("#novaLogradouro")) === "Rua Antiga",
+        await pagina.inputValue("#novaNome"));
+
+    conferir("inclusive o responsável técnico",
+        (await pagina.inputValue("#novaCrf")) === "CRF-MT 1234",
+        await pagina.inputValue("#novaCrf"));
+
+    /* O apelido é o endereço do site, o prefixo das imagens e o nome do
+       banco. Travado, e não escondido: quem administra precisa vê-lo
+       para conferir que está na filial certa. */
+    conferir("o apelido aparece, travado",
+        (await pagina.inputValue("#novaSlug")) === "farma-centro"
+        && await pagina.locator("#novaSlug").evaluate(e => e.readOnly),
+        await pagina.inputValue("#novaSlug"));
+
+    const horas = await pagina.locator("#linhasHorario .horario-linha").count();
+    conferir(`e os sete dias do horário — ${horas}`, horas === 7, String(horas));
+
+    /* A mudança de verdade: rua nova, WhatsApp novo e domingo fechado. */
+    await pagina.fill("#novaLogradouro", "Avenida Nova");
+    await pagina.fill("#novaWhats", "(65) 98888-7777");
+    await pagina.uncheck('.horario-linha[data-dia="0"] [data-abre-fecha]');
+    await pagina.waitForTimeout(200);
+
+    await pagina.click("#btnCriarFilial");
+    await pagina.waitForTimeout(1200);
+
+    const salvo = edicoes[0];
+
+    conferir("salvou na filial escolhida", salvo && salvo.slug === "farma-centro",
+        JSON.stringify(salvo && salvo.slug));
+
+    conferir("com o endereço novo", salvo.corpo.logradouro === "Avenida Nova",
+        salvo.corpo.logradouro);
+
+    /* Os campos que ninguém tocou continuam indo com o valor de hoje: é
+       o que impede salvar uma mudança pequena e apagar o CNPJ. */
+    conferir("e o CNPJ, que ninguém tocou, vai junto",
+        salvo.corpo.cnpj === "11.111.111/0001-11", salvo.corpo.cnpj);
+
+    /* Dia sem horário é dia fechado, e é assim que "não abrimos
+       domingo" chega ao cliente. */
+    conferir("domingo sai do horário",
+        !salvo.corpo.horario.some(h => h.dia === 0),
+        JSON.stringify(salvo.corpo.horario.map(h => h.dia)));
+
+    conferir("e os outros seis continuam",
+        salvo.corpo.horario.length === 6, String(salvo.corpo.horario.length));
+
+    /* O apelido NUNCA vai no corpo como mudança: o worker recusaria, e
+       a tela não pode nem oferecer o caminho. */
+    conferir("o apelido não é mandado como alteração",
+        salvo.corpo.slug === undefined || salvo.corpo.slug === "farma-centro",
+        JSON.stringify(salvo.corpo.slug));
+
+    const aviso = (await pagina.textContent("#avisoLojas") || "");
+    conferir("e a tela confirma", /atualizada/i.test(aviso), aviso);
+
+    /* Voltar para "nova filial" tem de limpar o formulário: deixar os
+       dados da outra ali é cadastrar a filial nova com o CNPJ da
+       vizinha. */
+    await pagina.selectOption("#filialAlvo", "");
+    await pagina.waitForTimeout(600);
+
+    conferir("voltando para 'nova', o formulário se limpa",
+        (await pagina.inputValue("#novaNome")) === ""
+        && (await pagina.inputValue("#novaCnpj")) === "",
+        await pagina.inputValue("#novaNome"));
+
+    conferir("e o apelido destrava",
+        !(await pagina.locator("#novaSlug").evaluate(e => e.readOnly)));
 
     await contexto.close();
 }
