@@ -213,13 +213,49 @@ function aplicarMarca(visual) {
 function aplicarNaPagina() {
     const l = LOJA;
 
+    /* ESCREVE SEMPRE, inclusive o vazio — e esse "inclusive" é o
+       conserto de um defeito que só apareceu com a segunda farmácia no
+       ar.
+
+       Antes, campo vazio fazia a função voltar sem escrever, deixando
+       na tela o que estava no HTML. Parecia conservador e era o
+       contrário: o HTML traz os dados da PRIMEIRA farmácia, porque é
+       dela o arquivo servido na raiz. Então a filial cadastrada sem
+       autorização sanitária publicava, no rodapé dela, o número de
+       processo e a licença da OUTRA — um documento de outro
+       estabelecimento, no site de uma farmácia. O mesmo valia para a
+       farmacêutica e o CRF.
+
+       O HTML continua sendo a rede de segurança para quando a API NÃO
+       RESPONDE: aí esta função nem chega a rodar. Mas quando ela
+       responde, o que ela disser é a verdade — inclusive o silêncio.
+
+       Vazio esconde a linha em vez de deixá-la em branco: um parágrafo
+       vazio no rodapé abre um buraco que parece defeito de layout. */
     const escrever = (campo, texto) => {
-        if (!texto) return;
         document.querySelectorAll(`[data-loja="${campo}"]`)
-            .forEach((el) => { el.textContent = texto; });
+            .forEach((el) => {
+                el.textContent = texto || "";
+                el.hidden = !texto;
+            });
     };
 
-    escrever("identificacao", l.cnpj ? `${l.nome} · CNPJ ${l.cnpj}` : l.nome);
+    /* O CNPJ como a farmácia o escreve na nota: 00.000.000/0000-00.
+
+       Quem cadastra digita como vem à mão — uns com pontuação, outros
+       só os 14 dígitos —, e "CNPJ 31175246000128" no rodapé de um site
+       de farmácia parece dado importado errado. Com pontuação a mais ou
+       de outro tamanho, fica como está: inventar formato em cima de um
+       número que não reconheço é pior que mostrar o que foi digitado. */
+    const cnpjLegivel = (valor) => {
+        const digitos = String(valor || "").replace(/\D/g, "");
+        if (digitos.length !== 14) return String(valor || "");
+        return digitos.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+                               "$1.$2.$3/$4-$5");
+    };
+
+    escrever("identificacao",
+        l.cnpj ? `${l.nome} · CNPJ ${cnpjLegivel(l.cnpj)}` : l.nome);
     escrever("endereco", enderecoCompleto(l));
     /* O rótulo vem da loja. Escrever "Farmacêutica responsável" aqui
        dentro obrigaria a deduzir, do primeiro nome, como a pessoa se

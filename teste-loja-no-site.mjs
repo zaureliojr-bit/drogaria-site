@@ -320,6 +320,64 @@ console.log("\n7. quem não mandou logotipo fica com a marca padrão");
     await pagina.close();
 }
 
+/* ---- campo vazio não herda o da outra farmácia ----------------------- */
+console.log("\nA filial sem autorização cadastrada não mostra a da vizinha");
+{
+    /* O defeito, visto no dia em que a segunda loja entrou no ar: o
+       rodapé da filial publicava o número de processo e a licença MS da
+       PRIMEIRA farmácia.
+
+       A causa era uma gentileza mal colocada: campo vazio fazia a
+       função voltar sem escrever, deixando na tela o que estava no
+       HTML — e o HTML traz os dados da primeira loja, porque é dela o
+       arquivo servido na raiz. Documento sanitário de um
+       estabelecimento, no site de outro. */
+    const pagina = await abrir("/", {
+        loja: {
+            slug: "mb-prudente",
+            nome: "Drogaria Mais Barato-Prudente",
+            cnpj: "31175246000128",
+            logradouro: "Rua Prudente de Morais", numero: "19",
+            complemento: "Loja", bairro: "Casa Grande",
+            cidade: "Diadema", uf: "SP", cep: "09960-500",
+            whatsapp: "11999990000",
+            farmaceutico: "Dra Maria Tereza Olivera Dias Farina",
+            crf: "127136",
+            rotulo_responsavel: "Farmacêutica responsável",
+            /* Os dois campos que a filial não tem cadastrados. */
+            autorizacao: "",
+            licenca_ms: ""
+        },
+        horario: []
+    });
+
+    await pagina.waitForTimeout(900);
+
+    const rodape = await lerRodape(pagina);
+
+    conferir("a autorização da outra farmácia some",
+        !/25351\.507967|7\.89888/.test(rodape.autorizacao || ""),
+        rodape.autorizacao);
+
+    /* E a linha some, em vez de ficar em branco: parágrafo vazio no
+       rodapé abre um buraco que parece defeito de layout. */
+    const escondida = await pagina.evaluate(() =>
+        document.querySelector('[data-loja="autorizacao"]')?.hidden);
+    conferir("e a linha fica escondida", escondida === true, String(escondida));
+
+    /* O que ELA tem continua aparecendo — o conserto não pode apagar o
+       que estava certo. */
+    conferir("a farmacêutica dela continua",
+        /Maria Tereza/.test(rodape.responsavel || ""), rodape.responsavel);
+
+    /* E o CNPJ sai pontuado, como a farmácia o escreve na nota. */
+    conferir("o CNPJ sai legível",
+        /31\.175\.246\/0001-28/.test(rodape.identificacao || ""),
+        rodape.identificacao);
+
+    await pagina.close();
+}
+
 await navegador.close();
 console.log(falhas === 0 ? "\nTudo certo.\n" : `\n${falhas} falha(s).\n`);
 process.exit(falhas === 0 ? 0 : 1);
