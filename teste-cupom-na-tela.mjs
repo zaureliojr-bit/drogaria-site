@@ -264,7 +264,11 @@ console.log("\nO valor digitado no painel é o valor do cupom");
         }
 
         if (url.pathname === "/sessao") {
-            return responder({ dono: false, loja: { slug: "mais-barato", nome: "Drogaria Mais Barato", temSenhaPropria: true } });
+            /* dono: true — Cupons, Banners, Encarte e Marketing são
+               telas de quem administra a plataforma, e entrando
+               como loja elas nem aparecem (ver teste-permissoes e
+               teste-painel-filiais, que provam essa separação). */
+            return responder({ dono: true, loja: { slug: "mais-barato", nome: "Drogaria Mais Barato", temSenhaPropria: true } });
         }
         if (url.pathname === "/fila") return responder({ pedidos: [], abertos: ["novo"] });
 

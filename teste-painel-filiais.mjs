@@ -843,6 +843,60 @@ console.log("\nEditar filial: o mesmo formulário, sem um segundo igual");
     await contexto.close();
 }
 
+/* ---- as abas de vitrine e campanha ----------------------------------- */
+console.log("\nAs quatro abas de quem administra a plataforma");
+{
+    /* A farmácia atende; quem instalou o site monta vitrine e campanha.
+       São telas que a loja não usa no dia a dia e que, mexidas sem
+       querer, aparecem para o cliente. */
+    const { pagina, contexto } = await abrirPainel({ dono: false });
+    await entrar(pagina, "senha-da-loja");
+
+    const escondidas = [];
+    const visiveis = [];
+
+    for (const aba of ["cupons", "banners", "encarte", "marketing"]) {
+        const alvo = `#abas [data-aba="${aba}"]`;
+        (await pagina.isVisible(alvo) ? visiveis : escondidas).push(aba);
+    }
+
+    conferir(`a loja não vê as quatro — ${escondidas.join(", ")}`,
+        escondidas.length === 4, JSON.stringify(visiveis));
+
+    /* E o que ela usa continua lá. Esconder demais é pior que esconder
+       de menos: a farmácia para de atender e liga reclamando. */
+    const doBalcao = ["fila", "promocoes", "relatorios", "estoque",
+                      "reativacao", "catalogo"];
+
+    const sumiram = [];
+    for (const aba of doBalcao) {
+        if (!(await pagina.isVisible(`#abas [data-aba="${aba}"]`))) sumiram.push(aba);
+    }
+
+    conferir("e continua com as dela", sumiram.length === 0, JSON.stringify(sumiram));
+
+    conferir("a aba Filiais segue escondida também",
+        !(await pagina.isVisible("#botaoAbaLojas")));
+
+    await contexto.close();
+}
+
+console.log("\nE o dono vê tudo");
+{
+    const { pagina, contexto } = await abrirPainel({ dono: true });
+    await entrar(pagina, "chave-de-dono");
+
+    const faltando = [];
+    for (const aba of ["cupons", "banners", "encarte", "marketing"]) {
+        if (!(await pagina.isVisible(`#abas [data-aba="${aba}"]`))) faltando.push(aba);
+    }
+
+    conferir("as quatro aparecem", faltando.length === 0, JSON.stringify(faltando));
+    conferir("e a de Filiais também", await pagina.isVisible("#botaoAbaLojas"));
+
+    await contexto.close();
+}
+
 await navegador.close();
 console.log(falhas === 0 ? "\nTudo certo.\n" : `\n${falhas} falha(s).\n`);
 process.exit(falhas === 0 ? 0 : 1);

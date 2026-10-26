@@ -801,11 +801,24 @@
     <div class="abas" id="abas">
       <button data-aba="fila" class="ativo">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
       <button data-aba="promocoes">Promoções</button>
-      <button data-aba="cupons">Cupons</button>
-      <button data-aba="banners">Banners</button>
-      <button data-aba="encarte">Encarte</button>
+      <!-- As quatro de quem administra a plataforma: vitrine e campanha.
+
+           Não é hierarquia, é escopo. A farmácia atende — pedido,
+           estoque, preço. Quem instalou o site monta banner, encarte,
+           cupom e anúncio. São telas que a loja não usa no dia a dia e
+           que, mexidas sem querer, aparecem para o cliente: cupom é
+           dinheiro saindo, banner e encarte são propaganda publicada,
+           campanha é verba.
+
+           E esconder o botão NÃO é a permissão. O endereço do worker é
+           público, e qualquer um monta a mesma requisição com a senha
+           da loja. Quem recusa é o worker (ver SO_DO_DONO, lá). Aqui a
+           tela só evita mostrar o que não vai funcionar. -->
+      <button data-aba="cupons"  data-so-dono>Cupons</button>
+      <button data-aba="banners" data-so-dono>Banners</button>
+      <button data-aba="encarte" data-so-dono>Encarte</button>
       <button data-aba="relatorios">Relatórios</button>
-      <button data-aba="marketing">Marketing</button>
+      <button data-aba="marketing" data-so-dono>Marketing</button>
       <button data-aba="estoque">Estoque</button>
       <button data-aba="reativacao">Reativação</button>
       <button data-aba="catalogo">Catálogo</button>
@@ -5315,6 +5328,23 @@ async function carregarSessao() {
     if (s.loja && s.loja.slug) lojaAtual = s.loja.slug;
     if (s.loja && s.loja.nome) lojaNome = s.loja.nome;
     el("botaoAbaLojas").hidden = !souDono;
+
+    /* As abas de vitrine e campanha somem para quem entrou como loja.
+
+       Some, e não fica desabilitada: aba cinzenta que não abre é um
+       convite a perguntar "por que não posso", e a resposta ("porque
+       quem monta a vitrine é outra pessoa") não cabe num tooltip. */
+    document.querySelectorAll("#abas [data-so-dono]").forEach((botao) => {
+      botao.hidden = !souDono;
+    });
+
+    /* Quem estava numa dessas abas quando a sessão foi reconhecida
+       volta para Pedidos — senão fica olhando um formulário que o
+       worker vai recusar. */
+    const ativa = document.querySelector("#abas button.ativo");
+    if (!souDono && ativa && ativa.hasAttribute("data-so-dono")) {
+      document.querySelector('#abas [data-aba="fila"]').click();
+    }
 
     /* O nome da filial no cabeçalho é o que evita o erro mais caro
        deste painel: o dono mexer na loja errada achando que está na
