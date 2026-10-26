@@ -1,0 +1,236 @@
+/* Refinamento visual premium — Drogaria Mais Barato
+   Camada complementar: preserva a estrutura e os comportamentos existentes. */
+:root {
+  --premium-roxo: #302783;
+  --premium-roxo-escuro: #211b63;
+  --premium-lilas: #f0effb;
+  --premium-fundo: #f7f8fc;
+  --premium-borda: #e7e8f1;
+  --premium-sombra: 0 8px 24px rgba(34, 29, 92, .07);
+  --premium-sombra-hover: 0 14px 30px rgba(34, 29, 92, .13);
+}
+
+body {
+  background: var(--premium-fundo);
+  color: #202136;
+}
+
+.header {
+  background: linear-gradient(115deg, var(--premium-roxo-escuro), var(--premium-roxo));
+  box-shadow: 0 3px 16px rgba(25, 20, 77, .16);
+}
+
+.logo {
+  border-radius: 10px;
+  padding: 4px 8px;
+}
+
+.busca-container {
+  border-bottom-color: transparent;
+  background: rgba(247, 248, 252, .94);
+}
+
+.busca-wrapper input {
+  min-height: 44px;
+  border: 1px solid #e1e2ef;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(33, 27, 99, .035);
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.busca-wrapper input:focus {
+  outline: none;
+  border-color: #7770c5;
+  box-shadow: 0 0 0 4px rgba(80, 69, 166, .12);
+}
+
+.btn-buscar {
+  border-radius: 12px;
+  transition: transform .18s ease, filter .18s ease;
+}
+
+.btn-buscar:hover { filter: brightness(1.07); }
+.btn-buscar:active { transform: scale(.97); }
+
+.filtros-wrap {
+  background: rgba(247, 248, 252, .94);
+}
+
+.filtros {
+  gap: 9px;
+  padding-top: 8px;
+  padding-bottom: 10px;
+}
+
+.filtros button,
+.filtros a {
+  border-radius: 999px;
+  transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.filtros button:hover,
+.filtros a:hover {
+  transform: translateY(-1px);
+}
+
+.recado-loja {
+  margin: 8px 14px 14px;
+  padding: 11px 16px;
+  border: 1px solid #e2e0fa;
+  border-radius: 12px;
+  background: linear-gradient(100deg, #f1efff, #fff);
+  color: #332b83;
+}
+
+.banner {
+  margin: 10px auto 22px;
+}
+
+.banner-container {
+  overflow: hidden;
+  border: 1px solid rgba(48, 39, 131, .10);
+  border-radius: 18px;
+  box-shadow: var(--premium-sombra);
+}
+
+.banner-slide {
+  transition: opacity .3s ease, transform .3s ease;
+}
+
+.mais-vendidos,
+.promos {
+  margin-top: 18px;
+  margin-bottom: 18px;
+}
+
+.mais-vendidos h2,
+.promos h2 {
+  letter-spacing: -.025em;
+}
+
+#produtos {
+  scroll-margin-top: 132px;
+}
+
+.card {
+  border: 1px solid var(--premium-borda);
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(34, 29, 92, .035);
+  overflow: hidden;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  border-color: #d8d5f4;
+  box-shadow: var(--premium-sombra-hover);
+}
+
+.produto-foto {
+  background: linear-gradient(180deg, #fff, #fbfbff);
+}
+
+.produto-nome-link,
+.produto-nome-wrap {
+  color: #26263a;
+}
+
+.card-preco,
+.produto-preco-box {
+  font-variant-numeric: tabular-nums;
+}
+
+.card .btn,
+.card button,
+.card a[class*="add"] {
+  transition: transform .16s ease, filter .16s ease;
+}
+
+.card button:hover,
+.card a[class*="add"]:hover {
+  filter: brightness(1.04);
+}
+
+.carrinho-barra {
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 15px 15px 0 0;
+  box-shadow: 0 -8px 26px rgba(25, 20, 77, .15);
+}
+
+.carrinho-barra-cta {
+  border-radius: 10px;
+}
+
+.toast {
+  border-radius: 12px;
+  box-shadow: var(--premium-sombra);
+}
+
+.rodape {
+  margin-top: 34px;
+  border-top: 1px solid var(--premium-borda);
+  background: #fff;
+}
+
+.rodape-container {
+  max-width: 1120px;
+  margin: 0 auto;
+  line-height: 1.65;
+}
+
+.rodape-agencia {
+  background: #f0eff8;
+}
+
+/* Movimento discreto; respeita a preferência de acessibilidade do visitante. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .banner-container {
+    border-radius: 22px;
+  }
+
+  .recado-loja {
+    max-width: 1180px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .card {
+    border-radius: 17px;
+  }
+}
+
+@media (max-width: 639px) {
+  .busca-container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .recado-loja {
+    margin: 6px 10px 12px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .banner-container {
+    border-radius: 14px;
+  }
+
+  .card {
+    border-radius: 12px;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+}
