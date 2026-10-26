@@ -648,7 +648,7 @@ async function aplicarPromocoesDoPainel() {
 
   let promocoes, ofertasDeQuantidade;
   try {
-    const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/promocoes`, { cache: "no-cache" });
+    const resposta = await fetch(LojaAtual.api(API_PEDIDOS_D1, "/promocoes"), { cache: "no-cache" });
     if (!resposta.ok) throw new Error("HTTP " + resposta.status);
     const corpo = await resposta.json();
     promocoes = corpo.promocoes || [];
@@ -716,7 +716,7 @@ async function carregarChamadaDoEncarte() {
   if (!link || !API_PEDIDOS_D1) return;
 
   try {
-    const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/encarte`, { cache: "no-cache" });
+    const resposta = await fetch(LojaAtual.api(API_PEDIDOS_D1, "/encarte"), { cache: "no-cache" });
     if (!resposta.ok) return;
 
     const { encarte } = await resposta.json();
@@ -790,7 +790,7 @@ function bannerHTML(b) {
 async function buscarBannersDoPainel() {
   if (!API_PEDIDOS_D1) return null;
 
-  const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/banners`, { cache: "no-cache" });
+  const resposta = await fetch(LojaAtual.api(API_PEDIDOS_D1, "/banners"), { cache: "no-cache" });
   if (!resposta.ok) throw new Error("HTTP " + resposta.status);
 
   const dados = await resposta.json();
@@ -2498,7 +2498,7 @@ async function aplicarCupom(codigoBruto, { silencioso = false } = {}) {
 
   try {
 
-    const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/cupom/validar`, {
+    const resposta = await fetch(LojaAtual.api(API_PEDIDOS_D1, "/cupom/validar"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -3378,7 +3378,7 @@ function finalizar() {
   // planilha continua recebendo o formato antigo: os dois convivem até o
   // painel ganhar confiança, e nenhum dos dois depende do outro.
   if (API_PEDIDOS_D1) {
-    fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/pedidos`, {
+    fetch(LojaAtual.api(API_PEDIDOS_D1, "/pedidos"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -3777,9 +3777,9 @@ function contarVisitaDaCampanha(id) {
 
     try {
         const pacote = new Blob([corpo], { type: "text/plain" });
-        if (navigator.sendBeacon?.(API_PEDIDOS_D1 + "/campanha", pacote)) return;
+        if (navigator.sendBeacon?.(LojaAtual.api(API_PEDIDOS_D1, "/campanha"), pacote)) return;
 
-        fetch(API_PEDIDOS_D1 + "/campanha", {
+        fetch(LojaAtual.api(API_PEDIDOS_D1, "/campanha"), {
             method: "POST", body: corpo, keepalive: true,
             headers: { "Content-Type": "text/plain" }
         }).catch(() => {});
@@ -3852,9 +3852,9 @@ function marcarEtapa(etapa) {
         // sobrevive a uma verificação de CORS. O worker lê como JSON.
         const pacote = new Blob([corpo], { type: "text/plain" });
 
-        if (navigator.sendBeacon?.(API_PEDIDOS_D1 + "/funil", pacote)) return;
+        if (navigator.sendBeacon?.(LojaAtual.api(API_PEDIDOS_D1, "/funil"), pacote)) return;
 
-        fetch(API_PEDIDOS_D1 + "/funil", {
+        fetch(LojaAtual.api(API_PEDIDOS_D1, "/funil"), {
             method: "POST",
             body: corpo,
             keepalive: true,
@@ -3943,10 +3943,10 @@ function enviarBuscaPendente() {
         // lê o corpo como JSON de qualquer jeito.
         const pacote = new Blob([corpo], { type: "text/plain" });
 
-        if (navigator.sendBeacon?.(API_PEDIDOS_D1 + "/busca", pacote)) return;
+        if (navigator.sendBeacon?.(LojaAtual.api(API_PEDIDOS_D1, "/busca"), pacote)) return;
 
         // navegador sem sendBeacon: keepalive faz o mesmo papel
-        fetch(API_PEDIDOS_D1 + "/busca", {
+        fetch(LojaAtual.api(API_PEDIDOS_D1, "/busca"), {
             method: "POST",
             body: corpo,
             keepalive: true,

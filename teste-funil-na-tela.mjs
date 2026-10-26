@@ -71,7 +71,10 @@ async function abrirSite() {
         body: JSON.stringify({ ok: true, produtos: [], promocoes: [], banners: [] })
     }));
 
-    await pagina.route("**/funil", async (rota) => {
+    /* Expressao regular, e nao glob exato: a chamada passou a levar
+       a farmacia no endereco (?loja=...), e o glob deixava de casar
+       — a contagem caia no catch-all e o teste nao via nada. */
+    await pagina.route(/\/funil(\?|$)/, async (rota) => {
         const cru = rota.request().postData() || "";
         let corpo = null;
         try { corpo = JSON.parse(cru || "null"); } catch { /* lixo */ }

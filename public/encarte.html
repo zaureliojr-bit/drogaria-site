@@ -119,6 +119,11 @@
 <script src="/familias.js" defer></script>
 <!-- Antes do script.js: ele usa Receita.decidirReceita ao mapear cada
      produto. Ambos com defer, que preserva a ordem de execução. -->
+<!-- De qual farmácia é esta página. Antes do script.js e do loja.js:
+     TODA chamada ao worker passa por ele, e sem isso o site da filial
+     pedia os banners "de ninguém" e recebia os da farmácia principal
+     — inclusive mandando o PEDIDO para a fila dela. -->
+<script src="/lojaAtual.js" defer></script>
 <script src="/receita.js" defer></script>
 <script src="/estoque.js" defer></script>
 <!-- A conta das ofertas de quantidade ("leve 3 pague 2", "3 por R$ 10").

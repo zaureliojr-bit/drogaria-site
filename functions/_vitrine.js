@@ -238,6 +238,16 @@ export async function montarVitrine({ request, env, slug: slugPedido, proprio = 
         .on("script[src]", new ParaRaiz("src"))
         .on("img[src]", new ParaRaiz("src"))
         .on("a[href]", new ParaRaiz("href"))
+        /* De qual farmácia é esta página, para o JavaScript do site.
+
+           O index.html traz `mais-barato` escrito, que é a loja da raiz
+           da plataforma. Servindo OUTRA farmácia por cima dele, esta
+           meta tem de virar a dela — senão o site da filial pede os
+           banners, o encarte e o WhatsApp "da loja da página" e recebe
+           os da Mais Barato. Pior: manda o PEDIDO para a fila dela. */
+        .on('meta[name="loja"]', {
+            element: (e) => e.setAttribute("content", slug)
+        })
         .on('link[rel="canonical"]', { element: (e) => e.remove() })
         .on('meta[property^="og:"]', { element: (e) => e.remove() })
         .on('meta[name^="twitter:"]', { element: (e) => e.remove() })

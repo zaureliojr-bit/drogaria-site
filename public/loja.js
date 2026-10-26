@@ -296,7 +296,7 @@ async function carregarLoja() {
     }
 
     try {
-        const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/loja`);
+        const resposta = await fetch(LojaAtual.api(API_PEDIDOS_D1, "/loja"));
         if (!resposta.ok) throw new Error("HTTP " + resposta.status);
 
         const dados = await resposta.json();

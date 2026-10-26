@@ -295,6 +295,13 @@ export async function montarPaginaProduto({ request, env, rota, slugLoja = "", n
         .on("script[src]", new ParaRaiz("src"))
         .on("img[src]", new ParaRaiz("src"))
         .on("a[href]", new ParaRaiz("href"))
+        /* De qual farmácia é esta página, para o JavaScript do site.
+           Sem isto, quem chega pela página de um produto compartilhado
+           no WhatsApp põe no carrinho e manda o pedido para a fila da
+           farmácia principal, e não da que ele estava vendo. */
+        .on('meta[name="loja"]', {
+            element: (e) => e.setAttribute("content", slugLoja || "")
+        })
         .on("head", { element: (e) => e.append(cabeca, { html: true }) })
         .transform(pagina);
 

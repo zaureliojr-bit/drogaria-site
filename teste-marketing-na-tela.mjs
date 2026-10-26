@@ -75,7 +75,10 @@ async function abrirSite(caminho) {
         body: JSON.stringify({ ok: true, produtos: [], promocoes: [], banners: [] })
     }));
 
-    await pagina.route("**/campanha", async (rota) => {
+    /* Expressao regular, e nao glob exato: a chamada passou a levar
+       a farmacia no endereco (?loja=...), e o glob deixava de casar
+       — a contagem caia no catch-all e o teste nao via nada. */
+    await pagina.route(/\/campanha(\?|$)/, async (rota) => {
         let corpo = null;
         try { corpo = JSON.parse(rota.request().postData() || "null"); } catch { /* lixo */ }
         visitas.push(corpo);

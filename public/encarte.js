@@ -51,7 +51,7 @@
     if (typeof API_PEDIDOS_D1 === "undefined" || !API_PEDIDOS_D1) return mostrarVazio();
 
     try {
-      const resposta = await fetch(`${API_PEDIDOS_D1.replace(/\/+$/, "")}/encarte`, { cache: "no-cache" });
+      const resposta = await fetch(LojaAtual.api(API_PEDIDOS_D1, "/encarte"), { cache: "no-cache" });
       if (!resposta.ok) throw new Error("HTTP " + resposta.status);
 
       const { encarte } = await resposta.json();

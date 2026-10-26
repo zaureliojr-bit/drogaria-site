@@ -87,6 +87,12 @@
   }
   </script>
 
+  <!-- De qual farmácia é este HTML. O index.html é servido tal e qual
+       na raiz da plataforma, que é a Mais Barato; para as outras lojas
+       quem serve é a função da Pages, que TROCA esta meta pela loja
+       dela. Sem um valor aqui, a raiz herdaria a última farmácia que
+       a pessoa tivesse visitado. -->
+  <meta name="loja" content="mais-barato">
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="apple-touch-icon" href="/icone-180.png">
   <link rel="manifest" href="/manifest.json">
@@ -393,6 +399,11 @@
 <script src="/familias.js" defer></script>
 <!-- Antes do script.js: ele usa Receita.decidirReceita ao mapear cada
      produto. Ambos com defer, que preserva a ordem de execução. -->
+<!-- De qual farmácia é esta página. Antes do script.js e do loja.js:
+     TODA chamada ao worker passa por ele, e sem isso o site da filial
+     pedia os banners "de ninguém" e recebia os da farmácia principal
+     — inclusive mandando o PEDIDO para a fila dela. -->
+<script src="/lojaAtual.js" defer></script>
 <script src="/receita.js" defer></script>
 <script src="/busca.js" defer></script>
 <script src="/estoque.js" defer></script>

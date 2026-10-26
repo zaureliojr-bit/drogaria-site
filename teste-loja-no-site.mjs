@@ -112,7 +112,10 @@ const contexto = await navegador.newContext();
 async function abrir(caminho, resposta) {
     const pagina = await contexto.newPage();
 
-    await pagina.route("**/loja", async (rota) => {
+    /* Expressão regular, e nao o glob exato: a chamada passou a levar a
+       farmacia no endereco (?loja=mb-prudente), e o glob deixava de
+       casar — o teste ia a rede e lia a loja de producao. */
+    await pagina.route(/\/loja(\?|$)/, async (rota) => {
         if (resposta === null) return rota.abort("failed");
         await rota.fulfill({
             status: 200,

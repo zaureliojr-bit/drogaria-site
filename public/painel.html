@@ -5536,7 +5536,13 @@ async function carregarLojas() {
       l.slug === lojaAtual
         ? '<span class="aqui">você está aqui</span>'
         : !l.ativo
+          /* Desligada ganha os dois caminhos: terminar o cadastro, ou
+             apagar. "Apagar" só aparece aqui porque só aqui ele pode
+             funcionar — o worker recusa apagar filial no ar, e é essa
+             recusa que obriga a desligar antes e ver o que para. */
           ? `<button type="button" class="btn-operar" data-terminar="${esc(l.slug)}">Terminar cadastro</button>`
+            + ` <button type="button" class="btn-apagar-produto" data-apagar-filial="${esc(l.slug)}"
+                        title="Apagar o cadastro desta filial">Apagar</button>`
           : `<button type="button" class="btn-operar" data-ir-para="${esc(l.slug)}">Operar nesta</button>`
     ]),
     "Nenhuma filial cadastrada."
@@ -6323,6 +6329,71 @@ el("listaLojas").addEventListener("click", (ev) => {
 el("listaLojas").addEventListener("click", (ev) => {
   const botao = ev.target.closest("[data-ir-para]");
   if (botao) operarNaLoja(botao.dataset.irPara);
+});
+
+/* Apagar o cadastro de uma filial.
+
+   A confirmação é DIGITAR O APELIDO, e não um "tem certeza?". Um
+   confirm() se clica no automático — e na lista de filiais os botões
+   ficam um debaixo do outro, com o mouse já na coluna certa. Digitar o
+   apelido obriga a ler qual filial está prestes a sumir, que é a única
+   pergunta que importa aqui. */
+el("listaLojas").addEventListener("click", async (ev) => {
+
+  const botao = ev.target.closest("[data-apagar-filial]");
+  if (!botao) return;
+
+  const slug = botao.dataset.apagarFilial;
+  const loja = lojasDaPlataforma.find((l) => l.slug === slug);
+
+  const digitado = prompt(
+    `Apagar o cadastro de "${loja ? loja.nome : slug}"?\n\n`
+    + `Isto some com a filial da lista, com a senha e com o horário dela. `
+    + `O banco D1 e os arquivos no R2 continuam na Cloudflare — quem apaga `
+    + `esses é você, lá.\n\n`
+    + `Para confirmar, digite o apelido: ${slug}`
+  );
+
+  /* Cancelar é o caminho normal de quem clicou sem querer: sai sem
+     recado nenhum. Já digitar ERRADO merece aviso — quem tentou
+     confirmar precisa saber que não aconteceu. */
+  if (digitado === null) return;
+
+  if (digitado.trim() !== slug) {
+    return avisoLojas(`O apelido não confere. Nada foi apagado.`);
+  }
+
+  botao.disabled = true;
+
+  try {
+
+    const r = await fetch(`${API.replace(/\/+$/, "")}/lojas/${encodeURIComponent(slug)}`, {
+      method: "DELETE",
+      headers: cabecalhos()
+    });
+
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+
+    /* Se a filial apagada era a que estava escolhida no formulário de
+       edição, ele volta para "nova" — senão fica preenchido com um
+       cadastro que não existe mais. */
+    if (el("filialAlvo").value === slug) el("filialAlvo").value = "";
+
+    await carregarLojas();
+    await trocarModoDaFilial();
+
+    const sobrou = dados.sobrou || {};
+    avisoLojas(
+      `${dados.nome || slug} apagada. Na Cloudflare ainda ficaram `
+      + [sobrou.bancoD1, sobrou.arquivos].filter(Boolean).join(" e ")
+      + " — apague por lá se não for reaproveitar.", "ok");
+
+  } catch (erro) {
+    botao.disabled = false;
+    avisoLojas("Não consegui apagar: " + erro.message);
+  }
+
 });
 
 /* Copiar o link da loja.
