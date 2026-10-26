@@ -6210,6 +6210,15 @@ async function mostrarPassos(slug, cadastro) {
           Cloudflare &rarr; D1 &rarr; <em>Create database</em>, com o nome
           <code>${esc(banco.bancoD1 || ("farmatech-" + slug))}</code>.
           Abra o console dele e rode o <code>${esc(banco.schema || "pedidos-proxy/schema.sql")}</code>.
+          <br>
+          <!-- O tropeço que isto evita: o campo Name do D1 recusa
+               maiúscula, e o nome do passo 2 é todo maiúsculo. São dois
+               nomes parecidos para a mesma coisa, e quem vem do passo 2
+               na cabeça digita o errado e leva um "Not valid" em
+               vermelho sem entender o motivo. -->
+          <small><b>Minúsculo, e este nome não é o do passo 2.</b>
+          O campo <em>Name</em> do D1 recusa maiúscula; a maiúscula é
+          obrigatória lá embaixo, no nome da variável.</small>
         </li>
         <li>
           <b>Ligar o banco a este worker.</b>
