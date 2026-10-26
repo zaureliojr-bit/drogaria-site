@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="DrogaLink"><title>DrogaLink</title><!--
+  A versão "maskable" do ícone, para o atalho instalado.
+
+  Duas diferenças, e as duas existem porque QUEM RECORTA É O SISTEMA:
+  o Windows, o Android e o iOS aplicam cada um a sua máscara (círculo,
+  quadrado arredondado, gota). Por isso aqui o laranja vai até a borda,
+  sem canto arredondado — o canto vem da máscara, e um canto nosso
+  debaixo dela aparece como sombra torta.
+
+  E o nó é menor: a "zona segura" de um ícone mascarável é o círculo
+  central, e o que passa dela pode ser cortado. Nos 96 originais o nó
+  encostava nessa borda; aqui ele recua para caber inteiro.
+--><rect width="96" height="96" fill="#FF6A1A"/><g transform="translate(48 48) scale(0.82) translate(-32 -32)">
+<mask id="mhm" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><rect x="13" y="13" width="14" height="14" fill="#000"/><rect x="37" y="37" width="14" height="14" fill="#000"/></mask>
+<mask id="mvm" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><rect x="37" y="13" width="14" height="14" fill="#000"/><rect x="13" y="37" width="14" height="14" fill="#000"/></mask>
+<rect x="4" y="20" width="56" height="24" rx="12" fill="none" stroke="#14171C" stroke-width="8" mask="url(#mhm)"/>
+<rect x="20" y="4" width="24" height="56" rx="12" fill="none" stroke="#14171C" stroke-width="8" mask="url(#mvm)"/>
+</g></svg>

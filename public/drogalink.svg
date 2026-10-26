@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Drogalink"><title>Drogalink</title><rect width="96" height="96" rx="24" fill="#FF6A1A"/><g transform="translate(16 16) scale(1)">
+<mask id="mhi" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><rect x="13" y="13" width="14" height="14" fill="#000"/><rect x="37" y="37" width="14" height="14" fill="#000"/></mask>
+<mask id="mvi" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><rect x="37" y="13" width="14" height="14" fill="#000"/><rect x="13" y="37" width="14" height="14" fill="#000"/></mask>
+<rect x="4" y="20" width="56" height="24" rx="12" fill="none" stroke="#14171C" stroke-width="8" mask="url(#mhi)"/>
+<rect x="20" y="4" width="24" height="56" rx="12" fill="none" stroke="#14171C" stroke-width="8" mask="url(#mvi)"/>
+</g></svg>

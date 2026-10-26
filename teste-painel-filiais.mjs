@@ -897,6 +897,51 @@ console.log("\nE o dono vê tudo");
     await contexto.close();
 }
 
+/* ---- a marca do painel ------------------------------------------------ */
+console.log("\nO painel é da DrogaLink; a vitrine é da farmácia");
+{
+    /* Até aqui os dois dividiam título e ícone, e o resultado era a aba
+       do navegador dizendo "Drogaria Mais Barato" para quem opera
+       QUALQUER filial — inclusive para quem administra a plataforma com
+       cinco painéis abertos lado a lado. */
+    const { pagina, contexto } = await abrirPainel({ dono: false });
+
+    conferir("a aba do login diz DrogaLink",
+        (await pagina.title()) === "Painel DrogaLink", await pagina.title());
+
+    conferir("o ícone é o da DrogaLink",
+        (await pagina.getAttribute('link[rel="icon"]', "href")) === "drogalink.svg",
+        await pagina.getAttribute('link[rel="icon"]', "href"));
+
+    conferir("e o logotipo aparece no cabeçalho",
+        await pagina.isVisible(".painel-marca img"));
+
+    conferir("com o nome ao lado",
+        (await pagina.textContent(".painel-marca h1")) === "DrogaLink",
+        await pagina.textContent(".painel-marca h1"));
+
+    await entrar(pagina, "senha-da-loja");
+    await pagina.waitForTimeout(1200);
+
+    /* E o nome da FARMÁCIA continua à vista. Não é detalhe: é o que
+       evita o erro mais caro deste painel — mexer na loja errada
+       achando que está na sua. Antes ele só aparecia para o dono, e
+       sumia na primeira atualização da tela. */
+    const sub = await pagina.textContent("#atualizado");
+    conferir("o nome da farmácia fica no cabeçalho",
+        /Drogaria Mais Barato/.test(sub || ""), sub);
+
+    conferir("junto da hora da última atualização",
+        /atualizado às \d{2}:\d{2}/.test(sub || ""), sub);
+
+    /* O título da aba leva o nome da LOJA, e não o da DrogaLink: é o
+       que distingue cinco painéis abertos lado a lado. */
+    conferir("e a aba passa a identificar a loja",
+        /Drogaria Mais Barato/.test(await pagina.title()), await pagina.title());
+
+    await contexto.close();
+}
+
 await navegador.close();
 console.log(falhas === 0 ? "\nTudo certo.\n" : `\n${falhas} falha(s).\n`);
 process.exit(falhas === 0 ? 0 : 1);

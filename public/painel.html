@@ -4,16 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>Painel — Drogaria Mais Barato</title>
+<!-- O painel é o produto da DrogaLink, e a vitrine é da farmácia. Até
+     aqui os dois dividiam título e ícone, e o resultado era a aba do
+     navegador dizendo o nome da Drogaria Mais Barato para quem opera
+     QUALQUER filial — inclusive para quem administra a plataforma com
+     cinco painéis abertos lado a lado. -->
+<title>Painel DrogaLink</title>
 <meta name="theme-color" content="#26247B">
-<link rel="icon" type="image/png" href="logo.png">
-<link rel="apple-touch-icon" href="icone-180.png">
+<!-- SVG primeiro, .ico depois: o SVG fica nítido em qualquer tamanho e
+     os navegadores modernos o preferem; o .ico é o que o Windows usa no
+     atalho da área de trabalho e o que navegador antigo entende. -->
+<link rel="icon" type="image/svg+xml" href="drogalink.svg">
+<link rel="icon" type="image/x-icon" href="drogalink.ico">
+<link rel="apple-touch-icon" href="drogalink-180.png">
 <!-- Manifesto próprio, separado do manifest.json da loja: o "id" e o
      "start_url" diferentes fazem o Windows tratar isto como um segundo
      aplicativo, com ícone próprio, em vez de reabrir a vitrine. -->
 <link rel="manifest" href="manifest-painel.json">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Painel">
+<meta name="apple-mobile-web-app-title" content="DrogaLink">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -33,8 +42,18 @@
     gap: 12px;
     flex-wrap: wrap;
   }
-  .painel-topo h1 { font-size: 16px; font-weight: 700; color: var(--amarelo); }
-  .painel-topo .sub { font-size: 11.5px; color: rgba(255,255,255,.8); }
+  /* O logotipo já traz o próprio fundo laranja, então ele funciona
+     como um selo sobre a barra escura — sem precisar repintar o painel
+     inteiro, que é a identidade que a farmácia já conhece. */
+  .painel-marca { display: flex; align-items: center; gap: 10px; }
+  .painel-marca img { border-radius: 9px; flex-shrink: 0; }
+
+  /* Branco, e não o amarelo de antes: amarelo ao lado do laranja do
+     selo vira uma mancha só, e o nome deixa de se ler à distância. */
+  .painel-topo h1 { font-size: 16px; font-weight: 700; color: var(--branco); letter-spacing: .2px; }
+  .painel-topo .sub { font-size: 11.5px; color: rgba(255,255,255,.8); display: block; }
+
+  .login-marca { display: block; margin: 0 auto 10px; border-radius: 14px; }
   .painel-topo a { color: var(--branco); font-size: 12px; font-weight: 600; }
 
   .painel-topo-acoes { display: flex; align-items: center; gap: 14px; }
@@ -766,9 +785,16 @@
 <body>
 
 <div class="painel-topo">
-  <div>
-    <h1>Painel da loja</h1>
-    <span class="sub" id="atualizado"></span>
+  <div class="painel-marca">
+    <img src="drogalink.svg" alt="" width="34" height="34">
+    <div>
+      <h1>DrogaLink</h1>
+      <!-- O nome da farmácia continua aqui, e isso não é detalhe: é o
+           que evita o erro mais caro deste painel — mexer na loja
+           errada achando que está na sua. A marca é de quem fez o
+           sistema; o rodapé da linha diz onde você está. -->
+      <span class="sub" id="atualizado"></span>
+    </div>
   </div>
   <div class="painel-topo-acoes">
     <button type="button" id="btnInstalar" class="btn-instalar-painel" hidden>Instalar no computador</button>
@@ -779,7 +805,8 @@
 <div class="painel">
 
   <div id="login" class="entrar" style="display:none;">
-    <h2>Painel da loja</h2>
+    <img src="drogalink.svg" alt="DrogaLink" class="login-marca" width="56" height="56">
+    <h2>Painel DrogaLink</h2>
     <p>Escolha a filial e digite a senha dela.</p>
     <div id="erroLogin"></div>
     <!-- A filial vem ANTES da senha porque é ela que decide qual senha
@@ -3369,7 +3396,7 @@ async function carregar() {
     "Nenhum cliente ainda."
   );
 
-  el("atualizado").textContent = `atualizado às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  mostrarQuemESoQueHoras();
   el("login").style.display = "none";
   el("conteudo").style.display = "";
 }
@@ -3839,11 +3866,16 @@ function pintarFila() {
   contador.textContent = fila.length || "";
   contador.dataset.zero = fila.length ? "0" : "1";
 
-  // o título da aba é o que o balcão vê quando o painel está atrás de
-  // outra janela
-  document.title = novos
-    ? `(${novos}) Painel — Drogaria Mais Barato`
-    : "Painel — Drogaria Mais Barato";
+  /* O título da aba é o que o balcão vê quando o painel está atrás de
+     outra janela — e é também o que distingue cinco painéis abertos
+     lado a lado por quem administra a plataforma. Por isso leva o nome
+     da FARMÁCIA, e não o da DrogaLink: "(2) Drogaria Mais Barato" diz
+     onde clicar; "(2) Painel DrogaLink" cinco vezes não diz nada.
+
+     O nome fixo de antes era o buraco: toda filial via "Drogaria Mais
+     Barato" na aba, qualquer que fosse a loja em que estivesse. */
+  pedidosNovosNaAba = novos;
+  escreverTituloDaAba();
 
   el("filaStatus").textContent =
     `${fila.length} pedido(s) em aberto · atualizado às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
@@ -5321,6 +5353,42 @@ function avisoLojas(msg, erro = true) {
    Chamado logo depois do login. Se o worker for antigo e não tiver a
    rota, segue como estava: painel de uma loja só, sem aba de filiais —
    publicar o painel antes do worker não pode travar o balcão. */
+/* "Drogaria Mais Barato · atualizado às 14:32".
+
+   Numa função só porque os dois lados a escreviam: a sessão punha o
+   nome da loja e o carregamento do painel reescrevia a linha inteira
+   com a hora — apagando o nome na primeira atualização, justamente
+   quando alguém já tinha parado de olhar para o cabeçalho. */
+/* Quantos pedidos novos, para o título da aba. Guardado porque quem
+   descobre o nome da loja (a sessão) e quem conta os pedidos (a fila)
+   chegam em ordens diferentes: sem isto, a sessão respondendo depois
+   deixava a aba escrita "Painel DrogaLink" até a fila atualizar. */
+let pedidosNovosNaAba = 0;
+
+function escreverTituloDaAba() {
+
+  /* Leva o nome da FARMÁCIA, e não o da DrogaLink: é o que distingue
+     cinco painéis abertos lado a lado por quem administra a rede.
+     "(2) Drogaria Mais Barato" diz onde clicar; "(2) Painel DrogaLink"
+     cinco vezes não diz nada.
+
+     O nome FIXO de antes era o buraco: toda filial via "Drogaria Mais
+     Barato" na aba, qualquer que fosse a loja em que estivesse. */
+  const naAba = lojaNome || "Painel DrogaLink";
+
+  document.title = pedidosNovosNaAba ? `(${pedidosNovosNaAba}) ${naAba}` : naAba;
+
+}
+
+function mostrarQuemESoQueHoras() {
+
+  const hora = "atualizado às " + new Date().toLocaleTimeString("pt-BR",
+    { hour: "2-digit", minute: "2-digit" });
+
+  el("atualizado").textContent = lojaNome ? `${lojaNome} · ${hora}` : hora;
+
+}
+
 async function carregarSessao() {
   try {
     const s = await api("/sessao");
@@ -5346,12 +5414,12 @@ async function carregarSessao() {
       document.querySelector('#abas [data-aba="fila"]').click();
     }
 
-    /* O nome da filial no cabeçalho é o que evita o erro mais caro
-       deste painel: o dono mexer na loja errada achando que está na
-       dele. Aparece só quando há mais de uma possibilidade. */
-    if (souDono && s.loja && s.loja.nome) {
-      el("atualizado").textContent = `${s.loja.nome} · ` + el("atualizado").textContent;
-    }
+    /* O cabeçalho passou a dizer DrogaLink, que é quem faz o sistema.
+       Então o nome da farmácia tem de aparecer aqui SEMPRE, e não só
+       para o dono: é ele que evita o erro mais caro deste painel —
+       mexer na loja errada achando que está na sua. */
+    mostrarQuemESoQueHoras();
+    escreverTituloDaAba();
 
     /* "Ver o site" leva à vitrine DESTA filial, e não à raiz. Operando
        numa filial, a raiz é o site de outra farmácia — e abrir o site do
