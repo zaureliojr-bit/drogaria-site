@@ -123,6 +123,9 @@ const vitrine = await pagina.evaluate(() => ({
         .map(p => ({ nome: p.nome, familia: p.familia })),
     naTela: [...document.querySelectorAll("#listaMaisVendidos .card-mini")]
         .map(c => (c.textContent || "").replace(/\s+/g, " ").trim()),
+    /* A tira "Ofertas do dia" saiu do site; o que resta de superfície
+       de escolha é a fileira de destaques. A medida fica aqui para o
+       dia em que alguém reintroduzir um bloco com esta classe. */
     ofertas: [...document.querySelectorAll(".banner-item b")]
         .map(b => (b.textContent || "").trim())
 }));
@@ -141,10 +144,10 @@ console.log("\n1. receita não vai para a vitrine");
     const naTira = vitrine.ofertas.join(" | ");
     const vazouTira = PROIBIDOS.filter(x => naTira.includes(x));
 
-    /* A tira é o bloco mais colorido da home e ordena por maior
-       desconto: um tarjado em promoção ia, por construção, para a
-       primeira posição da primeira tela. */
-    conferir("nem na tira de Ofertas do dia",
+    /* A tira saiu do site, então o certo é ela não existir. Mas o
+       teste continua perguntando, e de propósito: se ela voltar um dia,
+       volta já com a regra do tarjado — e não sem ela, como estava. */
+    conferir("e nenhuma tira de ofertas trouxe tarjado de volta",
         vazouTira.length === 0, vazouTira.join(", ") + "  em: " + naTira);
 }
 

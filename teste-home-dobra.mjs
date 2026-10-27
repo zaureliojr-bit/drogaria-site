@@ -109,7 +109,6 @@ const medir = (pagina) => pagina.evaluate(() => {
                 : Math.round(e.getBoundingClientRect().top + scrollY);
         })(),
         destaques: topo(".mais-vendidos"),
-        ofertas: topo(".banner"),
         primeiroProduto: primeiro
             ? Math.round(primeiro.getBoundingClientRect().top + scrollY)
             : null,
@@ -155,12 +154,6 @@ console.log("\n1. a primeira tela de um celular de 390px");
        ganha um buraco no alto da página. */
     conferir("sem banner publicado, a faixa não ocupa espaço",
         m.promos === null, String(m.promos));
-
-    /* Produto antes de anúncio. A tira de ofertas não se perdeu: ela
-       continua inteira, logo abaixo da primeira fileira. */
-    conferir("a tira de ofertas vem DEPOIS dos destaques",
-        m.ofertas !== null && m.destaques !== null && m.ofertas > m.destaques,
-        `destaques ${m.destaques} / ofertas ${m.ofertas}`);
 
     /* A medida publicada para o CSS tem de bater com a real: é ela que
        posiciona a barra de resultado, e uma conta errada aqui põe a
@@ -230,25 +223,13 @@ console.log("\n2. no computador nada disso se aplica");
     conferir("e o primeiro produto continua perto do topo",
         m.primeiroProduto !== null && m.primeiroProduto < 500, String(m.primeiroProduto));
 
-    /* A caixa de ofertas tem de PREENCHER a tela larga.
-
-       Três itens numa tela de 1440 deixavam meia caixa vazia, e a
-       primeira tentativa de arrumar (limitar a largura da fileira) só
-       mudou o vazio de lugar. Quem resolve é a quantidade: onde cabe
-       mais oferta, aparece mais oferta. */
-    const porTela = await pagina.locator(".banner-slide.ativo .banner-item").count();
-    conferir(`a tela larga mostra mais de 3 ofertas por vez — ${porTela}`,
-        porTela > 3, String(porTela));
-
-    /* E a fileira ocupa a caixa, em vez de se encolher num canto. */
-    const ocupa = await pagina.evaluate(() => {
-        const fileira = document.querySelector(".banner-slide.ativo .banner-grupo-itens");
-        const caixa = document.querySelector(".banner-container");
-        if (!fileira || !caixa) return 0;
-        return fileira.getBoundingClientRect().width / caixa.getBoundingClientRect().width;
-    });
-    conferir(`e ocupa a largura da caixa — ${Math.round(ocupa * 100)}%`,
-        ocupa > 0.8, String(ocupa));
+    /* As duas medidas que estavam aqui — quantas ofertas cabiam por
+       tela larga e se a fileira preenchia a caixa — eram da tira
+       "Ofertas do dia", que a loja mandou tirar do site. A fileira que
+       ficou é a de destaques, que rola em vez de paginar, então não há
+       "quantos cabem por tela" para medir. O que sobrou de válido dali
+       é a asserção de cima: no computador o produto continua perto do
+       topo. */
 
     await contexto.close();
 }

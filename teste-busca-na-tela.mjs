@@ -175,7 +175,7 @@ console.log("\n4. limpar a busca devolve a vitrine");
         };
         return {
             destaques: visivel(".mais-vendidos"),
-            ofertas: visivel(".banner"),
+            atalhos: visivel("#atalhos"),
             encarte: visivel("#chamadaEncarte"),
             promos: visivel("#promos")
         };
@@ -197,7 +197,7 @@ console.log("\n4. limpar a busca devolve a vitrine");
         JSON.stringify({ antes, depois }));
 
     conferir("durante a busca, nenhum bloco da vitrine ocupa a tela",
-        !durante.destaques && !durante.ofertas && !durante.encarte && !durante.promos,
+        !durante.destaques && !durante.atalhos && !durante.encarte && !durante.promos,
         JSON.stringify(durante));
 
     /* Nem a mais nem a menos: a busca não pode ressuscitar um bloco

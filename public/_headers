@@ -66,3 +66,34 @@
 /painel.html
   ! Content-Security-Policy
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com https://*.drogalink.com.br; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+
+# =====================================================================
+# O JAVASCRIPT E O CSS TÊM DE CHEGAR JUNTO COM O HTML
+# =====================================================================
+#
+# A Pages serve estes arquivos com `max-age=14400`: quatro horas em que
+# o navegador NÃO pergunta nada, nem com must-revalidate — ele só
+# revalida depois de vencido.
+#
+# O HTML, por ser navegação, chega novo quase sempre. O resultado é um
+# par desencontrado: página nova com script velho, por até quatro horas,
+# em quem já visitou antes. Foi exatamente o que aconteceu no dia em que
+# os atalhos de categoria entraram no ar — o HTML já trazia a fileira, o
+# script que a preenche ainda era o da véspera, e a loja viu a vitrine
+# antiga num site recém-publicado.
+#
+# `no-cache` não quer dizer "não guarde": quer dizer "guarde, mas
+# pergunte antes de usar". Com o ETag que a Pages já manda, a pergunta
+# volta 304 sem corpo nenhum na esmagadora maioria das vezes. Paga-se
+# uma ida à rede por arquivo e recebe-se a garantia de que o que o
+# cliente roda é o que acabou de ser publicado.
+#
+# Isto vale para o punhado de .js e .css da vitrine. Imagem e fonte
+# continuam com o cache longo da Pages, que é onde o cache realmente
+# pesa.
+
+/*.js
+  Cache-Control: no-cache
+
+/*.css
+  Cache-Control: no-cache

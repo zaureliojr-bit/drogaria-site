@@ -540,9 +540,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ligarDelegacaoDeCliques();
   _atualizarBarraFiltros = ligarBarraFiltros();
   toggleEndereco();
-  iniciarBanner();
   vigiarTetoGrudado();
-  vigiarLarguraDasOfertas();
   carregarBanners();
   carregarChamadaDoEncarte();
 });
@@ -947,7 +945,6 @@ function ligarDelegacaoDeCliques() {
     else if (acao === "ofertas")    { ev.preventDefault(); verOfertas(); }
     else if (acao === "receita")    { ev.preventDefault(); falarSobreReceita(codigo); }
     else if (acao === "encomendar") { ev.preventDefault(); encomendarProduto(codigo); }
-    else if (acao === "banner")     { ev.preventDefault(); adicionarDoBanner(codigo); }
     else if (acao === "recarregar") { ev.preventDefault(); carregar(); }
     else if (acao === "voltar-vitrine") { ev.preventDefault(); voltarParaVitrine(); }
   });
@@ -1262,7 +1259,6 @@ async function carregar() {
     renderCategoriasHome();
     aplicarFiltro();
     renderMaisVendidos();
-    renderBannerOfertas();
     renderCarrinho();
     atualizarTotais();
 
@@ -1336,8 +1332,7 @@ function amostraDoDia(lista, quantos) {
    repetida num bloco de destaque lê como "não carregou". Mas exigir
    foto deixaria a fileira VAZIA numa farmácia recém-instalada, cujo
    catálogo ainda não passou pelo casamento de imagens — e vitrine sem
-   destaque nenhum é pior que destaque sem foto. É a mesma escolha que o
-   renderBannerOfertas já fazia.
+   destaque nenhum é pior que destaque sem foto.
 
    QUANDO HOUVER VENDA DE VERDADE
 
@@ -1841,7 +1836,6 @@ function aplicarFiltro() {
   // já disse o que quer ver: ofertas do dia e destaques da semana viram
   // ruído no meio do caminho, e empurram o primeiro produto para fora da
   // tela. Ficam só o cabeçalho, os filtros e os produtos da categoria.
-  const banner = document.querySelector(".banner");
   const destaques = document.querySelector(".mais-vendidos");
   /* Os atalhos vão junto, pela mesma razão: quem já escolheu
      "Infantil" não precisa de uma fileira oferecendo as outras onze
@@ -1851,13 +1845,6 @@ function aplicarFiltro() {
 
   if (destaques) destaques.style.display = modoHome ? "" : "none";
   if (atalhos) atalhos.style.display = modoHome ? "" : "none";
-
-  if (banner) {
-    // o banner some sozinho quando não há oferta nenhuma no catálogo —
-    // voltar para a vitrine não pode ressuscitá-lo vazio
-    const temSlide = !!banner.querySelector(".banner-slide");
-    banner.style.display = (modoHome && temSlide) ? "" : "none";
-  }
 
   /* O encarte e os banners de parceiro ficavam. Buscar "dip" mostrava a
      chamada do encarte e um banner de 400px de altura, e o primeiro
@@ -3227,166 +3214,6 @@ function formatarTroco(input) {
 
   valor = (parseInt(valor, 10) / 100).toFixed(2);
   input.value = "R$ " + valor.replace(".", ",");
-}
-
-/* =========================
-🎠 BANNER
-========================= */
-let _bannerTimer = null;
-
-function iniciarBanner() {
-  const slides = document.querySelectorAll(".banner-slide");
-
-  if (_bannerTimer) clearInterval(_bannerTimer);
-  if (!slides.length) return;
-
-  slides.forEach(s => s.classList.remove("ativo"));
-  slides[0].classList.add("ativo");
-
-  // quem pediu menos animação no sistema não recebe carrossel automático
-  const menosMovimento = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (menosMovimento || slides.length < 2) return;
-
-  let i = 0;
-  _bannerTimer = setInterval(() => {
-    slides[i].classList.remove("ativo");
-    i = (i + 1) % slides.length;
-    slides[i].classList.add("ativo");
-  }, 5000);
-}
-
-/* Quantas ofertas cabem em cada tela do carrossel.
-
-   Três era o número de todas as larguras, e no computador isso deixava
-   três miniaturas num canto e meia tela vazia do lado — foi o que a
-   loja viu e reclamou, com razão. Tentei primeiro limitar a largura da
-   fileira; só mudou o lugar do vazio.
-
-   O problema nunca foi a largura da fileira: eram três itens para
-   preencher 1440px. Então a tela larga mostra mais oferta, que é o que
-   ela tem espaço para mostrar. Os números saem da conta do item: cada
-   um precisa de uns 180px para o nome não quebrar em três linhas. */
-function ofertasPorSlide() {
-  const largura = window.innerWidth || 390;
-  if (largura >= 1180) return 6;
-  if (largura >= 760) return 4;
-  return 3;
-}
-
-/* Com qual medida o carrossel foi montado da última vez. Girar o
-   aparelho ou arrastar a janela muda a resposta do ofertasPorSlide(),
-   e sem isto o bloco ficaria com o desenho da largura antiga até a
-   próxima recarga. */
-let _slideDeOfertas = 0;
-
-/* monta o banner com produtos reais em oferta.
-   Sem produto em oferta no momento, o banner fica escondido. */
-function renderBannerOfertas() {
-  const banner = document.querySelector(".banner");
-  const container = document.querySelector(".banner-container");
-  if (!banner || !container) return;
-
-  /* Ordenado por maior desconto, este carrossel é uma máquina de
-     promover o dado mais duvidoso do catálogo: os poucos produtos cujo
-     "de" veio errado do cadastro ficavam, por construção, nas primeiras
-     posições da primeira tela do site. Ficam de fora daqui. */
-  const ofertas = produtos
-    /* `pedeReceita`, e não `!p.exigeReceita`: este carrossel estava
-       publicando Finasterida e Carvedilol, as duas tarja V, com preço
-       riscado na primeira dobra. Ver o comentário do pedeReceita. */
-    .filter(p => p.emOferta && !p.descontoSuspeito && !pedeReceita(p) && !semEstoque(p))
-    .sort((a, b) => b.desconto - a.desconto)
-    .slice(0, 12);
-
-  if (!ofertas.length) {
-
-    /* Esvazia, e não só esconde.
-
-       A seção nasce no HTML com três slides fixos ("COMPRE PELO SITE E
-       RETIRE NA LOJA"...), que existem como ponto de partida e são
-       substituídos pelas ofertas. Escondendo sem esvaziar, eles
-       continuam ali — e o aplicarFiltro, que decide pela presença de
-       slide, ressuscitava aquele carrossel amarelo antigo quando o
-       cliente voltava de uma busca numa loja sem oferta nenhuma. */
-    container.innerHTML = "";
-    banner.style.display = "none";
-    return;
-  }
-
-  banner.style.display = "";
-
-  /* Foto de verdade na frente.
-
-     Este bloco é a primeira coisa colorida da home, e estava mostrando
-     três vezes a mesma caixa genérica — o desenho de "produto sem foto",
-     que num lugar de destaque lê como "não carregou". Quem tem foto vem
-     primeiro; quem não tem só entra se não houver oferta suficiente com
-     foto para encher o carrossel. O produto não é escondido por não ter
-     foto: ele continua na vitrine, na busca e no filtro de ofertas. */
-  const comFoto = ofertas.filter(p => p.imagem);
-  const porSlide = ofertasPorSlide();
-  const lista = comFoto.length >= porSlide ? comFoto : ofertas;
-
-  const grupos = [];
-  for (let i = 0; i < lista.length; i += porSlide) grupos.push(lista.slice(i, i + porSlide));
-
-  _slideDeOfertas = porSlide;
-
-  container.innerHTML = grupos.map(grupo => `
-    <div class="banner-slide banner-slide-grupo">
-      <div class="banner-topo">
-        <span class="banner-badge">${icone("tag", 11)}Ofertas do dia</span>
-        <button class="banner-vertudo" data-acao="ofertas">Ver todas ${icone("chevron-right", 11)}</button>
-      </div>
-      <div class="banner-grupo-itens">
-        ${grupo.map(p => `
-          <button class="banner-item" data-acao="banner" data-codigo="${esc(p.codigo)}"
-                  aria-label="Adicionar ${esc(p.nome)} ao carrinho">
-            <span class="banner-item-img-wrap">
-              <img src="${esc(imagemDe(p))}"
-                   onerror="this.onerror=null;this.src='${esc(svgDe(p))}'"
-                   alt="" loading="lazy">
-              <span class="banner-item-add" aria-hidden="true">+</span>
-            </span>
-            <b>${esc(p.nome)}</b>
-            <span class="banner-item-de">${fmt(p.precoOriginal)}</span>
-            <span class="banner-item-por">${fmt(p.preco)}</span>
-          </button>
-        `).join("")}
-      </div>
-    </div>
-  `).join("");
-
-  iniciarBanner();
-}
-
-/* Redesenha o carrossel quando a largura muda de faixa — e só então.
-   Redesenhar a cada pixel de arrasto jogaria fora o slide que a pessoa
-   está olhando sem necessidade nenhuma. */
-function vigiarLarguraDasOfertas() {
-  let timer = null;
-
-  window.addEventListener("resize", () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      if (ofertasPorSlide() !== _slideDeOfertas) renderBannerOfertas();
-    }, 200);
-  });
-}
-
-/* clique em um item do banner: adiciona direto no carrinho.
-
-   Antes isto também escancarava a gaveta do carrinho. Agora o carrinho é
-   uma página, e mandar o cliente para lá a cada item do banner o tiraria
-   da vitrine bem no momento em que ele está comprando. A barra de baixo
-   já confirma que o item entrou, e o "Ver carrinho" fica a um toque. */
-function adicionarDoBanner(codigo) {
-  const p = produtos.find(i => String(i.codigo) === String(codigo));
-
-  /* Só anuncia o que entrou. O mais() já explica por que recusou
-     (esgotado, limite do estoque, receita), e dois avisos seguidos
-     deixariam o último — "adicionado" — como a última palavra. */
-  if (mais(codigo) && p) toast(`${p.nome} adicionado`);
 }
 
 /* =========================

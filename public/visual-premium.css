@@ -83,20 +83,8 @@ body {
   color: #332b83;
 }
 
-.banner {
-  margin: 10px auto 22px;
-}
 
-.banner-container {
-  overflow: hidden;
-  border: 1px solid rgba(48, 39, 131, .10);
-  border-radius: 18px;
-  box-shadow: var(--premium-sombra);
-}
 
-.banner-slide {
-  transition: opacity .3s ease, transform .3s ease;
-}
 
 .mais-vendidos,
 .promos {
@@ -212,9 +200,6 @@ body {
 }
 
 @media (min-width: 900px) {
-  .banner-container {
-    border-radius: 22px;
-  }
 
   .recado-loja {
     max-width: 1180px;
@@ -239,9 +224,6 @@ body {
     font-size: 12px;
   }
 
-  .banner-container {
-    border-radius: 14px;
-  }
 
   .card {
     border-radius: 12px;
@@ -307,17 +289,8 @@ body {
   min-height: 36px;
 }
 
-.banner {
-  max-width: 1280px;
-}
 
-.banner-container {
-  background: #fff;
-}
 
-.banner-slide.ativo {
-  will-change: opacity, transform;
-}
 
 .mais-vendidos,
 .promos,

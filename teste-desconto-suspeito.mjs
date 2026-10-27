@@ -120,20 +120,25 @@ console.log("\n1. o preço do cliente não muda");
 }
 
 /* ---- 2. a primeira tela do site ------------------------------------- */
-console.log("\n2. o carrossel da home não lidera com ele");
+console.log("\n2. a primeira fileira da home não lidera com ele");
 {
     const { pagina, contexto } = await abrir("/loja/mais-barato");
 
-    const carrossel = (await pagina.textContent(".banner") || "").replace(/\s+/g, " ");
+    /* A pergunta é a mesma; a superfície mudou.
 
-    /* É aqui que o defeito doía: ordenado por maior desconto, o
-       carrossel promovia por construção o dado mais duvidoso do
-       catálogo para a posição mais visível do site. */
-    conferir("a Rivaroxabana não está no carrossel de ofertas",
-        !/Rivaroxabana/.test(carrossel), carrossel.slice(0, 160));
+       Ela nasceu para a tira "Ofertas do dia", que ordenava por maior
+       desconto e por isso promovia, por construção, o dado mais
+       duvidoso do catálogo para o lugar mais visível do site. A tira
+       saiu — a loja achou que não combinava com a página —, e quem
+       ocupa a primeira fileira agora é "Destaques da semana", que
+       também põe promoção na frente. O risco migrou junto. */
+    const fileira = (await pagina.textContent("#listaMaisVendidos") || "").replace(/\s+/g, " ");
 
-    conferir("e o carrossel não fica vazio por causa disso",
-        /Sabonete|Shampoo|Creme/.test(carrossel), carrossel.slice(0, 160));
+    conferir("a Rivaroxabana não está nos destaques da home",
+        !/Rivaroxabana/.test(fileira), fileira.slice(0, 160));
+
+    conferir("e a fileira não fica vazia por causa disso",
+        /Sabonete|Shampoo|Creme/.test(fileira), fileira.slice(0, 160));
 
     await contexto.close();
 }
