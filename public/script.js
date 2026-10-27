@@ -1049,6 +1049,36 @@ function semEstoque(p) {
   return p && p.temEstoque === false;
 }
 
+/* "Este produto precisa de receita, de qualquer forma?"
+
+   Existe porque `exigeReceita`, no produto mapeado, quer dizer outra
+   coisa: "não entra no carrinho", que hoje são só as listas A e B da
+   Portaria 344. É o nome que o resto do código já usava, e a própria
+   linha que o define avisa isso.
+
+   O problema é que os dois lugares onde a home ESCOLHE o que mostrar —
+   os destaques e a tira de ofertas — filtravam por `!p.exigeReceita`
+   acreditando no nome. Tarja vermelha passava reto. Foi assim que
+   Finasterida 5mg e Carvedilol 25mg, as duas tarja V, foram parar na
+   primeira dobra do site com preço riscado.
+
+   Anunciar medicamento sob prescrição ao público é o que a RDC 96/2008
+   proíbe, e é a regra que o anunciar.js já aplica nas sugestões de
+   campanha. A vitrine precisava da mesma.
+
+   A união dos três campos é o que o Anunciar.exigeReceita calcula, só
+   que aqui ela sai de graça: o mapearProduto já guardou as três
+   decisões em cada produto.
+
+   NÃO exclui medicamento isento de prescrição. O anunciar.js exclui,
+   porque lá o destino é anúncio pago no Google e no Meta, onde a conta
+   da farmácia é suspensa antes de alguém ler a regra. Aqui é a vitrine
+   da própria loja, e uma farmácia que não mostra dipirona na home não é
+   uma farmácia. */
+function pedeReceita(p) {
+  return !!(p && (p.exigeReceita || p.receitaRemota || p.confirmarReceita));
+}
+
 function mapearProduto(p) {
   const venda = Number(String(p.precoVenda || 0).replace(",", "."));
   const promo = Number(String(p.precoPromocao || 0).replace(",", "."));
@@ -1225,11 +1255,10 @@ async function carregar() {
 
     reconciliarCarrinho();
 
-    // "Mais vendidos" hoje é uma amostra — o export não traz dado de venda.
-    // Sorteio estável por dia, para a vitrine não trocar a cada F5.
-    maisVendidos = amostraDoDia(produtos.filter(p => !p.exigeReceita), 12);
+    maisVendidos = escolherDestaques();
 
     gerarFiltros();
+    renderAtalhos();
     renderCategoriasHome();
     aplicarFiltro();
     renderMaisVendidos();
@@ -1270,6 +1299,108 @@ function amostraDoDia(lista, quantos) {
     [copia[i], copia[j]] = [copia[j], copia[i]];
   }
   return copia.slice(0, quantos);
+}
+
+/* =========================
+⭐ O QUE A HOME MOSTRA EM "DESTAQUES"
+=========================
+
+   Era um sorteio. `amostraDoDia` embaralhava o catálogo inteiro e
+   pegava 12 — e o bloco chamava-se "Destaques da semana", que promete
+   curadoria. No site publicado, os dois primeiros que o cliente via
+   eram Esmalte Impala R$ 4,99 e sandália Havaiana R$ 44,99.
+
+   Quem chega procurando farmácia e vê esmalte e chinelo conclui que
+   não é aqui, e vai embora antes de buscar — que é exatamente o degrau
+   onde o funil perde 67%.
+
+   A ESCOLHA, EM TRÊS CAMADAS
+
+   1. o que a loja PÔS EM PROMOÇÃO, da maior para a menor — é a única
+      curadoria humana que existe hoje no sistema, e estava sendo
+      ignorada aqui;
+   2. o resto, UM DE CADA FAMÍLIA por vez. É o que troca "três esmaltes"
+      por "um de cada coisa" e faz a fileira ler como farmácia completa:
+      remédio, higiene, infantil, pele, perfumaria;
+   3. dentro de cada família, o sorteio do dia continua — a vitrine
+      precisa mudar de um dia para o outro sem mudar a cada F5.
+
+   QUEM NÃO ENTRA, NUNCA
+
+   Produto que precisa de receita (ver pedeReceita), que está sem
+   estoque, ou cujo desconto é implausível.
+
+   A FOTO É PREFERÊNCIA, NÃO EXIGÊNCIA
+
+   Quem tem foto vem primeiro, porque a caixa cinza de "sem imagem"
+   repetida num bloco de destaque lê como "não carregou". Mas exigir
+   foto deixaria a fileira VAZIA numa farmácia recém-instalada, cujo
+   catálogo ainda não passou pelo casamento de imagens — e vitrine sem
+   destaque nenhum é pior que destaque sem foto. É a mesma escolha que o
+   renderBannerOfertas já fazia.
+
+   QUANDO HOUVER VENDA DE VERDADE
+
+   O worker já soma unidades por EAN a partir de pedido_itens — é o que
+   alimenta o relatório do painel. Quando essa lista virar rota pública,
+   ela entra como camada 0, antes da promoção, e o resto daqui continua
+   valendo como complemento. */
+function escolherDestaques(quantos = 12) {
+
+  const elegivel = (p) =>
+    !pedeReceita(p) && !semEstoque(p) && !p.descontoSuspeito;
+
+  const candidatos = produtos.filter(elegivel);
+
+  /* Foto na frente, em qualquer empate. */
+  const comFotoAntes = (a, b) => (b.imagem ? 1 : 0) - (a.imagem ? 1 : 0);
+
+  const emPromocao = candidatos
+    .filter(p => p.emOferta)
+    .sort((a, b) => comFotoAntes(a, b) || b.desconto - a.desconto);
+
+  /* Um balde por família, cada um já na ordem do dia — e, dentro do
+     dia, os que têm foto antes. */
+  const baldes = new Map();
+  amostraDoDia(candidatos.filter(p => !p.emOferta), candidatos.length)
+    .forEach((p) => {
+      if (!baldes.has(p.familia)) baldes.set(p.familia, []);
+      baldes.get(p.familia).push(p);
+    });
+  baldes.forEach((fila) => fila.sort(comFotoAntes));
+
+  const escolhidos = emPromocao.slice(0, Math.ceil(quantos / 2));
+  const jaEscolhido = new Set(escolhidos.map(p => p.codigo));
+
+  /* Rodízio: tira um de cada família, dá a volta, tira outro. Enquanto
+     houver família com produto sobrando, ninguém repete família antes
+     de todas aparecerem uma vez. */
+  /* No máximo dois por família, e a fileira pode terminar mais curta
+     que o pedido.
+
+     Sem esse teto, o rodízio dá a primeira volta com um de cada e
+     depois volta a encher com quem tem mais produto — que no catálogo
+     real é esmalte, com oito. A fileira acabaria de novo cheia de
+     esmalte, só que depois de uma primeira volta bonita. Nove produtos
+     variados valem mais que doze com um terço da mesma coisa. */
+  const MAX_POR_FAMILIA = 2;
+
+  const filas = [...baldes.values()];
+  let rodada = 0;
+  while (escolhidos.length < quantos
+         && rodada < MAX_POR_FAMILIA
+         && filas.some(f => f.length > rodada)) {
+    for (const fila of filas) {
+      if (escolhidos.length >= quantos) break;
+      const p = fila[rodada];
+      if (!p || jaEscolhido.has(p.codigo)) continue;
+      escolhidos.push(p);
+      jaEscolhido.add(p.codigo);
+    }
+    rodada++;
+  }
+
+  return escolhidos;
 }
 
 /* O catálogo é reimportado do FarmaxPDV; o carrinho fica no navegador.
@@ -1712,8 +1843,14 @@ function aplicarFiltro() {
   // tela. Ficam só o cabeçalho, os filtros e os produtos da categoria.
   const banner = document.querySelector(".banner");
   const destaques = document.querySelector(".mais-vendidos");
+  /* Os atalhos vão junto, pela mesma razão: quem já escolheu
+     "Infantil" não precisa de uma fileira oferecendo as outras onze
+     antes do primeiro produto da categoria que pediu. Os chips do topo
+     continuam — ali a troca de categoria é um toque. */
+  const atalhos = el("atalhos");
 
   if (destaques) destaques.style.display = modoHome ? "" : "none";
+  if (atalhos) atalhos.style.display = modoHome ? "" : "none";
 
   if (banner) {
     // o banner some sozinho quando não há oferta nenhuma no catálogo —
@@ -2023,6 +2160,60 @@ function renderMais() {
 /* =========================
 🔥 MAIS VENDIDOS
 ========================= */
+/* =========================
+🧭 ATALHOS DE CATEGORIA
+=========================
+
+   Os chips do topo e estes atalhos parecem a mesma coisa e não são. O
+   chip filtra o que está na tela e vive grudado no alto, onde o espaço
+   é contado em pixels; o atalho é a vitrine dizendo o que a farmácia
+   tem, para quem chegou sem nome de produto na cabeça.
+
+   Essa pessoa é a maior parte de quem entra: o funil mostra 251 visitas
+   e 84 buscas. Os outros 167 não digitaram nada — e, com chips de texto
+   que leem como filtro, não havia por onde entrar.
+
+   Sem contagem ao lado do nome. Ela entrou como prova de sortimento —
+   "Infantil 329" — e o que fez foi encher de número uma fileira que
+   precisa ser lida de relance, em cartões de 70px. O cliente não
+   escolhe categoria por tamanho de estoque; ele escolhe pelo que veio
+   buscar. O número continua existindo onde serve: no título de cada
+   seção da home ("Infantil 329") e no painel. */
+function renderAtalhos() {
+  const container = el("atalhos");
+  if (!container) return;
+
+  /* Três exclusões, e nenhuma é estética:
+
+     "Exigem receita" sai porque é controlado da Portaria 344 — produto
+     que nem entra no carrinho, e que vai para o balcão com a receita
+     retida. Oferecer isso como porta de entrada, com ícone e contagem,
+     logo abaixo da promessa de entrega em 2 horas, é convidar o cliente
+     a uma compra que a farmácia não pode fazer pela internet. Nos chips
+     ele continua, como filtro de quem já está procurando.
+
+     "Outros" sai porque não é categoria: é o balde do que não foi
+     classificado. "Outros 2124" não ajuda ninguém a decidir onde tocar.
+
+     E família com menos de 8 produtos sai porque atalho leva a uma
+     lista — "Beleza e Maquiagem 1" é uma porta para um produto só, que
+     é pior que não ter a porta. */
+  const familias = familiasComProdutos()
+    .filter(f => !f.receita && f.id !== FAMILIA_OUTROS.id && f.total >= 8);
+
+  if (!familias.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  container.innerHTML = familias.map(f => `
+    <button class="atalho" data-acao="filtrar" data-familia="${esc(f.id)}"
+            aria-label="Ver ${esc(f.nome)} — ${f.total} produtos">
+      <span class="atalho-ic">${icone(f.icone || "fam-conveniencia", 22)}</span>
+      <span class="atalho-nome">${esc(f.curto || f.nome)}</span>
+    </button>`).join("");
+}
+
 function renderMaisVendidos() {
   const container = el("listaMaisVendidos");
   if (!container) return;
@@ -3100,7 +3291,10 @@ function renderBannerOfertas() {
      "de" veio errado do cadastro ficavam, por construção, nas primeiras
      posições da primeira tela do site. Ficam de fora daqui. */
   const ofertas = produtos
-    .filter(p => p.emOferta && !p.descontoSuspeito && !p.exigeReceita && !semEstoque(p))
+    /* `pedeReceita`, e não `!p.exigeReceita`: este carrossel estava
+       publicando Finasterida e Carvedilol, as duas tarja V, com preço
+       riscado na primeira dobra. Ver o comentário do pedeReceita. */
+    .filter(p => p.emOferta && !p.descontoSuspeito && !pedeReceita(p) && !semEstoque(p))
     .sort((a, b) => b.desconto - a.desconto)
     .slice(0, 12);
 

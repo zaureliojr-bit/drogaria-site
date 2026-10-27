@@ -3325,3 +3325,88 @@ body.sem-barra-carrinho .carrinho { display: none; }
   color: inherit;
   text-decoration: underline;
 }
+
+/* ========================= */
+/* 🧭 ATALHOS DE CATEGORIA   */
+/* ========================= */
+/* Fileira rolável, logo abaixo do recado da loja. Rolável e não grade:
+   são doze famílias, e uma grade de doze empurraria o primeiro produto
+   para fora da primeira tela — que é o que o teste-home-dobra existe
+   para impedir. Rolando, cabem quatro e meia na largura de um celular,
+   e a meia é o que mostra que há mais para o lado. */
+.atalhos {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  /* Sem scroll-snap: com padding lateral, o navegador encosta o
+     primeiro atalho na borda da caixa e come os 14px de respiro — a
+     fileira abria com o primeiro cartão cortado pela metade. */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0 14px 8px;
+  margin: 0 auto;
+  max-width: 1280px;
+}
+
+.atalhos::-webkit-scrollbar { display: none; }
+
+.atalho {
+  flex: 0 0 auto;
+  width: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 4px 6px;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-md);
+  background: var(--branco);
+  cursor: pointer;
+  font: inherit;
+  color: var(--tinta);
+  text-align: center;
+  transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+
+.atalho:hover {
+  border-color: var(--marca);
+  transform: translateY(-1px);
+}
+
+.atalho:active { transform: scale(.97); }
+
+/* O círculo claro atrás do ícone. É ele que faz a fileira ler como
+   "categorias" e não como uma linha de botõezinhos. */
+.atalho-ic {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--marca-clara);
+  color: var(--marca);
+}
+
+.atalho-nome {
+  width: 100%;
+  font-size: 10.5px;
+  line-height: 1.2;
+  font-weight: 600;
+  /* "Anticoncepcional" é uma palavra só e mais larga que o cartão:
+     sem isto ela vaza por cima da borda do vizinho. */
+  overflow-wrap: anywhere;
+  /* Duas linhas no máximo: "Vitaminas e Suplementos" não pode empurrar
+     a altura da fileira inteira por causa de um nome comprido. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .atalhos { gap: 10px; padding: 4px 18px 14px; }
+  .atalho { width: 92px; padding: 11px 6px 10px; }
+  .atalho-ic { width: 44px; height: 44px; }
+  .atalho-nome { font-size: 11.5px; }
+}

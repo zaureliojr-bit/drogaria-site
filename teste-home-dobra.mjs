@@ -50,7 +50,16 @@ const CATALOGO = {
 
 const navegador = await chromium.launch({ executablePath: process.env.CHROME_PATH });
 
-async function abrir(largura, altura) {
+/* Um banner 1200x400, a proporção que a loja publica. Serve para medir
+   a home como ela fica DE VERDADE: os banners subiram para logo abaixo
+   dos atalhos, e sem um deles na medição o teste só veria a home de uma
+   farmácia que nunca publicou campanha nenhuma. */
+const BANNER_FALSO = "data:image/svg+xml;base64," + Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400">'
+    + '<rect width="1200" height="400" fill="#26247B"/></svg>'
+).toString("base64");
+
+async function abrir(largura, altura, { comBanner = false } = {}) {
     const contexto = await navegador.newContext({ viewport: { width: largura, height: altura } });
     const pagina = await contexto.newPage();
 
@@ -58,6 +67,15 @@ async function abrir(largura, altura) {
         status: 200, contentType: "application/json",
         headers: { "Access-Control-Allow-Origin": "*" },
         body: JSON.stringify(CATALOGO)
+    }));
+
+    await pagina.route(/farmatech-pedidos-proxy/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({
+            ok: true, loja: null, encarte: null,
+            banners: comBanner ? [{ imagem: BANNER_FALSO, alt: "Campanha" }] : []
+        })
     }));
 
     await pagina.goto(BASE + "/loja/mais-barato", { waitUntil: "domcontentloaded" });
@@ -82,6 +100,14 @@ const medir = (pagina) => pagina.evaluate(() => {
     return {
         grudado: Math.round(grudado),
         teto: getComputedStyle(document.documentElement).getPropertyValue("--teto-grudado").trim(),
+        atalhos: topo("#atalhos"),
+        /* null quando a seção está com `hidden`: é assim que a medida
+           distingue "sem banner" de "banner de altura zero". */
+        promos: (() => {
+            const e = document.querySelector("#promos");
+            return (!e || e.hidden) ? null
+                : Math.round(e.getBoundingClientRect().top + scrollY);
+        })(),
         destaques: topo(".mais-vendidos"),
         ofertas: topo(".banner"),
         primeiroProduto: primeiro
@@ -100,8 +126,35 @@ console.log("\n1. a primeira tela de um celular de 390px");
     conferir(`o que fica grudado no topo cabe em 130px (era 215) — ${m.grudado}px`,
         m.grudado <= 130, String(m.grudado));
 
-    conferir(`o primeiro produto aparece antes de 300px (era 441) — ${m.primeiroProduto}px`,
-        m.primeiroProduto !== null && m.primeiroProduto < 300, String(m.primeiroProduto));
+    /* O limite subiu de 300 para 460, e isso é mudança de projeto, não
+       teste afrouxado para passar.
+
+       A regra nasceu contra uma home que abria com 174px de anúncio e
+       punha o primeiro produto em 441px — o cliente via três
+       miniaturas de propaganda antes de ver uma farmácia. Os 300px
+       eram a forma de dizer "produto primeiro".
+
+       O que entrou entre o recado e os destaques não é anúncio: é a
+       fileira de atalhos de categoria, a única porta para quem chega
+       sem nome de produto na cabeça. O funil diz quem é essa pessoa —
+       251 visitas, 84 buscas: 167 não digitaram nada, e para elas a
+       home não tinha por onde começar.
+
+       Então a regra passou a dizer o que realmente importa: o primeiro
+       produto continua DENTRO da primeira tela de um celular (844px),
+       com folga, e os atalhos vêm antes dele de propósito. Se alguém
+       empilhar outra coisa aqui, o teste volta a reclamar. */
+    conferir(`o primeiro produto aparece antes de 460px (era 441 antes da reforma) — ${m.primeiroProduto}px`,
+        m.primeiroProduto !== null && m.primeiroProduto < 460, String(m.primeiroProduto));
+
+    conferir(`os atalhos de categoria vêm antes do primeiro produto — ${m.atalhos}px`,
+        m.atalhos !== null && m.primeiroProduto !== null && m.atalhos < m.primeiroProduto,
+        `atalhos ${m.atalhos} / produto ${m.primeiroProduto}`);
+
+    /* O #promos nasce escondido: farmácia sem campanha publicada não
+       ganha um buraco no alto da página. */
+    conferir("sem banner publicado, a faixa não ocupa espaço",
+        m.promos === null, String(m.promos));
 
     /* Produto antes de anúncio. A tira de ofertas não se perdeu: ela
        continua inteira, logo abaixo da primeira fileira. */
@@ -127,6 +180,37 @@ console.log("\n1. a primeira tela de um celular de 390px");
         /2 horas/.test((await recado.textContent()) || ""), "recado sumiu");
     conferir("e ela sobe com a página, em vez de ocupar o topo",
         await recado.evaluate((e) => getComputedStyle(e).position) === "static");
+
+    await contexto.close();
+}
+
+/* ---- 1b. a mesma tela, com a campanha da loja no ar ------------------ */
+console.log("\n1b. com o banner da loja publicado");
+{
+    /* Esta é a home de verdade de uma farmácia que usa o painel. O
+       banner subiu para logo abaixo dos atalhos — é a única peça da
+       página que a loja escreve, e enterrada no meio ela não era vista.
+
+       O preço é espaço, e é por isso que esta medida existe: o banner
+       1200x400 ocupa 138px numa tela de 390, e empurra o primeiro
+       produto junto. O limite de 620px é o que garante que o cartão
+       ainda aparece na primeira tela de um celular de 844 — foto, nome
+       e começo do preço — em vez de a home abrir só com propaganda e
+       o cliente ter de rolar para descobrir que ali se vende alguma
+       coisa. */
+    const { pagina, contexto } = await abrir(390, 844, { comBanner: true });
+    const m = await medir(pagina);
+
+    conferir(`a faixa da loja aparece — ${m.promos}px`,
+        m.promos !== null, String(m.promos));
+
+    conferir("e vem antes dos destaques",
+        m.promos !== null && m.destaques !== null && m.promos < m.destaques,
+        `promos ${m.promos} / destaques ${m.destaques}`);
+
+    conferir(`mesmo com o banner, o produto cabe na primeira tela — ${m.primeiroProduto}px`,
+        m.primeiroProduto !== null && m.primeiroProduto < 620,
+        String(m.primeiroProduto));
 
     await contexto.close();
 }
