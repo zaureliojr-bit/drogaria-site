@@ -5925,17 +5925,37 @@ async function buscarCoordenadasDaFilial() {
     const aviso = el("avisoCoordenadas");
     const botao = el("btnCoordenadas");
 
-    const partes = [
-        `${el("novaLogradouro").value.trim()} ${el("novaNumero").value.trim()}`.trim(),
-        el("novaBairro").value.trim(),
-        el("novaCidade").value.trim(),
-        el("novaUf").value.trim()
-    ].filter(Boolean);
+    const rua    = el("novaLogradouro").value.trim();
+    const numero = el("novaNumero").value.trim();
+    const bairro = el("novaBairro").value.trim();
+    const cidade = el("novaCidade").value.trim();
+    const uf     = el("novaUf").value.trim();
+    const cep    = el("novaCep").value.replace(/\D/g, "");
 
-    if (partes.length < 3) {
-        aviso.textContent = "Preencha rua, número e cidade antes de buscar.";
+    if (!rua || !cidade) {
+        aviso.textContent = "Preencha pelo menos a rua e a cidade antes de buscar.";
         return;
     }
+
+    /* SEIS FORMATOS, NA ORDEM DO MAIS PRECISO PARA O MENOS
+
+       A primeira versão disto mandava uma pergunta só, em texto corrido
+       ("Rua X 19, Bairro, Cidade, SP"), e não achava quase nada: o
+       serviço é bom com campos separados e ruim com frase. É a mesma
+       cascata que o site já usa para achar o endereço do CLIENTE —
+       estava escrita lá e não aqui, e por isso o painel errava onde a
+       vitrine acertava.
+
+       `exato: false` é o nível da região: o serviço não achou a casa,
+       achou o pedaço da cidade. */
+    const tentativas = [
+        { exato: true,  params: `street=${encodeURIComponent(numero + " " + rua)}&city=${encodeURIComponent(cidade)}${cep ? "&postalcode=" + cep : ""}` },
+        { exato: true,  params: `street=${encodeURIComponent(numero + " " + rua)}&city=${encodeURIComponent(cidade)}` },
+        { exato: true,  params: `street=${encodeURIComponent(rua)}&city=${encodeURIComponent(cidade)}` },
+        cep ? { exato: true, params: `postalcode=${cep}&country=Brasil` } : null,
+        { exato: true,  params: `q=${encodeURIComponent([rua, bairro, cidade, uf, "Brasil"].filter(Boolean).join(", "))}` },
+        bairro ? { exato: false, params: `q=${encodeURIComponent([bairro, cidade, "Brasil"].join(", "))}` } : null
+    ].filter(Boolean);
 
     botao.disabled = true;
     const rotulo = botao.textContent;
@@ -5943,32 +5963,54 @@ async function buscarCoordenadasDaFilial() {
     aviso.textContent = "Procurando o endereço no mapa…";
 
     try {
-        const url = "https://nominatim.openstreetmap.org/search?format=json"
-            + "&countrycodes=br&limit=1&q=" + encodeURIComponent(partes.join(", "));
 
-        const r = await fetch(url, { headers: { "Accept": "application/json" } });
-        if (!r.ok) throw new Error("HTTP " + r.status);
+        for (const tentativa of tentativas) {
 
-        const achados = await r.json();
+            const r = await fetch(
+                "https://nominatim.openstreetmap.org/search?format=json&countrycodes=br&limit=1&"
+                + tentativa.params,
+                { headers: { "Accept": "application/json" } }
+            ).catch(() => null);
 
-        if (!achados.length) {
-            aviso.textContent = "Não achei esse endereço no mapa. "
-                + "Pegue os números no Google Maps: botão direito no ponto da loja.";
+            if (!r || !r.ok) continue;
+
+            const achados = await r.json().catch(() => []);
+            if (!achados.length) continue;
+
+            /* APROXIMADO NÃO ENTRA NOS CAMPOS, E ISSO É DE PROPÓSITO.
+
+               Para o cliente, o centro do bairro serve: a loja confere a
+               taxa no WhatsApp antes de entregar. Para a LOJA não serve.
+               A coordenada dela é o zero de todas as contas: um ponto
+               300 metros fora muda a taxa de todo pedido, e muda quem
+               está "dentro do raio" de um cupom de 3 km. E, uma vez
+               salva, ninguém mais desconfia dela — coordenada errada o
+               site obedece; ausente, ele detecta e manda combinar.
+
+               Então o aproximado vira recado, não valor preenchido. */
+            if (!tentativa.exato) {
+                aviso.textContent = "Só achei o bairro, não a porta da loja — "
+                    + "e bairro não serve para a loja, porque a taxa de todo "
+                    + "cliente sai desse ponto. Pegue no Google Maps: botão "
+                    + "direito na porta da farmácia, e a primeira linha do "
+                    + "menu são os dois números.";
+                return;
+            }
+
+            /* Seis casas decimais são ~11 cm — de sobra para uma porta,
+               e sem os quinze dígitos que o serviço devolve. */
+            el("novaLat").value = Number(achados[0].lat).toFixed(6);
+            el("novaLng").value = Number(achados[0].lon).toFixed(6);
+
+            aviso.textContent = `Encontrado: ${achados[0].display_name}. `
+                + "Confira se é mesmo a sua loja antes de salvar — se o ponto "
+                + "estiver errado, a taxa de entrega de todo cliente sai errada junto.";
             return;
         }
 
-        /* Seis casas decimais é ~11cm — mais que suficiente para uma
-           porta de farmácia, e evita guardar os 15 dígitos que o
-           serviço devolve. */
-        const lat = Number(achados[0].lat).toFixed(6);
-        const lng = Number(achados[0].lon).toFixed(6);
-
-        el("novaLat").value = lat;
-        el("novaLng").value = lng;
-
-        aviso.textContent = `Encontrado: ${achados[0].display_name}. `
-            + "Confira antes de salvar — se o ponto estiver errado, a taxa de "
-            + "entrega de todo cliente sai errada junto.";
+        aviso.textContent = "Não achei esse endereço no mapa. "
+            + "Pegue os números no Google Maps: botão direito na porta da "
+            + "farmácia, e a primeira linha do menu são a latitude e a longitude.";
 
     } catch (erro) {
         aviso.textContent = "Não consegui consultar o mapa agora (" + erro.message
