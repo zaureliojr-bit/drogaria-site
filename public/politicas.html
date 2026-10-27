@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Política de privacidade, termos de uso e política de trocas e devoluções da farmácia.">
+<title>Políticas da loja</title>
+<meta name="theme-color" content="#26247B">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="apple-touch-icon" href="/icone-180.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<!-- 🎨 SPRITE DE ÍCONES — só os três que esta página usa -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="ic-cart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.6 8.8 11.3 3.8"/><path d="M15.4 8.8 12.7 3.8"/><path d="M2.8 8.8h18.4l-1.6 9.5a2.2 2.2 0 0 1-2.2 1.9H6.6a2.2 2.2 0 0 1-2.2-1.9z"/></symbol>
+    <symbol id="ic-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></symbol>
+    <symbol id="ic-whats" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12.04 2c-5.5 0-9.96 4.46-9.96 9.96 0 1.76.46 3.45 1.34 4.95L2 22l5.22-1.37a9.9 9.9 0 0 0 4.82 1.24h.01c5.5 0 9.96-4.46 9.96-9.96S17.54 2 12.04 2zm5.8 14.06c-.24.68-1.42 1.31-1.96 1.36-.5.05-.98.24-3.3-.69-2.78-1.1-4.54-3.95-4.68-4.13-.13-.18-1.11-1.48-1.11-2.82s.7-2 .95-2.28c.25-.27.54-.34.72-.34l.52.01c.17.01.39-.06.61.47.23.55.77 1.9.84 2.04.07.14.11.3.02.48-.09.18-.14.29-.27.45l-.4.47c-.14.13-.28.28-.12.55.16.27.71 1.17 1.52 1.9 1.04.93 1.92 1.21 2.19 1.35.27.14.43.11.59-.07.16-.18.68-.79.86-1.07.18-.27.36-.22.61-.13.25.09 1.58.75 1.85.88.27.14.45.2.52.32.07.11.07.64-.17 1.32z"/></symbol>
+  </defs>
+</svg>
+
+<header class="header" role="banner">
+  <div class="header-left">
+    <a class="btn-voltar" href="/index.html" aria-label="Voltar para a loja">
+      <svg class="ic" width="18" height="18" aria-hidden="true"><use href="#ic-chevron-left"></use></svg>
+    </a>
+    <a href="/index.html" aria-label="Página inicial da loja">
+      <img src="/logo.png" class="logo logo-clicavel" data-loja="logo" alt="Logotipo da farmácia" width="98" height="40">
+    </a>
+  </div>
+
+  <!-- Sem contador: esta página não carrega o script.js (seria baixar o
+       catálogo inteiro para ler um texto), e um "0 / R$ 0,00" parado no
+       topo faria o cliente pensar que o carrinho esvaziou. O link
+       continua, que é o que importa aqui. -->
+  <a class="header-carrinho" href="/carrinho.html" aria-label="Ver carrinho de compras">
+    <svg class="ic" width="16" height="16" aria-hidden="true"><use href="#ic-cart"></use></svg>
+    <span>Carrinho</span>
+  </a>
+</header>
+
+<main class="pagina-politicas">
+
+  <h1>Políticas da loja</h1>
+
+  <!-- Quem é a farmácia. Preenchido pelo loja.js a partir do cadastro:
+       o HTML traz os dados da primeira loja porque é o arquivo servido
+       na raiz, e sem a troca cada filial publicaria aqui o CNPJ e a
+       licença da farmácia vizinha. -->
+  <section class="politicas-quem" aria-label="Identificação da farmácia">
+    <p><strong data-loja="nome">Drogaria Mais Barato</strong></p>
+    <p data-loja="cnpj">CNPJ 37.925.108/0001-03</p>
+    <p data-loja="endereco">Rua Almeida Leme 07 – Loja 1, Parque São Bernardo, São Bernardo do Campo – SP, CEP 09761-170</p>
+    <p data-loja="responsavel">Farmacêutica responsável: Dra. Laís Carvalho da Silva – CRF 122886</p>
+    <p data-loja="autorizacao">Autorização: Processo 25351.507967/2022-82 · MS 7.89888-2</p>
+  </section>
+
+  <nav class="politicas-indice" aria-label="Índice das políticas">
+    <a href="#privacidade">Privacidade</a>
+    <a href="#termos">Termos de uso</a>
+    <a href="#trocas">Trocas e devoluções</a>
+  </nav>
+
+  <!-- ============================================================= -->
+  <section id="privacidade" class="politicas-bloco">
+    <h2>Política de privacidade</h2>
+
+    <p>Esta política explica quais dados a farmácia recebe quando você usa
+    este site, para que servem e com quem são compartilhados. Ela segue a
+    Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</p>
+
+    <h3>O que o site guarda no seu próprio aparelho</h3>
+    <p>O carrinho, o endereço de entrega que você digita e a loja que você
+    está vendo ficam gravados no navegador do seu aparelho, para que você
+    não precise digitar tudo de novo. Nada disso é enviado para nós
+    enquanto você não manda o pedido, e apagar os dados do navegador apaga
+    tudo. Este site <strong>não tem login</strong> e <strong>não usa
+    cookies de rastreamento publicitário</strong>.</p>
+
+    <h3>O que você nos envia ao fazer um pedido</h3>
+    <ul>
+      <li><strong>Nome, telefone de WhatsApp, endereço de entrega, itens
+      do pedido e forma de pagamento.</strong> Usamos para separar,
+      entregar e cobrar o pedido, e para falar com você sobre ele. A base
+      legal é a execução do contrato (art. 7º, V, da LGPD).</li>
+      <li><strong>A receita médica</strong>, quando o produto exige. A
+      imagem que você envia é conferida pelo farmacêutico antes de o
+      pedido sair, e é guardada quando a norma sanitária manda guardar.
+      Receita é dado pessoal sensível de saúde: tratamos para cumprir
+      obrigação legal e regulatória e para a tutela da saúde, por
+      profissional de farmácia (art. 11, II, "a" e "f", da LGPD).</li>
+    </ul>
+
+    <h3>O que medimos sem saber quem você é</h3>
+    <ul>
+      <li><strong>As buscas feitas no site</strong> são registradas
+      apenas como o texto buscado e a loja, <em>sem nome, sem telefone e
+      sem nenhum identificador seu</em>. Servem para descobrir o que o
+      cliente procura e a loja não tem. Não é possível ligar uma busca a
+      uma pessoa.</li>
+      <li><strong>As etapas da visita</strong> (abriu a vitrine, abriu o
+      carrinho, enviou o pedido) e <strong>de qual anúncio você
+      veio</strong>, quando chega por um link de campanha. São contagens,
+      também sem identificação.</li>
+    </ul>
+
+    <h3>Com quem os dados são compartilhados</h3>
+    <p>Só com quem é necessário para o pedido funcionar, e apenas para
+    isso. <strong>Não vendemos, não alugamos e não cedemos seus dados
+    para publicidade de terceiros.</strong></p>
+    <ul>
+      <li><strong>Cloudflare</strong> — hospeda o site e o banco de dados
+      dos pedidos, e mede o acesso de forma agregada.</li>
+      <li><strong>WhatsApp (Meta)</strong> — é por onde o pedido é
+      confirmado. A conversa fica também sujeita à política de
+      privacidade do WhatsApp.</li>
+      <li><strong>Google</strong> — recebe uma cópia do pedido na planilha
+      de operação da farmácia.</li>
+      <li><strong>ViaCEP</strong> — consultamos o CEP que você digita para
+      preencher a rua e o bairro.</li>
+      <li><strong>OpenStreetMap / Nominatim</strong> — recebe o endereço
+      digitado para calcular a distância até a loja e a taxa de entrega.
+      Se você preferir não ter o endereço consultado no mapa, faça o
+      pedido direto pelo WhatsApp da loja.</li>
+    </ul>
+
+    <h3>Por quanto tempo guardamos</h3>
+    <p>O pedido fica no histórico da farmácia enquanto for necessário para
+    a operação, para a garantia do produto e para as obrigações fiscais e
+    sanitárias. Receita de medicamento sujeito a controle especial é
+    guardada pelo prazo que a Portaria nº 344/1998 e as normas da ANVISA
+    exigem. Depois disso, é eliminada ou anonimizada.</p>
+
+    <h3>Seus direitos</h3>
+    <p>Você pode pedir, a qualquer momento: confirmação de que tratamos
+    seus dados, acesso a eles, correção do que estiver errado,
+    anonimização ou eliminação do que não somos obrigados a guardar,
+    portabilidade, informação sobre com quem compartilhamos, e revogação
+    de consentimento (art. 18 da LGPD). O pedido é feito pelo
+    <a data-loja="whatsapp" href="https://wa.me/5511925190101?text=Ol%C3%A1!%20Quero%20falar%20sobre%20meus%20dados%20pessoais."
+       target="_blank" rel="noopener">WhatsApp da loja</a> ou
+    pessoalmente, no endereço acima, e respondemos em até 15 dias.</p>
+
+    <h3>Segurança e menores de idade</h3>
+    <p>O site é servido por conexão criptografada e o acesso ao painel de
+    operação é restrito à equipe da farmácia. Mesmo assim, nenhum sistema
+    é inteiramente imune: se um incidente puder trazer risco relevante a
+    você, avisaremos você e a Autoridade Nacional de Proteção de Dados.
+    O site não é destinado a menores de 18 anos — o pedido deve ser feito
+    por pessoa maior de idade.</p>
+  </section>
+
+  <!-- ============================================================= -->
+  <section id="termos" class="politicas-bloco">
+    <h2>Termos de uso</h2>
+
+    <h3>O que este site é</h3>
+    <p>Este site é a vitrine da farmácia física identificada no começo
+    desta página. Ele mostra o catálogo e os preços praticados na loja e
+    serve para você montar um pedido — <strong>não é uma loja com
+    pagamento online</strong>.</p>
+
+    <h3>O pedido é uma proposta; a venda se fecha no WhatsApp</h3>
+    <p>Quando você envia o carrinho, ele chega à loja como pedido a ser
+    conferido. <strong>A compra só está concluída quando a farmácia
+    confirma</strong>, pelo WhatsApp, os itens disponíveis, o valor final
+    e a taxa de entrega. Até a confirmação, você pode desistir sem nenhum
+    custo.</p>
+
+    <h3>Preços, estoque e fotos</h3>
+    <p>Preços e disponibilidade vêm da última importação do sistema da
+    farmácia e <strong>podem mudar sem aviso prévio</strong>: um item
+    pode ter acabado entre a sua visita e a conferência do pedido. As
+    fotos são ilustrativas e a embalagem recebida pode ser diferente da
+    exibida. Em caso de erro evidente de digitação de preço, a farmácia
+    avisa você antes de confirmar e você decide se mantém ou cancela o
+    pedido, sem nenhum custo.</p>
+
+    <h3>Medicamentos e receita</h3>
+    <ul>
+      <li>Medicamentos sujeitos a controle especial das listas A1, A2,
+      A3, B1 e B2 da Portaria nº 344/1998 (entorpecentes e
+      psicotrópicos) <strong>não são vendidos por este canal</strong>:
+      são dispensados somente no balcão da farmácia, com retenção da
+      receita e apresentação de documento.</li>
+      <li>Antibióticos e os demais produtos que exigem prescrição —
+      inclusive os da lista C — só são entregues depois que o
+      farmacêutico confere a receita. Sem receita válida, o item sai do
+      pedido e o restante segue normalmente.</li>
+      <li>As informações deste site não substituem a consulta, o
+      diagnóstico ou a prescrição de um profissional de saúde, e não
+      devem ser usadas para automedicação. Não indicamos medicamento por
+      este canal: a orientação farmacêutica é dada pelo profissional da
+      loja.</li>
+    </ul>
+
+    <h3>Entrega</h3>
+    <p data-loja="entrega-raio">Entregamos dentro de um raio de 8 km do
+    endereço da loja. Fora dele, o pedido pode ser retirado no
+    balcão.</p>
+    <p>A taxa de entrega é calculada pela distância até o endereço
+    informado e confirmada pela loja antes do envio. Quando não
+    conseguimos localizar a rua no mapa, nosso time de vendas confirma a
+    taxa com você pelo WhatsApp. O prazo é combinado na confirmação e
+    depende do trânsito e do horário de funcionamento da farmácia.</p>
+
+    <h3>Uso adequado do site</h3>
+    <p>Você pode usar o site para pesquisar produtos e montar pedidos. Não
+    é permitido coletar o catálogo de forma automatizada, revendê-lo,
+    tentar acessar o painel de operação da farmácia, nem usar o site para
+    qualquer finalidade ilícita. O conteúdo, a marca e as imagens
+    pertencem à farmácia ou a seus fornecedores; o software da plataforma
+    pertence à DrogaLink.</p>
+
+    <h3>Mudanças nestes termos e foro</h3>
+    <p>Estes termos podem ser atualizados, e a versão válida é a publicada
+    nesta página, com a data de atualização indicada no fim. Mudanças não
+    alcançam pedidos já confirmados.</p>
+    <p data-loja="foro">Fica eleito o foro da comarca de São Bernardo do
+    Campo – SP para as questões decorrentes destes termos, sem prejuízo do
+    direito do consumidor de demandar no foro do seu domicílio.</p>
+  </section>
+
+  <!-- ============================================================= -->
+  <section id="trocas" class="politicas-bloco">
+    <h2>Trocas e devoluções</h2>
+
+    <h3>Desistência em 7 dias</h3>
+    <p>Como o pedido é feito fora da loja, você tem <strong>7 dias
+    corridos, contados do recebimento, para desistir da compra</strong>,
+    sem precisar justificar, com devolução de tudo que pagou — inclusive
+    a taxa de entrega (art. 49 do Código de Defesa do Consumidor).</p>
+
+    <h3>O limite sanitário da devolução</h3>
+    <p>Medicamento e produto de uso íntimo ou de higiene pessoal que já
+    saiu da farmácia não pode voltar para a prateleira: a norma sanitária
+    proíbe dispensar a outra pessoa um produto cuja conservação a
+    farmácia não acompanhou. Por isso, nesses casos a desistência é
+    aceita enquanto:</p>
+    <ul>
+      <li>a embalagem estiver <strong>intacta e lacrada</strong>, sem
+      sinal de violação; e</li>
+      <li>o produto tiver sido conservado como manda o rótulo.</li>
+    </ul>
+    <p>Produto aberto ou violado, e <strong>produto que precisa de
+    refrigeração</strong> (insulina, alguns colírios, vacinas e
+    similares), não podem ser aceitos de volta, porque não há como
+    garantir que continuam seguros. Isso não vale para produto com
+    defeito, que é o caso do item seguinte.</p>
+
+    <h3>Produto com defeito, vencido, avariado ou trocado</h3>
+    <p>Se o produto chegar quebrado, vazando, com a validade vencida,
+    diferente do que você pediu, ou com qualquer defeito, avise a loja
+    assim que notar — na entrega, se o dano for visível. Nós trocamos o
+    produto ou devolvemos o valor, à sua escolha, e você não paga nada
+    por isso. O prazo legal para reclamar de vício aparente é de 30 dias
+    para produtos não duráveis e 90 dias para duráveis (arts. 18 e 26 do
+    Código de Defesa do Consumidor).</p>
+
+    <h3>Como pedir</h3>
+    <p>Fale com a loja pelo
+    <a data-loja="whatsapp" href="https://wa.me/5511925190101?text=Ol%C3%A1!%20Preciso%20de%20uma%20troca%20ou%20devolu%C3%A7%C3%A3o."
+       target="_blank" rel="noopener">WhatsApp</a>, informando o dia do
+    pedido e, quando houver, uma foto do produto. A troca pode ser feita
+    no balcão da farmácia ou com o entregador, combinada na conversa.</p>
+
+    <h3>Devolução do valor</h3>
+    <p>O reembolso é feito pelo mesmo meio em que você pagou, em até 10
+    dias úteis depois de a farmácia receber o produto de volta e conferir
+    as condições acima. Pagamento em dinheiro na entrega é devolvido em
+    dinheiro ou por Pix, como você preferir.</p>
+
+    <h3>Medicamento vencido na sua casa</h3>
+    <p>Medicamento vencido ou sobrando não deve ir para o lixo comum nem
+    para a pia. Leve à farmácia: recebemos para descarte adequado, mesmo
+    que não tenha sido comprado aqui. Isso não gera devolução de
+    valor.</p>
+  </section>
+
+  <p class="politicas-data">Última atualização: 27 de outubro de 2026.</p>
+
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<footer class="rodape" role="contentinfo">
+  <div class="rodape-container">
+    <p><strong data-loja="identificacao">Drogaria Mais Barato · CNPJ 37.925.108/0001-03</strong></p>
+    <p data-loja="endereco">Rua Almeida Leme 07 – Loja 1, Parque São Bernardo, São Bernardo do Campo – SP, CEP 09761-170</p>
+    <p><span data-loja="responsavel">Farmacêutica responsável: Dra. Laís Carvalho da Silva – CRF 122886</span><br>
+       <span data-loja="autorizacao">Autorização: Processo 25351.507967/2022-82 · MS 7.89888-2</span></p>
+    <p>Antibióticos e medicamentos controlados somente com receita — Portaria nº 344, Ministério da Saúde.</p>
+    <p class="rodape-politicas">
+      <a href="/politicas#privacidade">Privacidade</a> ·
+      <a href="/politicas#termos">Termos de uso</a> ·
+      <a href="/politicas#trocas">Trocas e devoluções</a>
+    </p>
+  </div>
+</footer>
+
+<!-- De qual farmácia é esta página. Sem ele, a política de uma filial
+     mostraria o CNPJ e a licença sanitária da farmácia principal. -->
+<script src="/lojaAtual.js" defer></script>
+<script src="/loja.js" defer></script>
+</body>
+</html>

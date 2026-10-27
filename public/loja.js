@@ -83,6 +83,23 @@ let VISUAL = null;
 const CACHE_LOJA = "loja-v1";
 const CACHE_LOJA_MS = 60 * 60 * 1000;   // uma hora
 
+/* Onde pedir o cadastro quando o script.js NÃO está na página.
+
+   Em toda página de venda, o endereço do worker vem do script.js, que
+   já está carregado. A página de políticas é a exceção: ela não vende
+   nada e carregar o script.js ali custaria o download do catálogo
+   inteiro — 2,6 MB para ler um texto.
+
+   Sem este endereço, aquela página ficaria com os dados escritos no
+   HTML, que são os da PRIMEIRA farmácia. Ou seja: a política de
+   privacidade de uma filial publicaria o CNPJ e a licença sanitária da
+   farmácia vizinha. É o mesmo defeito que já apareceu no rodapé, e num
+   documento jurídico é pior.
+
+   O teste-politicas.mjs compara esta linha com a do script.js e falha
+   se as duas divergirem. */
+const API_LOJA_SEM_SCRIPT = "https://farmatech-pedidos-proxy.zaureliojr.workers.dev";
+
 /* ---------------------------------------------------------------------
    HORÁRIO
    ------------------------------------------------------------------ */
@@ -266,6 +283,27 @@ function aplicarNaPagina() {
         l.farmaceutico
             ? `${l.rotulo_responsavel || "Farmacêutico(a) responsável"}: ${l.farmaceutico}${l.crf ? ` – CRF ${l.crf}` : ""}`
             : "");
+    /* Campos usados pelas páginas de política, onde o texto é corrido e
+       precisa do nome da farmácia no meio da frase — não do bloco
+       "nome · CNPJ" do rodapé.
+
+       Cada um carrega a FRASE INTEIRA, com rótulo e ponto final, e não
+       só o valor. Parece verboso e é o que torna o esconder seguro:
+       `escrever` apaga o elemento quando o dado falta, e um pedaço solto
+       deixaria "foro da comarca de ." publicado na política de uma
+       filial cadastrada sem cidade. Com a frase dentro, o que desaparece
+       é o parágrafo. */
+    escrever("nome", l.nome || "");
+    escrever("cnpj", l.cnpj ? `CNPJ ${cnpjLegivel(l.cnpj)}` : "");
+    escrever("entrega-raio",
+        Number.isFinite(l.raio_entrega_km) && l.raio_entrega_km > 0
+            ? `Entregamos dentro de um raio de ${String(l.raio_entrega_km).replace(".", ",")} km do endereço da loja. Fora dele, o pedido pode ser retirado no balcão.`
+            : "");
+    escrever("foro",
+        l.cidade
+            ? `Fica eleito o foro da comarca de ${[l.cidade, l.uf].filter(Boolean).join(" – ")} para as questões decorrentes destes termos, sem prejuízo do direito do consumidor de demandar no foro do seu domicílio.`
+            : "");
+
     escrever("autorizacao",
         l.autorizacao ? `Autorização: ${l.autorizacao}${l.licenca_ms ? ` · ${l.licenca_ms}` : ""}` : "");
 
@@ -323,7 +361,10 @@ function lerCacheLoja() {
 }
 
 async function carregarLoja() {
-    if (typeof API_PEDIDOS_D1 === "undefined" || !API_PEDIDOS_D1) return;
+    const base = (typeof API_PEDIDOS_D1 !== "undefined" && API_PEDIDOS_D1)
+        ? API_PEDIDOS_D1
+        : API_LOJA_SEM_SCRIPT;
+    if (!base) return;
 
     const guardado = lerCacheLoja();
     if (guardado) {
@@ -332,7 +373,7 @@ async function carregarLoja() {
     }
 
     try {
-        const resposta = await fetch(LojaAtual.api(API_PEDIDOS_D1, "/loja"));
+        const resposta = await fetch(LojaAtual.api(base, "/loja"));
         if (!resposta.ok) throw new Error("HTTP " + resposta.status);
 
         const dados = await resposta.json();

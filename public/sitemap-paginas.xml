@@ -24,4 +24,13 @@
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
+  <!-- As políticas entram no índice de propósito. Trazem quase nenhuma
+       visita, mas o Google olha se a loja tem privacidade, termos e
+       troca publicados — e o cliente que se pergunta "é confiável?"
+       procura justamente isto. -->
+  <url>
+    <loc>https://drogaria-site.pages.dev/politicas</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
 </urlset>

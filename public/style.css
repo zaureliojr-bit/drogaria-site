@@ -3215,3 +3215,108 @@ body.sem-barra-carrinho .carrinho { display: none; }
   .ficha-tecnica dl > div { grid-template-columns: 1fr; gap: 2px; }
   .ficha-tecnica dt { font-size: 11.5px; }
 }
+
+/* ========================= */
+/* 📄 POLÍTICAS              */
+/* ========================= */
+/* Texto corrido, numa coluna estreita. 68 caracteres por linha é o que
+   se lê sem perder a linha de volta — e política é o único lugar do
+   site onde alguém realmente lê parágrafo inteiro. */
+.pagina-politicas {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 18px 16px 40px;
+  color: var(--tinta);
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+.pagina-politicas h1 {
+  font-family: var(--fonte-titulo);
+  font-size: 23px;
+  line-height: 1.25;
+  margin: 6px 0 14px;
+}
+
+.pagina-politicas h2 {
+  font-family: var(--fonte-titulo);
+  font-size: 18px;
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--marca-clara);
+  color: var(--marca);
+}
+
+.pagina-politicas h3 {
+  font-size: 14.5px;
+  font-weight: 700;
+  margin: 20px 0 4px;
+}
+
+.pagina-politicas p { margin: 0 0 10px; }
+
+.pagina-politicas ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.pagina-politicas li { margin-bottom: 7px; }
+
+.pagina-politicas a {
+  color: var(--marca);
+  font-weight: 600;
+}
+
+/* Quem é a farmácia: o mesmo cartão branco do resto do site, porque
+   estes cinco dados são o que dá valor legal ao documento. */
+.politicas-quem {
+  background: var(--branco);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio-md);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--tinta-suave);
+}
+
+.politicas-quem p { margin: 0; }
+.politicas-quem p:first-child { font-size: 14px; color: var(--tinta); }
+
+.politicas-indice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.politicas-indice a {
+  background: var(--marca-clara);
+  color: var(--marca-escura);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* O scroll-margin é o conserto do pulo: o cabeçalho é fixo, e sem ele
+   o título da seção entra por baixo dele quando se chega pelo link
+   #privacidade do rodapé. */
+.politicas-bloco {
+  margin-bottom: 30px;
+  scroll-margin-top: 78px;
+}
+
+.politicas-data {
+  font-size: 12px;
+  color: var(--tinta-suave);
+  border-top: 1px solid var(--linha);
+  padding-top: 12px;
+}
+
+/* No rodapé, os três links ficam legíveis sobre o azul escuro. */
+.rodape-politicas a {
+  color: var(--branco);
+  text-decoration: underline;
+}
