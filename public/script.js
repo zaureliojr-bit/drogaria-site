@@ -330,6 +330,28 @@ let LOJA_LAT = -23.7092450;
 let LOJA_LNG = -46.5251954;
 let RAIO_MAX_KM = 8;
 
+/* "Esta farmácia tem coordenada própria?"
+
+   As três constantes acima são as da PRIMEIRA farmácia, escritas aqui
+   porque este arquivo nasceu numa instalação de uma loja só. O loja.js
+   as sobrescreve com as da loja da página — quando ela tem.
+
+   Quando NÃO tem, elas ficam como estão. E aí a conta da taxa de
+   entrega de uma farmácia em Diadema é feita a partir do endereço de
+   outra, em São Bernardo, sem erro nenhum na tela: o cliente vê uma
+   distância, uma taxa e um "dentro da área de entrega" calculados
+   contra a loja errada.
+
+   Foi o que aconteceu, e não por descuido de cadastro: o formulário de
+   filial do painel não tinha campo de latitude e longitude. Toda filial
+   criada por ele nasceu assim.
+
+   Esta bandeira é a recusa de adivinhar. Sem coordenada, o site não
+   calcula taxa nenhuma — diz que a loja confirma no WhatsApp, que é o
+   que ele já faz quando não encontra a rua do cliente no mapa. Cobrar
+   um valor errado é pior que combinar o valor na conversa. */
+let LOJA_SEM_COORDENADA = false;
+
 /* As famílias de categoria moram no familias.js, carregado antes
    deste arquivo. Saíram daqui quando o painel da loja passou a
    precisar delas para filtrar promoções por grupo: duas cópias da
@@ -2752,8 +2774,13 @@ function atualizarTotais() {
   if (linhaFrete) {
     const entregando = el("tipoEntrega")?.value === "Entrega";
     linhaFrete.hidden = !entregando;
+    /* "a calcular" promete uma conta que vai acontecer. Quando a loja
+       não tem coordenada, ela não vai — e deixar "a calcular" no
+       resumo faria o cliente procurar um botão que não resolve. */
     el("resumoFrete") &&
-      (el("resumoFrete").textContent = freteCalculado ? fmt(frete) : "a calcular");
+      (el("resumoFrete").textContent = freteCalculado
+        ? fmt(frete)
+        : (LOJA_SEM_COORDENADA ? "a combinar" : "a calcular"));
   }
 
   mostrarMinimo();
@@ -3123,6 +3150,26 @@ async function calcularFrete({ automatico = false } = {}) {
   // ainda está voando; sem esperar, o endereço estaria vazio aqui
   if (buscaCEPEmAndamento) await buscaCEPEmAndamento.catch(() => {});
 
+  /* Farmácia sem coordenada no cadastro: não há de onde medir.
+
+     Sai antes de qualquer outra coisa — inclusive antes de cobrar rua e
+     número —, porque não adianta exigir o endereço do cliente para uma
+     conta que não vai acontecer. A taxa fica combinada na conversa, que
+     é o que o site já faz quando não acha a rua no mapa.
+
+     Calcular assim mesmo seria usar a coordenada da PRIMEIRA farmácia,
+     escrita no alto deste arquivo, e cobrar de um cliente de Diadema a
+     distância até São Bernardo. Ver LOJA_SEM_COORDENADA. */
+  if (LOJA_SEM_COORDENADA) {
+    freteCalculado = null;
+    mostrarResultadoFrete(
+      "Nosso time de vendas confirma a taxa de entrega no WhatsApp quando receber seu pedido.",
+      "ok"
+    );
+    atualizarTotais();
+    return;
+  }
+
   const { numero, endereco, bairro, cidade, cepLimpo } = enderecoDoFormulario();
 
   if (!endereco || !cidade) return automatico ? undefined : toast("Preencha a rua e a cidade");
@@ -3281,7 +3328,15 @@ function finalizar() {
     const cep = el("cep")?.value.trim();
 
     if (!endereco || !numero) return toast("Preencha o endereço completo");
-    if (!freteCalculado) return toast("Calcule a taxa de entrega antes de finalizar");
+
+    /* A trava do frete calculado não vale quando a loja não tem
+       coordenada: aí não existe conta a fazer, e exigi-la trancaria o
+       pedido da filial inteira no último botão. O pedido sai com a taxa
+       a combinar, que é como a loja já trabalha enquanto o cadastro não
+       está completo. */
+    if (!LOJA_SEM_COORDENADA && !freteCalculado) {
+      return toast("Calcule a taxa de entrega antes de finalizar");
+    }
 
     enderecoTexto = `${endereco}, ${numero} - ${bairro}, ${cidade} - CEP ${cep}`;
   }

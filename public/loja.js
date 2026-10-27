@@ -330,8 +330,42 @@ function aplicarNaPagina() {
        usar o que está no banco sem que nenhuma outra função saiba que
        alguma coisa mudou. */
     if (typeof WHATS_LOJA !== "undefined" && l.whatsapp) WHATS_LOJA = l.whatsapp;
-    if (typeof LOJA_LAT !== "undefined" && Number.isFinite(l.latitude)) LOJA_LAT = l.latitude;
-    if (typeof LOJA_LNG !== "undefined" && Number.isFinite(l.longitude)) LOJA_LNG = l.longitude;
+
+    /* A coordenada da loja, e a recusa de usar a da vizinha.
+
+       Antes era só `if (Number.isFinite(...)) LOJA_LAT = ...`, que
+       parece a cautela certa e é o contrário: coordenada ausente fazia
+       a linha não rodar, e o que ficava valendo era a constante escrita
+       no script.js — a da PRIMEIRA farmácia.
+
+       Resultado visto no ar: a filial de Diadema calculava a taxa de
+       entrega de cada cliente a partir da loja de São Bernardo. Nada
+       falhava; a tela mostrava uma distância, uma taxa e um "dentro da
+       área de entrega" perfeitamente formatados, todos contra o
+       endereço errado.
+
+       É a mesma armadilha do rodapé, que publicava a licença sanitária
+       da vizinha quando a filial não tinha a dela. A diferença é que no
+       rodapé o erro era visível para quem conhecia as duas lojas; aqui
+       ele sai em dinheiro, na conta de um cliente que não tem como
+       desconfiar. */
+    const temCoordenada = Number.isFinite(l.latitude) && Number.isFinite(l.longitude);
+
+    if (typeof LOJA_SEM_COORDENADA !== "undefined") LOJA_SEM_COORDENADA = !temCoordenada;
+
+    if (temCoordenada) {
+        if (typeof LOJA_LAT !== "undefined") LOJA_LAT = l.latitude;
+        if (typeof LOJA_LNG !== "undefined") LOJA_LNG = l.longitude;
+    } else {
+        /* Vale um aviso no console: quem abrir o site da filial para
+           entender por que a taxa não calcula encontra a resposta no
+           primeiro lugar em que vai olhar. */
+        console.info(
+            `A loja "${l.slug || "?"}" está cadastrada sem latitude/longitude. ` +
+            "A taxa de entrega não será calculada automaticamente — preencha " +
+            "as coordenadas na aba Filiais do painel."
+        );
+    }
     if (typeof RAIO_MAX_KM !== "undefined" && Number.isFinite(l.raio_entrega_km)) RAIO_MAX_KM = l.raio_entrega_km;
     if (typeof FRETE_GRATIS_ACIMA_DE !== "undefined" && Number.isFinite(l.frete_gratis_acima)) {
         FRETE_GRATIS_ACIMA_DE = l.frete_gratis_acima;

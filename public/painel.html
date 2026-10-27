@@ -1010,6 +1010,41 @@
           </label>
         </div>
 
+        <!-- AS COORDENADAS DA LOJA
+
+             Não existiam neste formulário, e a falta não dava erro
+             nenhum — dava conta errada. A taxa de entrega é medida da
+             loja até o cliente; sem coordenada, o site usava a da
+             PRIMEIRA farmácia, e a filial de Diadema cobrava pela
+             distância até São Bernardo.
+
+             Hoje o site se recusa a calcular sem elas (ver
+             LOJA_SEM_COORDENADA, no script.js) e manda combinar a taxa
+             no WhatsApp. Preencher aqui é o que liga o cálculo. -->
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>Latitude</span>
+            <input type="text" id="novaLat" maxlength="20" placeholder="-23.709245" inputmode="decimal">
+          </label>
+          <label class="campo">
+            <span>Longitude</span>
+            <input type="text" id="novaLng" maxlength="20" placeholder="-46.525195" inputmode="decimal">
+          </label>
+        </div>
+
+        <div class="campo-duplo">
+          <span>
+            <button type="button" id="btnCoordenadas" class="btn-testar-som">
+              Buscar pelo endereço acima
+            </button>
+          </span>
+          <p class="dica" id="avisoCoordenadas">
+            Sem latitude e longitude, a loja não calcula taxa de entrega
+            — ela fica "a combinar" no WhatsApp. No Google Maps: clique
+            com o botão direito no ponto da loja e copie os dois números.
+          </p>
+        </div>
+
         <div class="campo-duplo">
           <label class="campo">
             <span>WhatsApp da loja</span>
@@ -5554,11 +5589,22 @@ async function carregarLojas() {
          worker recusa a filial com 503. Melhor ver o aviso aqui,
          enquanto se cadastra, do que descobrir quando a dona da farmácia
          tentar entrar. */
+      /* "Falta a coordenada" vem DEPOIS do banco e ANTES do "no ar",
+         na mesma coluna, porque é a mesma pergunta: esta filial está
+         pronta, ou falta alguma coisa nela?
+
+         E é a falta mais traiçoeira das duas. Sem banco, a filial nem
+         abre — o worker recusa com 503 e alguém percebe no mesmo dia.
+         Sem coordenada, ela abre perfeita: vende, recebe pedido, mostra
+         taxa de entrega. Só que a taxa é medida da farmácia errada, e
+         ninguém descobre até o cliente reclamar do valor. */
       (!l.banco && i > 0)
         ? '<span class="falta">falta o banco próprio</span>'
-        : l.ativo
-          ? '<span class="aqui">no ar</span>'
-          : '<span class="desligada">desligada</span>',
+        : !l.tem_coordenada
+          ? '<span class="falta" title="Sem latitude/longitude a loja não calcula taxa de entrega: ela fica a combinar no WhatsApp.">falta a coordenada</span>'
+          : l.ativo
+            ? '<span class="aqui">no ar</span>'
+            : '<span class="desligada">desligada</span>',
 
       l.tem_senha ? "própria" : '<span class="desligada">a do worker</span>',
 
@@ -5725,6 +5771,8 @@ async function criarFilial() {
         cidade: el("novaCidade").value,
         uf: el("novaUf").value,
         cep: el("novaCep").value,
+        latitude: el("novaLat").value,
+        longitude: el("novaLng").value,
         whatsapp: el("novaWhats").value,
         farmaceutico: el("novaFarmaceutico").value,
         crf: el("novaCrf").value,
@@ -5789,6 +5837,8 @@ const CAMPOS_FILIAL = [
   ["novaCidade",        "cidade",            "cidade"],
   ["novaUf",            "uf",                "uf"],
   ["novaCep",           "cep",               "cep"],
+  ["novaLat",           "latitude",          "latitude"],
+  ["novaLng",           "longitude",         "longitude"],
   ["novaWhats",         "whatsapp",          "whatsapp"],
   ["novaFarmaceutico",  "farmaceutico",      "farmaceutico"],
   ["novaCrf",           "crf",               "crf"],
@@ -5853,6 +5903,83 @@ function horarioDoFormulario() {
     }))
     .filter((h) => h.abre && h.fecha);
 }
+
+/* ---------------------------------------------------------------
+   AS COORDENADAS, BUSCADAS PELO ENDEREÇO
+   ---------------------------------------------------------------
+
+   Existe porque pedir latitude e longitude a quem cadastra uma
+   farmácia é pedir a coisa errada: ninguém tem esses números à mão, e
+   um campo que o usuário não sabe preencher é um campo que fica vazio
+   — que foi exatamente como as filiais nasceram sem coordenada.
+
+   O mesmo serviço que o site usa para achar o endereço do cliente
+   (Nominatim/OpenStreetMap) acha o da loja. O botão preenche, a pessoa
+   confere no mapa se quiser, e salva.
+
+   NÃO salva sozinho nem sobrescreve o que já está preenchido sem
+   avisar: coordenada errada é pior que coordenada ausente, porque a
+   ausente o site detecta e a errada ele obedece. */
+async function buscarCoordenadasDaFilial() {
+
+    const aviso = el("avisoCoordenadas");
+    const botao = el("btnCoordenadas");
+
+    const partes = [
+        `${el("novaLogradouro").value.trim()} ${el("novaNumero").value.trim()}`.trim(),
+        el("novaBairro").value.trim(),
+        el("novaCidade").value.trim(),
+        el("novaUf").value.trim()
+    ].filter(Boolean);
+
+    if (partes.length < 3) {
+        aviso.textContent = "Preencha rua, número e cidade antes de buscar.";
+        return;
+    }
+
+    botao.disabled = true;
+    const rotulo = botao.textContent;
+    botao.textContent = "Buscando…";
+    aviso.textContent = "Procurando o endereço no mapa…";
+
+    try {
+        const url = "https://nominatim.openstreetmap.org/search?format=json"
+            + "&countrycodes=br&limit=1&q=" + encodeURIComponent(partes.join(", "));
+
+        const r = await fetch(url, { headers: { "Accept": "application/json" } });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+
+        const achados = await r.json();
+
+        if (!achados.length) {
+            aviso.textContent = "Não achei esse endereço no mapa. "
+                + "Pegue os números no Google Maps: botão direito no ponto da loja.";
+            return;
+        }
+
+        /* Seis casas decimais é ~11cm — mais que suficiente para uma
+           porta de farmácia, e evita guardar os 15 dígitos que o
+           serviço devolve. */
+        const lat = Number(achados[0].lat).toFixed(6);
+        const lng = Number(achados[0].lon).toFixed(6);
+
+        el("novaLat").value = lat;
+        el("novaLng").value = lng;
+
+        aviso.textContent = `Encontrado: ${achados[0].display_name}. `
+            + "Confira antes de salvar — se o ponto estiver errado, a taxa de "
+            + "entrega de todo cliente sai errada junto.";
+
+    } catch (erro) {
+        aviso.textContent = "Não consegui consultar o mapa agora (" + erro.message
+            + "). Dá para digitar os números à mão.";
+    } finally {
+        botao.disabled = false;
+        botao.textContent = rotulo;
+    }
+}
+
+el("btnCoordenadas")?.addEventListener("click", buscarCoordenadasDaFilial);
 
 function limparFormularioDeFilial() {
   CAMPOS_FILIAL.forEach(([id]) => {

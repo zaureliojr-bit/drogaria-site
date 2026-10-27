@@ -55,17 +55,23 @@
 # de mandar para a dona dela. É o nosso próprio domínio, e só o painel
 # ganha essa permissão — o site não fala com quem não precisa.
 #
+# O nominatim.openstreetmap.org é o botão "buscar pelo endereço" do
+# cadastro de filial. Ele existe porque pedir latitude e longitude a
+# quem cadastra uma farmácia é pedir a coisa errada — ninguém tem esses
+# números à mão, e o campo ficava vazio. Vazio, o site calculava a taxa
+# de entrega da filial a partir da coordenada da loja principal.
+#
 # Foi um teste que descobriu a falta: a conferência era barrada antes de
 # sair, e o painel concluía "o domínio não existe" para domínio
 # perfeitamente no ar. O navegador reclama no console, que ninguém lê.
 
 /painel
   ! Content-Security-Policy
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com https://*.drogalink.com.br; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com https://*.drogalink.com.br https://nominatim.openstreetmap.org; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 /painel.html
   ! Content-Security-Policy
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com https://*.drogalink.com.br; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://farmatech-padronizador.zaureliojr.workers.dev; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-pedidos-proxy.zaureliojr.workers.dev; connect-src 'self' https://raw.githubusercontent.com https://farmatech-pedidos-proxy.zaureliojr.workers.dev https://farmatech-imagens-proxy.zaureliojr.workers.dev https://farmatech-publish-proxy.zaureliojr.workers.dev https://farmatech-padronizador.zaureliojr.workers.dev https://cloudflareinsights.com https://*.drogalink.com.br https://nominatim.openstreetmap.org; frame-src https://farmatech-padronizador.zaureliojr.workers.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 # =====================================================================
 # O JAVASCRIPT E O CSS TÊM DE CHEGAR JUNTO COM O HTML
