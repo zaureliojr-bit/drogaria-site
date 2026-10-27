@@ -1433,6 +1433,25 @@
           </label>
         </div>
 
+        <div class="campo-duplo">
+          <label class="campo">
+            <!-- "Entrega grátis até 3 km" é a promoção que a farmácia de
+                 bairro quer fazer. Sem o raio, o frete grátis vale igual
+                 para quem mora na esquina e para quem mora a 7 km — e os
+                 dois custam coisas bem diferentes para quem entrega de
+                 moto.
+
+                 Vale para qualquer tipo de cupom, não só o de frete: um
+                 "R$ 10 off só para o bairro" é promoção legítima. -->
+            <span>Só até (km da loja) — 0 = sem limite de distância</span>
+            <input type="number" id="cupomRaio" min="0" step="0.5" value="0">
+          </label>
+          <p class="dica">
+            O cliente precisa ter calculado a entrega para usar um cupom
+            com raio. Sem endereço, o site recusa em vez de liberar.
+          </p>
+        </div>
+
         <div class="campo-duplo" id="campoCupomTeto" hidden>
           <label class="campo">
             <!-- 20% num pedido de R$ 800 é R$ 160, e não era isso que a
@@ -2877,11 +2896,26 @@ const ROTULO_TIPO_CUPOM = {
 };
 
 function descreverCupom(c) {
-  if (c.tipo === "frete") return "Frete grátis";
+  /* O raio entra na MESMA frase do desconto, e não numa coluna nova.
+
+     "Frete grátis" e "Frete grátis até 3 km" são promoções diferentes,
+     e quem olha a lista precisa ver a diferença sem cruzar colunas — é
+     o tipo de detalhe que, escondido, faz a loja anunciar uma coisa no
+     Instagram e o site aplicar outra. */
+  const perto = c.raio_km > 0 ? ` até ${kmDoCupom(c.raio_km)}` : "";
+
+  if (c.tipo === "frete") return "Frete grátis" + perto;
   if (c.tipo === "percentual") {
-    return `${numeroBR(c.valor)}%` + (c.teto > 0 ? ` (até ${dinheiro(c.teto)})` : "");
+    return `${numeroBR(c.valor)}%` + (c.teto > 0 ? ` (até ${dinheiro(c.teto)})` : "") + perto;
   }
-  return dinheiro(c.valor);
+  return dinheiro(c.valor) + perto;
+}
+
+/* "3 km" e "1,5 km", sem a casa decimal quando ela é zero. Mesma regra
+   do kmBR() do worker, que escreve a frase que o cliente lê. */
+function kmDoCupom(v) {
+  const n = Number(v) || 0;
+  return (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",")) + " km";
 }
 
 /* O prazo escrito como a loja fala. "Sem prazo" é informação: cupom sem
@@ -2965,6 +2999,7 @@ el("formCupom")?.addEventListener("submit", async (ev) => {
     fim: el("cupomFim").value,
     limiteTotal: numeroBR(el("cupomLimiteTotal").value),
     limitePessoa: numeroBR(el("cupomLimitePessoa").value),
+    raioKm: numeroBR(el("cupomRaio").value),
     descricao: el("cupomDescricao").value
   };
 

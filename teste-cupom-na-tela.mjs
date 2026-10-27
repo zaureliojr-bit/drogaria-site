@@ -126,6 +126,14 @@ console.log("\n1. o cliente digita o código");
         perguntou && perguntou.corpo.subtotal === 70 && perguntou.corpo.desconto === undefined,
         JSON.stringify(perguntou && perguntou.corpo));
 
+    /* E a distância, para o cupom que vale só perto ("entrega grátis
+       até 3 km"). Quem decide é o servidor; o site só informa o km que
+       já calculou para a taxa de entrega. Zero quando o cliente ainda
+       não calculou — e aí o servidor recusa em vez de liberar. */
+    conferir("e o km, que é o que o cupom de raio precisa",
+        perguntou && typeof perguntou.corpo.km === "number",
+        JSON.stringify(perguntou && perguntou.corpo));
+
     conferir("a linha de desconto aparece", await pagina.locator("#linhaDesconto").isVisible());
     conferir("com o valor que veio de lá", /10,00/.test(await texto(pagina, "#resumoDesconto")),
         await texto(pagina, "#resumoDesconto"));

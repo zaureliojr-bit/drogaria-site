@@ -2683,7 +2683,16 @@ async function aplicarCupom(codigoBruto, { silencioso = false } = {}) {
         codigo,
         subtotal: subtotalCarrinho(),
         frete: valorFreteAtual(),
-        telefone: el("telefone")?.value || ""
+        telefone: el("telefone")?.value || "",
+        /* A distância até a loja, para o cupom que vale só perto
+           ("entrega grátis até 3 km"). Vem da conta do frete, que já
+           geocodificou o endereço — não há segunda consulta ao mapa.
+
+           Zero quando o cliente ainda não calculou a entrega, e o
+           worker recusa nesse caso em vez de liberar: liberar na dúvida
+           daria frete grátis a quem mora a 9 km e não preencheu o CEP,
+           que é justamente o que o raio existe para evitar. */
+        km: freteCalculado ? freteCalculado.dist : 0
       })
     });
 
