@@ -168,11 +168,28 @@ body {
   box-shadow: var(--premium-sombra);
 }
 
+/* O rodapé claro. A COR DO TEXTO vem junto, obrigatoriamente.
+
+   Trocar só o fundo deixou o rodapé branco sobre branco: o `color` do
+   style.css é rgba(255,255,255,.82), feito para o fundo azul-escuro
+   original. Na home publicada isso virou um retângulo vazio de 381px
+   onde estavam o CNPJ, o CRF da farmacêutica, a autorização sanitária
+   e o aviso da Portaria 344 — a identificação que a farmácia é obrigada
+   a exibir, apagada sem erro nenhum no console.
+
+   Por isso fundo e tinta andam no mesmo bloco daqui em diante. */
 .rodape {
   margin-top: 34px;
   border-top: 1px solid var(--premium-borda);
   background: #fff;
+  color: #51566b;
 }
+
+/* A primeira linha é o nome e o CNPJ, que o style.css põe em branco
+   para o fundo escuro. */
+.rodape p:first-child { color: #24213f; }
+
+.rodape a { color: var(--premium-roxo); }
 
 .rodape-container {
   max-width: 1120px;
@@ -217,8 +234,8 @@ body {
   }
 
   .recado-loja {
-    margin: 6px 10px 12px;
-    padding: 10px 12px;
+    margin: 4px 10px 8px;
+    padding: 9px 12px;
     font-size: 12px;
   }
 
@@ -469,8 +486,14 @@ body {
     font-size: 12px;
   }
 
+  /* O respiro de 18px que a camada premium deu aos blocos é folgado no
+     desktop e caro no celular: ele empurrou o primeiro produto de 300px
+     para 310px, e o teste-home-dobra existe porque produto abaixo da
+     primeira dobra é produto que metade das visitas nunca vê. No
+     celular o respiro fica em 6px; no desktop continua 18px. */
   .mais-vendidos {
     padding-left: 10px;
     padding-right: 10px;
+    margin-top: 6px;
   }
 }

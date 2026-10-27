@@ -20,8 +20,28 @@
 */
 
 import { chromium } from "playwright";
+import { readFileSync } from "node:fs";
 
 const BASE = process.env.BASE || "http://127.0.0.1:8801";
+
+/* A cor padrão da plataforma, lida das folhas de estilo em vez de
+   escrita aqui.
+
+   Escrita, ela transformava este teste num alarme de mudança de marca:
+   o refinamento visual trocou o azul da plataforma e o teste acusou
+   falha, embora nada do que ele existe para vigiar tivesse quebrado.
+   O que importa é outra coisa — que a farmácia SEM cor própria fique
+   com a cor da casa, e não com a da farmácia que o visitante abriu
+   antes. Lendo o valor da folha, o teste continua pegando isso e para
+   de reclamar de decisão de design.
+
+   A última declaração vence, como no navegador: a camada premium vem
+   depois do style.css e é ela que manda. */
+const CORES = ["public/style.css", "public/visual-premium.css"]
+    .flatMap((arquivo) => [...readFileSync(arquivo, "utf8")
+        .matchAll(/--marca:\s*(#[0-9a-f]{3,8})/gi)].map((m) => m[1]));
+
+const COR_PADRAO = (CORES[CORES.length - 1] || "").toLowerCase();
 
 /* O que o worker devolve hoje, com a tabela recém-criada. Os valores são
    os do schema-lojas.sql — se divergirem, é sinal de que o seed e o site
@@ -315,7 +335,8 @@ console.log("\n7. quem não mandou logotipo fica com a marca padrão");
 
     const marca = await pagina.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue("--marca").trim());
-    conferir("e a cor também", marca.toLowerCase() === "#26247b", marca);
+    conferir(`e a cor também — a da casa é ${COR_PADRAO}`,
+        Boolean(COR_PADRAO) && marca.toLowerCase() === COR_PADRAO, marca);
 
     await pagina.close();
 }

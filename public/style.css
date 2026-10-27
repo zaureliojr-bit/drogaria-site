@@ -3315,8 +3315,13 @@ body.sem-barra-carrinho .carrinho { display: none; }
   padding-top: 12px;
 }
 
-/* No rodapé, os três links ficam legíveis sobre o azul escuro. */
+/* Os três links herdam a tinta do rodapé em vez de fixar uma cor.
+
+   O rodapé existe em duas versões — a escura do style.css e a clara do
+   visual-premium.css —, e um `color: #fff` escrito aqui ficaria
+   invisível na segunda. Herdando, o link acompanha o rodapé onde quer
+   que ele esteja; o sublinhado é o que o faz ler como link nos dois. */
 .rodape-politicas a {
-  color: var(--branco);
+  color: inherit;
   text-decoration: underline;
 }
