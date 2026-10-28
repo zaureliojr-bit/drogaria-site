@@ -471,8 +471,32 @@ function produtoPedidoNaURL() {
 
    O Product/Offer só é escrito com preço: oferta sem preço é dado
    estruturado incompleto, e a Busca reclama em vez de mostrar. */
+/* O nome e a cidade vêm do cadastro da loja, não escritos aqui.
+
+   Estavam escritos: "Drogaria Mais Barato, em São Bernardo do Campo,
+   com entrega em até 2 horas". Isso é o título e a descrição de TODA
+   página de produto — as 6.800 — em TODA filial. O site de Diadema
+   publicava para o Google, em cada produto, o nome e a cidade da
+   farmácia de São Bernardo.
+
+   O LOJA do loja.js começa com os valores da farmácia principal e é
+   trocado quando o cadastro responde. Por isso a função também roda de
+   novo no evento `lojaPronta`: o primeiro desenho acontece antes da
+   resposta, e sem a segunda passada a meta ficaria com o nome padrão
+   em quem chegou pela página de produto.
+
+   O prazo de entrega saiu da frase pelo mesmo motivo que saiu da home:
+   nenhuma filial tem como garantir "2 horas" no dia do cadastro. */
+function descricaoDaPagina(p) {
+  const loja = (typeof LOJA !== "undefined" && LOJA) || {};
+  const nome = loja.nome || "nossa farmácia";
+  const onde = loja.cidade ? `, em ${loja.cidade}` : "";
+  return `${p.nome}. Compre na ${nome}${onde}, com entrega rápida.`;
+}
+
 function ajustarMetaDoProduto(p) {
-  const titulo = `${p.nome} — Drogaria Mais Barato`;
+  const loja = (typeof LOJA !== "undefined" && LOJA) || {};
+  const titulo = `${p.nome} — ${loja.nome || "Drogaria"}`;
   document.title = titulo;
 
   const por = (seletor, atributo, valor) => {
@@ -480,7 +504,13 @@ function ajustarMetaDoProduto(p) {
     if (el) el.setAttribute(atributo, valor);
   };
 
-  const descricao = `${p.nome}. Compre na Drogaria Mais Barato, em São Bernardo do Campo, com entrega em até 2 horas.`;
+  const descricao = descricaoDaPagina(p);
+
+  /* Quando o cadastro da loja chega depois (é o caso normal: a página
+     desenha antes de a API responder), as metas são reescritas com o
+     nome e a cidade certos. Uma vez só — o `once` evita que um
+     segundo evento refaça o trabalho. */
+  document.addEventListener("lojaPronta", () => ajustarMetaDoProduto(p), { once: true });
 
   por('meta[name="description"]', "content", descricao);
   por('meta[property="og:title"]', "content", titulo);

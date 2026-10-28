@@ -3307,3 +3307,30 @@ body.com-aviso { overflow: hidden; }
   .aviso-entrada-fundo,
   .aviso-entrada-card { animation: none; }
 }
+
+/* O convite de perguntar no WhatsApp, na busca sem resultado.
+
+   Verde do WhatsApp, e não a cor da marca: aqui o botão não é "mais uma
+   ação do site", é a saída para outro lugar — e o cliente reconhece o
+   verde antes de ler o texto. É o mesmo raciocínio do "Pedido rápido"
+   no cabeçalho. */
+.aviso-vazio-whats {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 12px 20px;
+  min-height: 46px;
+  border-radius: var(--raio-botao);
+  background: #25D366;
+  color: #0B3B22;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 3px 10px rgba(37, 211, 102, .28);
+}
+
+.aviso-vazio-whats:hover { filter: brightness(1.05); }
+.aviso-vazio-whats:active { transform: scale(.98); }
+.aviso-vazio-whats:focus-visible { outline: 3px solid var(--marca); outline-offset: 3px; }

@@ -2307,6 +2307,41 @@ function cardHTML(p, mini = false) {
 
 const cardMiniHTML = p => cardHTML(p, true);
 
+/* "Não achei. Pergunta pra gente."
+
+   A busca vazia é o momento em que o cliente está mais perto de ir
+   embora e mais perto de comprar ao mesmo tempo: ele disse exatamente
+   o que quer, e o site respondeu que não tem. Hoje a tela só o
+   aconselhava a tentar outro termo.
+
+   Mas "não achou" quase nunca quer dizer "a farmácia não tem". Quer
+   dizer que o nome no catálogo é outro ("Chichlere" não casa com
+   "Chiclete"), que o produto está no balcão e não na extração, ou que
+   a loja consegue encomendar. Quem resolve as três é a pessoa do
+   WhatsApp — e o botão leva o termo digitado junto, para ela não
+   precisar perguntar "o que você procurava?".
+
+   O termo vai como o cliente escreveu, não normalizado: o erro de
+   digitação é informação para quem vai responder. */
+function botaoDePerguntarNoWhats() {
+
+  if (!WHATS_LOJA) return "";
+
+  const procurado = (el("busca")?.value || "").trim();
+
+  const mensagem = procurado
+    ? `Olá! Procurei por "${procurado}" no site e não encontrei. Vocês têm?`
+    : "Olá! Não encontrei o que eu procurava no site. Vocês podem me ajudar?";
+
+  const url = `https://wa.me/${WHATS_LOJA}?text=${encodeURIComponent(mensagem)}`;
+
+  return `
+    <a class="aviso-vazio-whats" href="${esc(url)}" target="_blank" rel="noopener">
+      ${icone("whats", 17)}
+      <span>Perguntar no WhatsApp da loja</span>
+    </a>`;
+}
+
 /* =========================
 📦 RENDER PRODUTOS (grid principal)
 ========================= */
@@ -2324,6 +2359,7 @@ function renderMais() {
       <div class="aviso-vazio">
         <p>Nenhum produto encontrado.</p>
         <p class="aviso-vazio-sub">Tente outro termo — dá para buscar pela marca, pelo laboratório ou pelo código de barras.</p>
+        ${botaoDePerguntarNoWhats()}
       </div>`;
     carregando = false;
     return;

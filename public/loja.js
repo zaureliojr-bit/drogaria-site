@@ -299,6 +299,14 @@ function aplicarNaPagina() {
         Number.isFinite(l.raio_entrega_km) && l.raio_entrega_km > 0
             ? `Entregamos dentro de um raio de ${String(l.raio_entrega_km).replace(".", ",")} km do endereço da loja. Fora dele, o pedido pode ser retirado no balcão.`
             : "");
+    /* "Entrega rápida em Diadema", na primeira linha da home.
+
+       Sem cidade cadastrada, o trecho some e fica só "Entrega rápida",
+       que continua sendo uma frase. É por isso que ele é um `span`
+       separado e não parte do mesmo texto: o que desaparece é o
+       complemento, não a frase inteira. */
+    escrever("cidade-entrega", l.cidade ? `em ${l.cidade}` : "");
+
     escrever("foro",
         l.cidade
             ? `Fica eleito o foro da comarca de ${[l.cidade, l.uf].filter(Boolean).join(" – ")} para as questões decorrentes destes termos, sem prejuízo do direito do consumidor de demandar no foro do seu domicílio.`
@@ -430,8 +438,54 @@ async function carregarLoja() {
     }
 }
 
+/* O que a LOJA_PADRAO pode emprestar a OUTRA farmácia, e o que não.
+
+   O padrão existe como rede: sem rede, sem API, a instalação de uma
+   loja só continua de pé. O problema é que ele é o cadastro da
+   PRIMEIRA farmácia, e o espalhamento `{...LOJA_PADRAO, ...resposta}`
+   empresta à filial tudo que a resposta não trouxer.
+
+   Três defeitos desta sessão saíram dessa mesma linha, e todos com a
+   mesma cara — nada falha, a tela fica bonita, e o dado é de outro
+   estabelecimento:
+
+     - o rodapé da filial publicando o processo de autorização
+       sanitária e a licença MS da farmácia vizinha;
+     - a taxa de entrega de Diadema medida a partir de São Bernardo;
+     - "Entrega em até 2 horas em São Bernardo do Campo" na primeira
+       linha do site de Diadema.
+
+   Os três foram consertados um a um. Esta lista fecha a porta: quando
+   a resposta é de uma farmácia DIFERENTE da do padrão, nada que
+   identifique estabelecimento é herdado. Campo que falta vira vazio, e
+   vazio o resto do código já sabe esconder.
+
+   O que continua sendo herdado é o que não identifica ninguém: fuso,
+   raio de entrega e piso de frete grátis — ter um valor de operação
+   razoável é melhor que não ter nenhum. */
+const SO_DESTA_FARMACIA = [
+    "nome", "razao_social", "cnpj",
+    "logradouro", "numero", "complemento", "bairro", "cidade", "uf", "cep",
+    "latitude", "longitude",
+    "whatsapp", "telefone", "email",
+    "farmaceutico", "crf", "rotulo_responsavel",
+    "autorizacao", "licenca_ms"
+];
+
 function adotar(dados) {
-    LOJA = { ...LOJA_PADRAO, ...dados.loja };
+
+    const vinda = dados.loja || {};
+
+    /* Mesma farmácia do padrão (a instalação de uma loja só, e a
+       própria farmácia principal): o padrão vale inteiro, como sempre
+       valeu. */
+    const base = { ...LOJA_PADRAO };
+
+    if (vinda.slug && vinda.slug !== LOJA_PADRAO.slug) {
+        SO_DESTA_FARMACIA.forEach((campo) => { base[campo] = ""; });
+    }
+
+    LOJA = { ...base, ...vinda };
     if (Array.isArray(dados.horario) && dados.horario.length) HORARIO_LOJA = dados.horario;
     VISUAL = dados.visual || null;
     aplicarNaPagina();

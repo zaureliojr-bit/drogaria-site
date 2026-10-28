@@ -169,8 +169,13 @@ console.log("\n1. a primeira tela de um celular de 390px");
 
     /* O recado que valia a pena ficou — fora do que gruda. */
     const recado = pagina.locator(".recado-loja");
-    conferir("a entrega em 2 horas continua na home",
-        /2 horas/.test((await recado.textContent()) || ""), "recado sumiu");
+    /* Era "/2 horas/". O prazo saiu: era promessa fixa de uma loja só,
+       e nenhuma filial tem como garanti-la no dia do cadastro — prazo
+       que o site promete e a entrega não cumpre volta como reclamação
+       no WhatsApp. O que o teste guarda é o recado existir e ser sobre
+       entrega; o prazo exato quem combina é a loja. */
+    conferir("o recado de entrega continua na home",
+        /entrega/i.test((await recado.textContent()) || ""), "recado sumiu");
     conferir("e ela sobe com a página, em vez de ocupar o topo",
         await recado.evaluate((e) => getComputedStyle(e).position) === "static");
 
