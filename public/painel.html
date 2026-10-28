@@ -1010,6 +1010,28 @@
           </label>
         </div>
 
+        <!-- O CONTATO QUE A LEI PEDE EM DESTAQUE
+
+             O Decreto 7.962/2013, que regula o comércio eletrônico,
+             exige que o site mostre em local de destaque o nome
+             empresarial, o CNPJ e o ENDEREÇO ELETRÔNICO de contato. O
+             rodapé já traz CNPJ e endereço físico; faltava o canal.
+
+             As duas colunas já existiam na tabela `lojas` desde a Fase
+             2 — o formulário é que nunca as pediu, como também não
+             pedia a coordenada. -->
+        <div class="campo-duplo">
+          <label class="campo">
+            <span>E-mail de contato</span>
+            <input type="email" id="novaEmail" maxlength="120" placeholder="contato@farmacia.com.br">
+            <small>Aparece no rodapé do site, como canal de atendimento.</small>
+          </label>
+          <label class="campo">
+            <span>Telefone fixo (opcional)</span>
+            <input type="text" id="novaTelefone" maxlength="24" placeholder="(11) 4000-0000">
+          </label>
+        </div>
+
         <!-- AS COORDENADAS DA LOJA
 
              Não existiam neste formulário, e a falta não dava erro
@@ -3507,10 +3529,17 @@ async function carregar() {
 
   tabelaPaginada("clientes",
     [{ titulo: "Cliente", larga: true }, { titulo: "Telefone" }, { titulo: "Pedidos", num: true },
-     { titulo: "Total gasto", num: true }, { titulo: "Primeira" }, { titulo: "Última" }],
+     { titulo: "Total gasto", num: true }, { titulo: "Primeira" }, { titulo: "Última" },
+     { titulo: "" }],
     clientes.clientes.map(c => [
       esc(c.nome), esc(c.telefone), c.pedidos, dinheiro(c.total_gasto),
-      dataCurta(c.primeiro_pedido), dataCurta(c.ultimo_pedido)
+      dataCurta(c.primeiro_pedido), dataCurta(c.ultimo_pedido),
+      /* O art. 18 da LGPD com botão. A política promete ao cliente que
+         ele pode pedir a eliminação dos dados e a loja responde em 15
+         dias — e até agora isso era uma frase sem máquina atrás. */
+      `<button type="button" class="btn-apagar-produto"
+               data-apagar-cliente="${esc(c.telefone)}"
+               data-nome-cliente="${esc(c.nome)}">Apagar dados</button>`
     ]),
     "Nenhum cliente ainda."
   );
@@ -3519,6 +3548,69 @@ async function carregar() {
   el("login").style.display = "none";
   el("conteudo").style.display = "";
 }
+
+/* "Apagar dados" — o pedido de exclusão do art. 18 da LGPD.
+
+   A confirmação é longa de propósito, e lista o que FICA. A loja
+   precisa saber, antes de clicar, que o histórico de pedidos não
+   desaparece: venda de medicamento é registro que a farmácia é
+   obrigada a guardar, e o próprio art. 16, II da LGPD manda conservar
+   o que a lei exige. O que sai é o nome, o telefone e o endereço de
+   dentro dele.
+
+   Quem clica aqui está respondendo a um pedido de uma pessoa real, e
+   um "tem certeza?" genérico não ajudaria a decidir. */
+el("clientes")?.addEventListener("click", async (ev) => {
+
+  const botao = ev.target.closest("[data-apagar-cliente]");
+  if (!botao) return;
+
+  const telefone = botao.dataset.apagarCliente;
+  const nome = botao.dataset.nomeCliente || "este cliente";
+
+  const certeza = confirm(
+    `Apagar os dados de ${nome} (${telefone})?\n\n`
+    + "O QUE SAI: o cadastro do cliente, e o nome, telefone e endereço "
+    + "de dentro dos pedidos antigos dele.\n\n"
+    + "O QUE FICA: os pedidos em si, sem identificação — venda de "
+    + "medicamento é registro que a farmácia é obrigada a guardar.\n\n"
+    + "O telefone também entra na lista de bloqueio da Reativação, para "
+    + "ele não voltar a receber mensagem.\n\n"
+    + "Não dá para desfazer."
+  );
+
+  if (!certeza) return;
+
+  botao.disabled = true;
+  botao.textContent = "Apagando…";
+
+  try {
+    const r = await fetch(`${API.replace(/\/+$/, "")}/clientes/apagar`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ telefone })
+    });
+
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
+
+    /* O número de pedidos anonimizados é o recibo: é o que a loja
+       responde ao cliente, e o que ela guarda caso alguém pergunte
+       depois se o pedido foi atendido. */
+    alert(
+      `Pronto.\n\nCadastro apagado: ${dados.cadastroApagado ? "sim" : "não havia"}\n`
+      + `Pedidos anonimizados: ${dados.pedidosAnonimizados}\n\n`
+      + "Responda ao cliente confirmando — a lei dá 15 dias."
+    );
+
+    await carregar();
+
+  } catch (erro) {
+    alert("Não consegui apagar: " + erro.message);
+    botao.disabled = false;
+    botao.textContent = "Apagar dados";
+  }
+});
 
 /* O painel abre na fila, e não no relatório: quem abre isto às oito da
    manhã quer saber o que tem para separar, não o faturamento dos últimos
@@ -5864,6 +5956,8 @@ async function criarFilial() {
         latitude: el("novaLat").value,
         longitude: el("novaLng").value,
         whatsapp: el("novaWhats").value,
+        email: el("novaEmail").value,
+        telefone: el("novaTelefone").value,
         farmaceutico: el("novaFarmaceutico").value,
         crf: el("novaCrf").value,
         rotuloResponsavel: el("novaRotulo").value,
@@ -5930,6 +6024,8 @@ const CAMPOS_FILIAL = [
   ["novaLat",           "latitude",          "latitude"],
   ["novaLng",           "longitude",         "longitude"],
   ["novaWhats",         "whatsapp",          "whatsapp"],
+  ["novaEmail",         "email",             "email"],
+  ["novaTelefone",      "telefone",          "telefone"],
   ["novaFarmaceutico",  "farmaceutico",      "farmaceutico"],
   ["novaCrf",           "crf",               "crf"],
   ["novaRotulo",        "rotuloResponsavel", "rotulo_responsavel"],

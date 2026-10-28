@@ -144,6 +144,21 @@ console.log("\n2. de quem a página pergunta");
     conferir("e o raio de entrega dela",
         texto.includes("raio de 5 km"));
 
+    /* O Decreto 7.962/2013 pede o endereço eletrônico de contato em
+       destaque, junto do CNPJ e do endereço físico. Sem e-mail
+       cadastrado, vale o WhatsApp — que é o canal que a farmácia
+       realmente atende. */
+    const rodape = await pagina.innerText("footer.rodape");
+    conferir("o rodapé traz um canal de contato",
+        /fale com a gente/i.test(rodape), rodape.slice(0, 200));
+
+    /* O número é o do FILIAL desta seção (5518999990000), formatado
+       para leitura. O da farmácia principal — (11) 92519-0101, escrito
+       no HTML como rede — não pode sobrar. */
+    conferir("e é o da filial, não o da vizinha",
+        /\(18\) 99999-0000/.test(rodape) && !/92519-0101/.test(rodape),
+        rodape.slice(0, 300));
+
     /* O que NÃO pode aparecer: a outra farmácia. Cada um destes é um
        documento de outro estabelecimento publicado como se fosse dela. */
     conferir("o CNPJ da farmácia principal desapareceu",

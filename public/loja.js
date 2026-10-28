@@ -264,6 +264,16 @@ function aplicarNaPagina() {
        de farmácia parece dado importado errado. Com pontuação a mais ou
        de outro tamanho, fica como está: inventar formato em cima de um
        número que não reconheço é pior que mostrar o que foi digitado. */
+    /* 5511951388388 → (11) 95138-8388. O número guardado é o formato
+       que o link do WhatsApp exige; o que o cliente lê no rodapé é o
+       formato em que ele digitaria. */
+    const telefoneLegivel = (valor) => {
+        const d = String(valor || "").replace(/\D/g, "").replace(/^55/, "");
+        if (d.length === 11) return d.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3");
+        if (d.length === 10) return d.replace(/^(\d{2})(\d{4})(\d{4})$/, "($1) $2-$3");
+        return String(valor || "");
+    };
+
     const cnpjLegivel = (valor) => {
         const digitos = String(valor || "").replace(/\D/g, "");
         if (digitos.length !== 14) return String(valor || "");
@@ -306,6 +316,22 @@ function aplicarNaPagina() {
        separado e não parte do mesmo texto: o que desaparece é o
        complemento, não a frase inteira. */
     escrever("cidade-entrega", l.cidade ? `em ${l.cidade}` : "");
+
+    /* O canal de atendimento, que o Decreto 7.962/2013 pede em
+       destaque junto do CNPJ e do endereço — e que o rodapé não
+       trazia.
+
+       O WhatsApp entra como segunda opção porque é o canal que a loja
+       realmente atende; o e-mail, quando existe, vem primeiro, porque
+       é o "endereço eletrônico" que o texto da norma nomeia. Sem
+       nenhum dos dois, a linha some em vez de anunciar um contato que
+       não existe. */
+    const canais = [];
+    if (l.email) canais.push(l.email);
+    if (l.telefone) canais.push(l.telefone);
+    if (!canais.length && l.whatsapp) canais.push(`WhatsApp ${telefoneLegivel(l.whatsapp)}`);
+
+    escrever("contato", canais.length ? `Fale com a gente: ${canais.join(" · ")}` : "");
 
     escrever("foro",
         l.cidade
