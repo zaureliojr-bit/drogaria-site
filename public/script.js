@@ -1065,7 +1065,11 @@ function avisoDeEntrada(banners) {
     caixa.setAttribute("aria-modal", "true");
     caixa.setAttribute("aria-label", alvo.alt || "Promoção da loja");
 
-    const imagem = `<img src="${esc(alvo.imagem)}" alt="${esc(alvo.alt || "")}" decoding="async">`;
+    /* A arte do aviso, quando a loja mandou uma; a da faixa, quando
+       não. A da faixa é 3:1 e no celular vira uma tira de 119px — pior,
+       e melhor que não aparecer. */
+    const arte = alvo.entrada_imagem || alvo.imagem;
+    const imagem = `<img src="${esc(arte)}" alt="${esc(alvo.alt || "")}" decoding="async">`;
 
     caixa.innerHTML = `
       <div class="aviso-entrada-fundo" data-fechar-aviso></div>

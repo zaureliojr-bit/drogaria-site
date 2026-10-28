@@ -228,6 +228,66 @@ console.log("\n6. banner comum continua sendo banner comum");
     await contexto.close();
 }
 
+/* ---- 7. a arte do aviso é outra arte --------------------------------- */
+console.log("\n7. a arte em pé, quando existe");
+{
+    /* O banner da faixa é 1200x400. Medido: num celular de 390px esse
+       3:1 vira um card de 358x119 — uma tira fina no meio da tela. Não
+       é defeito de CSS, é geometria, e por isso o aviso tem arte
+       própria. */
+    const DEITADA = "data:image/svg+xml;base64," + Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400">'
+        + '<rect width="1200" height="400" fill="#26247B"/></svg>'
+    ).toString("base64");
+
+    const EM_PE = "data:image/svg+xml;base64," + Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350">'
+        + '<rect width="1080" height="1350" fill="#E6007E"/></svg>'
+    ).toString("base64");
+
+    const comArte = await novaPessoa({ banners: [
+        { id: 11, imagem: DEITADA, alt: "Campanha", link: "", entrada: 1,
+          entrada_imagem: EM_PE }
+    ] });
+
+    await (await visitar(comArte)).close();
+    const pagina = await visitar(comArte);
+
+    const usada = await pagina.getAttribute(".aviso-entrada-card img", "src");
+    conferir("o aviso usa a arte em pé", usada === EM_PE,
+        (usada || "").slice(0, 60));
+
+    const caixa = await pagina.locator(".aviso-entrada-card").boundingBox();
+    conferir(`e o card fica alto — ${caixa && Math.round(caixa.height)}px`,
+        caixa && caixa.height > 300, JSON.stringify(caixa));
+
+    /* A faixa continua com a imagem dela: a arte em pé é do pop-up, e
+       pôr uma imagem 4:5 na faixa deitada estouraria o layout da home. */
+    const naFaixa = await pagina.getAttribute("#promos .promo-item img", "src");
+    conferir("a faixa continua com a imagem deitada", naFaixa === DEITADA,
+        (naFaixa || "").slice(0, 60));
+
+    await pagina.close();
+    await comArte.close();
+
+    /* Sem arte própria, o aviso usa a da faixa. Fica uma tira, e é
+       melhor que não aparecer — mas o teste registra o número, para
+       ninguém achar que 3:1 "está bom" por engano. */
+    const semArte = await novaPessoa({ banners: [
+        { id: 12, imagem: DEITADA, alt: "Campanha", link: "", entrada: 1 }
+    ] });
+
+    await (await visitar(semArte)).close();
+    const outra = await visitar(semArte);
+
+    const tira = await outra.locator(".aviso-entrada-card").boundingBox();
+    conferir(`sem arte própria, cai para a tira da faixa — ${tira && Math.round(tira.height)}px`,
+        tira && tira.height < 200, JSON.stringify(tira));
+
+    await outra.close();
+    await semArte.close();
+}
+
 await navegador.close();
 
 console.log(falhas ? `\n${falhas} falha(s).\n` : "\nTudo certo.\n");

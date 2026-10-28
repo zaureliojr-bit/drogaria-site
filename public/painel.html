@@ -1357,6 +1357,33 @@
           </p>
         </div>
 
+        <!-- A ARTE DO AVISO É OUTRA ARTE.
+
+             O banner da faixa é deitado (1200x400). Num celular de
+             390px, 3:1 vira uma tira de 119px no meio da tela — não é
+             defeito de CSS, é geometria. Pop-up quer formato em pé.
+
+             Fica escondido até a caixinha ser marcada: campo que não
+             serve para nada agora é campo que confunde. -->
+        <div id="campoEntradaArte" hidden>
+          <label class="campo">
+            <span>Arte do aviso de entrada</span>
+            <input type="file" id="entradaArquivo"
+                   accept="image/png,image/jpeg,image/webp,image/gif,image/avif">
+            <small>Em pé, tipo 1080 × 1350. Sem ela, o aviso usa a imagem
+                   deitada da faixa — funciona, mas fica uma tira fina.</small>
+          </label>
+
+          <label class="campo">
+            <span>Ou cole o endereço de uma imagem já publicada</span>
+            <input type="url" id="entradaImagem" placeholder="https://..." autocomplete="off">
+          </label>
+
+          <div id="entradaPreviaCaixa" class="banner-previa" hidden>
+            <img id="entradaPrevia" alt="Prévia da arte do aviso">
+          </div>
+        </div>
+
         <div class="campo-duplo">
           <label class="campo campo-linha">
             <input type="checkbox" id="bannerAtivo" checked>
@@ -4643,6 +4670,10 @@ function abrirFormulario(b) {
   el("bannerFim").value = b?.fim || "";
   el("bannerAtivo").checked = b ? !!b.ativo : true;
   el("bannerEntrada").checked = !!(b && b.entrada);
+  el("entradaImagem").value = (b && b.entrada_imagem) || "";
+  el("entradaArquivo").value = "";
+  mostrarCampoDaArte();
+  mostrarPreviaDaArte((b && b.entrada_imagem) || "");
   el("bannerOrdem").value = b?.ordem ?? 0;
   el("bannerArquivo").value = "";
   mostrarPrevia(b?.imagem || "");
@@ -4665,6 +4696,27 @@ function mostrarPrevia(url) {
 el("novoBanner").addEventListener("click", () => abrirFormulario(null));
 el("cancelarBanner").addEventListener("click", fecharFormulario);
 el("bannerImagem").addEventListener("input", e => mostrarPrevia(e.target.value.trim()));
+
+function mostrarCampoDaArte() {
+  el("campoEntradaArte").hidden = !el("bannerEntrada").checked;
+}
+
+el("bannerEntrada").addEventListener("change", mostrarCampoDaArte);
+
+function mostrarPreviaDaArte(url) {
+  const caixa = el("entradaPreviaCaixa");
+  if (!url) { caixa.hidden = true; return; }
+  el("entradaPrevia").src = url;
+  caixa.hidden = false;
+}
+
+el("entradaImagem").addEventListener("input",
+  (e) => mostrarPreviaDaArte(e.target.value.trim()));
+
+el("entradaArquivo").addEventListener("change", (e) => {
+  const arquivo = e.target.files?.[0];
+  if (arquivo) mostrarPreviaDaArte(URL.createObjectURL(arquivo));
+});
 
 /* Prévia local antes de enviar: a loja vê o corte que a home vai fazer
    sem gastar uma subida de arquivo para descobrir que o texto ficou
@@ -4711,6 +4763,19 @@ el("formBanner").addEventListener("submit", async (ev) => {
       r2Chave = enviado.chave;
     }
 
+    /* A arte do aviso sobe pelo mesmo caminho da imagem do banner —
+       é a mesma rota, a mesma pasta e o mesmo limite de tamanho. */
+    let entradaImagem = el("entradaImagem").value.trim();
+    let entradaR2 = null;
+
+    const arteDoAviso = el("entradaArquivo").files?.[0];
+    if (arteDoAviso && el("bannerEntrada").checked) {
+      botao.textContent = "Enviando a arte do aviso…";
+      const enviada = await enviarArquivoDoBanner(arteDoAviso);
+      entradaImagem = enviada.url;
+      entradaR2 = enviada.chave;
+    }
+
     if (!imagem) throw new Error("Escolha uma imagem ou cole o endereço de uma.");
     if (!el("bannerAlt").value.trim()) throw new Error("Escreva o que a imagem diz.");
 
@@ -4726,6 +4791,8 @@ el("formBanner").addEventListener("submit", async (ev) => {
         fim: el("bannerFim").value,
         ativo: el("bannerAtivo").checked,
         entrada: el("bannerEntrada").checked,
+        entradaImagem,
+        entradaR2,
         ordem: Number(el("bannerOrdem").value) || 0,
         r2Chave
       })
