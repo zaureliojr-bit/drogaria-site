@@ -1588,6 +1588,15 @@ body.sem-barra-carrinho .carrinho { display: none; }
   border-radius: var(--raio-sm);
 }
 
+/* O link para a política precisa parecer link. Num aviso de 11px, em
+   cinza, um link sem sublinhado nem cor própria é texto — e aí o
+   cliente não descobre que existe o documento inteiro. */
+.aviso-privacidade a {
+  color: var(--marca);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 .aviso-controle-especial {
   font-size: 12.5px;
   line-height: 1.5;

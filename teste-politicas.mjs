@@ -204,6 +204,36 @@ console.log("\n3. sem resposta do worker, o texto continua de pé");
     await contexto.close();
 }
 
+/* ---- 3b. o site não contradiz a própria política -------------------- */
+console.log("\n3b. o carrinho e a política contam a mesma história");
+{
+    const contexto = await navegador.newContext();
+    const pagina = await contexto.newPage();
+    await pagina.addInitScript(() => { navigator.sendBeacon = () => false; });
+    await pagina.route(/farmatech-pedidos-proxy|raw\.githubusercontent|produtos.*\.json/,
+        (r) => r.abort());
+
+    await pagina.goto(BASE + "/carrinho", { waitUntil: "domcontentloaded" });
+    await pagina.waitForTimeout(1200);
+
+    const aviso = (await pagina.textContent(".aviso-privacidade") || "")
+        .replace(/\s+/g, " ");
+
+    /* Dizia "Não compartilhamos com terceiros" — ao lado do botão de
+       finalizar, no momento exato da coleta — enquanto a política da
+       mesma loja lista cinco. Texto falso no aviso de privacidade é
+       pior que aviso nenhum: é a prova de que a loja disse o contrário
+       do que faz. */
+    conferir("o carrinho não promete o que a política desmente",
+        !/não compartilhamos com terceiros/i.test(aviso), aviso);
+
+    conferir("e leva à política de privacidade",
+        await pagina.locator('.aviso-privacidade a[href*="politicas"]').count() > 0,
+        aviso);
+
+    await contexto.close();
+}
+
 /* ---- 4. as âncoras existem, e o rodapé leva a elas ------------------ */
 console.log("\n4. os links do rodapé chegam a algum lugar");
 {
