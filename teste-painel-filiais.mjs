@@ -265,11 +265,26 @@ console.log("\n1. quem tem uma farmácia só: nada muda");
 
     conferir("e o painel abriu normalmente", await pagina.isVisible("#abaFila"));
 
-    /* Sem filial escolhida, nenhuma chamada carrega o cabeçalho — é o
-       painel de hoje, byte por byte. */
-    conferir("nenhuma chamada manda X-Painel-Loja",
-        chamadas.every((c) => c.loja === ""),
-        chamadas.filter((c) => c.loja).map((c) => c.caminho).join(","));
+    /* Até o /sessao responder, lojaAtual é vazio e nada carrega o
+       cabeçalho. Depois dele o painel passa a saber de QUAL farmácia é,
+       e chamadas posteriores podem nomeá-la - é o caso do /loja que
+       busca o catálogo desta loja.
+
+       A asserção deixou de ser "nenhum cabeçalho" e passou a ser o que
+       realmente protege a dona de uma farmácia só: nenhuma chamada pode
+       nomear uma farmácia que não é a dela. Era isso que "nenhum
+       cabeçalho" queria dizer, por tabela. */
+    const alheias = chamadas.filter((c) => c.loja && c.loja !== "mais-barato");
+
+    conferir("nenhuma chamada nomeia outra farmácia",
+        alheias.length === 0, alheias.map((c) => `${c.caminho}=${c.loja}`).join(","));
+
+    /* E o login em si, antes de o painel saber quem é, continua indo
+       sem cabeçalho nenhum. */
+    const sessao = chamadas.find((c) => c.caminho === "/sessao");
+
+    conferir("o /sessao vai sem X-Painel-Loja",
+        sessao && sessao.loja === "", sessao && sessao.loja);
 
     await contexto.close();
 }

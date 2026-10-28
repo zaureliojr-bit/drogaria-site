@@ -509,6 +509,16 @@
   }
   .promo-filtros input:focus, .promo-filtros select:focus { border-color: var(--marca); box-shadow: 0 0 0 3px var(--marca-clara); }
 
+  /* O filtro de tarja da lista "sem imagem" - mesma pegada dos filtros
+     de promoção, mas num campo só. */
+  .filtro-fotos { display: flex; align-items: center; gap: 10px; padding: 10px 0; flex-wrap: wrap; }
+  .filtro-fotos select {
+    padding: 9px 11px; font-size: 13px; font-family: var(--fonte-corpo);
+    border: 1.5px solid var(--linha); border-radius: var(--raio-sm);
+    background: var(--branco); color: var(--tinta); outline: none;
+  }
+  .filtro-fotos select:focus { border-color: var(--marca); box-shadow: 0 0 0 3px var(--marca-clara); }
+
   .promo-barra {
     position: sticky; top: 0; z-index: 5;
     background: var(--marca-clara); border: 1px solid var(--marca);
@@ -1883,6 +1893,18 @@
       <div id="avisoDpc"></div>
 
       <h2 style="margin-top:22px">Produtos sem imagem <small id="contagemSemImagem"></small></h2>
+
+      <div class="filtro-fotos">
+        <label for="filtroTarjaFoto">Mostrar:</label>
+        <select id="filtroTarjaFoto">
+          <option value="todos">Todos</option>
+          <option value="mip">S&oacute; venda livre (MIP)</option>
+          <option value="naomed">Sem tarja conhecida (perfumaria, higiene...)</option>
+          <option value="tarjado">S&oacute; tarjados</option>
+        </select>
+        <span class="pedido-quando" id="explicaFiltroFoto"></span>
+      </div>
+
       <div class="tabela-wrap" id="semImagem"></div>
 
     </div><!-- /abaCatalogo -->
@@ -3908,11 +3930,51 @@ function avisarNaTela(quantos) {
    O pedido guarda código e descrição, mas não a imagem — e nem deveria:
    a foto muda, o pedido é histórico. Então a foto vem do catálogo, pelo
    código. Uma vez por abertura do painel; ele fica aberto o dia todo. */
+const CATALOGO_PADRAO =
+  "https://raw.githubusercontent.com/zaureliojr-bit/Produtos/refs/heads/main/produtos.json";
+
+/* Cada farmácia publica o SEU catálogo (produtos-<apelido>.json): preço,
+   estoque e o que ela cadastrou são dela. O painel vinha buscando sempre
+   o da primeira loja - então na filial de Prudente a lista "sem imagem"
+   mostrava os buracos de São Bernardo, e a aba Promoções decidia desconto
+   em cima de preço e estoque de outra cidade.
+
+   O endereço sai do mesmo lugar que a vitrine usa: /loja?slug=... no
+   porteiro, campo `catalogo`. Vale o mesmo cuidado de lá - só aceita
+   endereço do raw.githubusercontent, porque isto vira um fetch. */
+async function urlDoCatalogo() {
+
+  if (!lojaAtual) return CATALOGO_PADRAO;
+
+  try {
+
+    /* Pelo api(), e não por um fetch solto: é ele que carimba a filial
+       em que o painel está operando. Toda chamada daqui leva esse
+       cabeçalho, e é justamente o que impede uma tela de responder pela
+       loja errada. */
+    const d = await api(`/loja?slug=${encodeURIComponent(lojaAtual)}`);
+
+    return /^https:\/\/raw\.githubusercontent\.com\//.test(d.catalogo || "")
+      ? d.catalogo
+      : CATALOGO_PADRAO;
+
+  } catch (e) {
+
+    /* Sem cadastro no ar, o catálogo da primeira loja é melhor que
+       nenhum: a fila de separação ainda mostra as fotos. */
+    console.warn("Não consegui descobrir o catálogo desta loja.", e);
+
+    return CATALOGO_PADRAO;
+
+  }
+
+}
+
 async function carregarCatalogo() {
   if (catalogo) return catalogo;
   catalogo = new Map();
   try {
-    const r = await fetch("https://raw.githubusercontent.com/zaureliojr-bit/Produtos/refs/heads/main/produtos.json");
+    const r = await fetch(await urlDoCatalogo());
     const dados = await r.json();
     for (const p of (dados.produtos || [])) {
       if (!p || !p.codigo) continue;
@@ -5578,21 +5640,96 @@ async function apagarProdutoClicado(botao) {
   });
 });
 
+/* ---------- de que tarja é cada produto ----------
+
+   A tarja vem da CMED e o padronizador já a grava no produtos.json
+   (campo `tarja`: L venda livre, V/R/P tarjados). Mas o catálogo de uma
+   loja publicado SEM a lista da CMED carregada sai sem esse campo - é o
+   caso de Prudente hoje -, e aí o tarjas.json salva: é o mesmo arquivo
+   que a vitrine consulta, com 26 mil EANs.
+
+   Ler de um lugar só aqui seria o começo de o painel dizer "venda
+   livre" sobre um produto que a vitrine trata como tarjado. */
+let tarjasPorEan = null;
+
+async function carregarTarjas() {
+
+  if (tarjasPorEan) return tarjasPorEan;
+
+  tarjasPorEan = new Map();
+
+  try {
+
+    const r = await fetch("/tarjas.json");
+    const dados = await r.json();
+
+    for (const [codigo, eans] of Object.entries(dados.tarjas || {})) {
+      for (const ean of eans) tarjasPorEan.set(String(ean), codigo);
+    }
+
+  } catch (e) {
+
+    /* Sem o arquivo o filtro ainda funciona com o que o produtos.json
+       trouxer - só enxerga menos. */
+    console.warn("tarjas.json indisponível; o filtro usa só o catálogo.", e);
+
+  }
+
+  return tarjasPorEan;
+
+}
+
+/* "mip" = venda livre · "tarjado" = V/R/P · "naomed" = tarja
+   desconhecida, que é perfumaria, higiene e também o medicamento que
+   não cruzou com a CMED. Por isso a opção da tela não promete "não é
+   medicamento": promete "sem tarja conhecida". */
+function classeDeTarja(p) {
+
+  const codigo = p.tarja || tarjasPorEan?.get(String(p.ean)) || "";
+
+  if (!codigo) return "naomed";
+
+  return codigo === "L" ? "mip" : "tarjado";
+
+}
+
 // "Sem imagem" é o mesmo catálogo publicado que a fila/promoções já
 // usam (carregarCatalogo), então não custa uma busca extra.
 async function renderizarSemImagem() {
 
   const cat = await carregarCatalogo();
-  const semImagem = [...cat.values()].filter(p => !p.imagem);
+  await carregarTarjas();
 
-  el("contagemSemImagem").textContent = semImagem.length ? `(${semImagem.length})` : "";
+  const todosSemImagem = [...cat.values()].filter(p => !p.imagem);
+
+  const filtro = el("filtroTarjaFoto").value;
+
+  const semImagem = filtro === "todos"
+    ? todosSemImagem
+    : todosSemImagem.filter(p => classeDeTarja(p) === filtro);
+
+  el("contagemSemImagem").textContent = todosSemImagem.length ? `(${todosSemImagem.length})` : "";
+
+  /* O recado que faz o filtro valer a pena: nos tarjados a caixa neutra
+     é a escolha certa, não uma falta. Quem vê "318 sem imagem" sem esta
+     frase acha que tem 318 fotos para arrumar. */
+  const EXPLICA = {
+    todos: "",
+    mip: "Venda livre: aqui a foto de verdade ajuda a vender, e pode ser usada.",
+    naomed: "Perfumaria, higiene e o que não cruzou com a CMED.",
+    tarjado: "Tarjados ficam com a caixa neutra de propósito (RDC 96/2008) — não é falta de foto."
+  };
+
+  el("explicaFiltroFoto").textContent = filtro === "todos"
+    ? ""
+    : `${semImagem.length} de ${todosSemImagem.length}. ${EXPLICA[filtro]}`;
 
   const LIMITE = 300;
 
   el("semImagem").innerHTML = tabela(
     [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }, { titulo: "" }],
     semImagem.slice(0, LIMITE).map(linhaEditorImagem),
-    "Nenhum produto sem imagem 🎉"
+    filtro === "todos" ? "Nenhum produto sem imagem 🎉" : "Nenhum produto sem imagem neste filtro."
   );
 
   if (semImagem.length > LIMITE) {
@@ -5600,6 +5737,8 @@ async function renderizarSemImagem() {
   }
 
 }
+
+el("filtroTarjaFoto").addEventListener("change", () => { renderizarSemImagem().catch(() => {}); });
 
 // Busca geral (código, nome ou EAN) pra trocar a imagem de qualquer
 // produto já cadastrado, não só quem está sem foto nenhuma.
@@ -5701,16 +5840,33 @@ async function procurarFotosDpc() {
     }
 
     const cat = await carregarCatalogo();
+    await carregarTarjas();
 
     // Só quem está sem foto. Produto que já tem imagem não se mexe:
     // pode ter sido escolhida à mão, olhando a embalagem, e a da
     // distribuidora não é necessariamente melhor.
     achadosDpc = [];
 
+    /* E tarjado fica de fora, mesmo que a distribuidora tenha a foto.
+       A caixa neutra ali não é falta de imagem: é a escolha certa para
+       medicamento de prescrição numa vitrine aberta ao público (RDC
+       96/2008). Hoje a listagem da DPCNET é perfumaria e higiene e
+       nenhum tarjado cairia aqui - mas ela cresce, e a hora de decidir
+       isso é agora, não no dia em que entrar. */
+    let tarjadosPulados = 0;
+
     for (const p of cat.values()) {
+
       if (p.imagem || !p.ean) continue;
+
       const url = lista.imagemDe(p.ean);
-      if (url) achadosDpc.push({ ean: p.ean, codigo: p.codigo, nome: p.nome, url });
+
+      if (!url) continue;
+
+      if (classeDeTarja(p) === "tarjado") { tarjadosPulados++; continue; }
+
+      achadosDpc.push({ ean: p.ean, codigo: p.codigo, nome: p.nome, url });
+
     }
 
     const semFoto = [...cat.values()].filter((p) => !p.imagem).length;
@@ -5719,7 +5875,8 @@ async function procurarFotosDpc() {
 
     el("statusDpc").textContent =
       `${lista.total.toLocaleString("pt-BR")} produtos na listagem (de ${quando}). ` +
-      `Cobre ${achadosDpc.length} dos ${semFoto} sem foto no catálogo.`;
+      `Cobre ${achadosDpc.length} dos ${semFoto} sem foto no catálogo` +
+      (tarjadosPulados ? `, fora ${tarjadosPulados} tarjados que ficam com a caixa neutra.` : ".");
 
     if (!achadosDpc.length) {
       avisoDpc("A listagem não tem foto de nenhum dos produtos que estão sem imagem aqui.", "ok");
