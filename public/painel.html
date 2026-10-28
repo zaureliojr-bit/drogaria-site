@@ -1873,6 +1873,15 @@
       <input type="text" id="buscaImagemProduto" placeholder="Busca por código, nome ou EAN..." class="busca-imagem-produto">
       <div class="tabela-wrap" id="buscaImagemResultado"></div>
 
+      <h2 style="margin-top:22px">Fotos pela listagem da distribuidora</h2>
+      <div class="fila-topo">
+        <span class="pedido-quando" id="statusDpc">A listagem da DPCNET est&aacute; no servidor &mdash; ela cobre boa parte da perfumaria e da higiene.</span>
+        <button type="button" id="procurarDpc" class="btn-testar-som">Procurar</button>
+        <button type="button" id="aplicarDpc" class="btn-testar-som" hidden>Aplicar</button>
+        <button type="button" id="pararDpc" class="btn-apagar-produto" hidden>Parar</button>
+      </div>
+      <div id="avisoDpc"></div>
+
       <h2 style="margin-top:22px">Produtos sem imagem <small id="contagemSemImagem"></small></h2>
       <div class="tabela-wrap" id="semImagem"></div>
 
@@ -5619,6 +5628,224 @@ async function filtrarBuscaImagem() {
 }
 
 el("buscaImagemProduto").addEventListener("input", () => { filtrarBuscaImagem().catch(() => {}); });
+
+/* =====================================================
+   FOTOS PELA LISTAGEM DA DISTRIBUIDORA
+   =====================================================
+
+   A loja de Prudente entrou com 2.000 produtos sem foto. Isso não é
+   falha de casamento de EAN: é fila. A foto de boa parte da perfumaria
+   já estava no servidor desde que alguém subiu a planilha da DPCNET no
+   padronizador - faltava ligar as duas pontas, e ninguém ia ligar uma
+   por uma pelo campo de link aí embaixo.
+
+   Vai em duas etapas de propósito. "Procurar" só olha e conta: a loja
+   vê quantas fotos vão entrar antes de qualquer gravação. "Aplicar"
+   grava. Mil gravações no banco de imagens não é coisa que se dispare
+   num clique só, sem a pessoa saber o tamanho.
+
+   O que se grava é a MESMA coisa que o padronizador gravaria pelo
+   botão "usar este link": o imagens-proxy baixa a foto e guarda no R2,
+   indexada pelo EAN. Não é link para o site da distribuidora - se ela
+   sair do ar amanhã, a foto continua no ar. Por isso demora: é um
+   download no servidor por produto.
+   ===================================================== */
+
+function avisoDpc(msg, tipo = "erro") {
+  el("avisoDpc").innerHTML = msg
+    ? `<div class="${tipo === "ok" ? "aviso-ok" : "erro"}">${esc(msg)}</div>`
+    : "";
+}
+
+// O que o "Procurar" achou, esperando o "Aplicar".
+let achadosDpc = null;
+let aplicandoDpc = false;
+let pararDpcPedido = false;
+
+async function procurarFotosDpc() {
+
+  if (aplicandoDpc) return;
+
+  el("procurarDpc").disabled = true;
+  el("aplicarDpc").hidden = true;
+  avisoDpc("");
+  el("statusDpc").textContent = "Buscando a listagem no servidor (são alguns MB)...";
+
+  try {
+
+    const { imagensDaDistribuidora } = await import(URL_IMPORTADOR);
+    const lista = await imagensDaDistribuidora();
+
+    if (!lista.total) {
+      el("statusDpc").textContent = "Nenhuma listagem de distribuidora no servidor ainda.";
+      avisoDpc(
+        "Pra usar isto, abra o padronizador e suba a planilha da distribuidora uma vez — " +
+        "ela fica no servidor e vale para todas as lojas.",
+        "erro"
+      );
+      return;
+    }
+
+    const cat = await carregarCatalogo();
+
+    // Só quem está sem foto. Produto que já tem imagem não se mexe:
+    // pode ter sido escolhida à mão, olhando a embalagem, e a da
+    // distribuidora não é necessariamente melhor.
+    achadosDpc = [];
+
+    for (const p of cat.values()) {
+      if (p.imagem || !p.ean) continue;
+      const url = lista.imagemDe(p.ean);
+      if (url) achadosDpc.push({ ean: p.ean, codigo: p.codigo, nome: p.nome, url });
+    }
+
+    const semFoto = [...cat.values()].filter((p) => !p.imagem).length;
+    const importado = Date.parse(lista.importadoEm || "");
+    const quando = Number.isFinite(importado) ? dataHora(importado) : "data desconhecida";
+
+    el("statusDpc").textContent =
+      `${lista.total.toLocaleString("pt-BR")} produtos na listagem (de ${quando}). ` +
+      `Cobre ${achadosDpc.length} dos ${semFoto} sem foto no catálogo.`;
+
+    if (!achadosDpc.length) {
+      avisoDpc("A listagem não tem foto de nenhum dos produtos que estão sem imagem aqui.", "ok");
+      return;
+    }
+
+    el("aplicarDpc").hidden = false;
+    el("aplicarDpc").textContent = `Aplicar ${achadosDpc.length}`;
+
+  } catch (erro) {
+
+    el("statusDpc").textContent = "Não deu pra procurar agora.";
+    avisoDpc("Erro: " + erro.message);
+
+  } finally {
+
+    el("procurarDpc").disabled = false;
+
+  }
+
+}
+
+async function aplicarFotosDpc() {
+
+  if (aplicandoDpc || !achadosDpc || !achadosDpc.length) return;
+
+  const fila = achadosDpc;
+
+  if (!confirm(
+    `Salvar ${fila.length} fotos da listagem no banco de imagens?\n\n` +
+    "Cada uma é baixada e guardada no servidor, então isto leva alguns minutos. " +
+    "Pode parar no meio — o que já entrou fica."
+  )) return;
+
+  aplicandoDpc = true;
+  pararDpcPedido = false;
+  el("procurarDpc").disabled = true;
+  el("aplicarDpc").disabled = true;
+  el("pararDpc").hidden = false;
+  avisoDpc("");
+
+  const { salvarImagemDaDistribuidora } = await import(URL_IMPORTADOR);
+
+  /* O catálogo em memória, pego AGORA: o "Verificar agora" zera a
+     variável global quando publica, e perder o objeto no meio do laço
+     deixaria as fotos gravadas sem aparecer na lista aí embaixo. */
+  const cat = await carregarCatalogo();
+
+  let entraram = 0;
+  let falharam = 0;
+  let proximo = 0;
+  let ultimoErro = "";
+
+  const mostrar = () => {
+    el("statusDpc").textContent =
+      `${entraram + falharam} de ${fila.length} — ${entraram} fotos entraram` +
+      (falharam ? `, ${falharam} não deram` : "") + ".";
+  };
+
+  mostrar();
+
+  /* Quatro por vez. Uma por vez deixaria mil produtos em uma tarde; de
+     trinta em trinta a gente estaria fazendo o imagens-proxy baixar
+     trinta fotos ao mesmo tempo, e a conta de quem não aguenta é dele. */
+  const trabalhar = async () => {
+
+    while (proximo < fila.length && !pararDpcPedido) {
+
+      const item = fila[proximo++];
+
+      try {
+
+        const resultado = await salvarImagemDaDistribuidora(item.ean, item.url);
+
+        // Mantém o catálogo em memória junto, senão a lista "sem
+        // imagem" aí embaixo continua mostrando quem já tem foto.
+        for (const p of cat.values()) {
+          if (p.ean === item.ean) p.imagem = resultado.url;
+        }
+
+        entraram++;
+
+      } catch (erro) {
+
+        falharam++;
+        ultimoErro = erro.message;
+
+      }
+
+      mostrar();
+
+    }
+
+  };
+
+  try {
+
+    await Promise.all([trabalhar(), trabalhar(), trabalhar(), trabalhar()]);
+
+    /* Sobra para um segundo "Aplicar" só o que não entrou - quem
+       parou no meio clica de novo e continua de onde estava. */
+    const comFoto = new Set();
+    for (const p of cat.values()) if (p.imagem && p.ean) comFoto.add(p.ean);
+    achadosDpc = achadosDpc.filter((item) => !comFoto.has(item.ean));
+
+    /* O recado que importa e que ninguém adivinharia: a foto entrou no
+       banco de imagens, mas o produtos.json do site é montado na
+       PUBLICAÇÃO. Até a próxima importação da extração, o site continua
+       mostrando o produto sem foto. */
+    avisoDpc(
+      `${entraram} fotos no banco de imagens` +
+      (falharam ? `, ${falharam} não deram (última: ${ultimoErro})` : "") +
+      (pararDpcPedido ? " — parado por você." : ".") +
+      " O site passa a mostrá-las na próxima atualização do catálogo (o \"Verificar agora\" lá em cima, quando houver extração nova).",
+      entraram ? "ok" : "erro"
+    );
+
+    await renderizarSemImagem();
+    filtrarBuscaImagem().catch(() => {});
+
+  } finally {
+
+    aplicandoDpc = false;
+    el("pararDpc").hidden = true;
+    el("procurarDpc").disabled = false;
+    el("aplicarDpc").disabled = false;
+    el("aplicarDpc").hidden = !achadosDpc.length;
+    if (achadosDpc.length) el("aplicarDpc").textContent = `Aplicar ${achadosDpc.length}`;
+
+  }
+
+}
+
+el("procurarDpc").addEventListener("click", () => { procurarFotosDpc().catch(() => {}); });
+el("aplicarDpc").addEventListener("click", () => { aplicarFotosDpc().catch(() => {}); });
+el("pararDpc").addEventListener("click", () => {
+  pararDpcPedido = true;
+  el("pararDpc").hidden = true;
+  el("statusDpc").textContent += " Parando (termina o que já começou)...";
+});
 
 el("verificarCatalogo").addEventListener("click", verificarEPublicarCatalogo);
 
