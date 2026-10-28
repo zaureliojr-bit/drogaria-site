@@ -5674,6 +5674,20 @@ async function procurarFotosDpc() {
   try {
 
     const { imagensDaDistribuidora } = await import(URL_IMPORTADOR);
+
+    /* O painel sobe pelo deploy automático do site; o bundle vem do
+       domínio do padronizador, que é reimplantado à mão. Nas horas (ou
+       dias) entre os dois, a função simplesmente não existe aqui - e
+       sem este aviso o erro que apareceria seria "não é uma função". */
+    if (typeof imagensDaDistribuidora !== "function") {
+      el("statusDpc").textContent = "O padronizador ainda não foi atualizado.";
+      avisoDpc(
+        "Esta parte precisa da versão nova do padronizador publicada " +
+        "(npm run build e deploy). Até lá, o campo de link aí embaixo continua funcionando."
+      );
+      return;
+    }
+
     const lista = await imagensDaDistribuidora();
 
     if (!lista.total) {
