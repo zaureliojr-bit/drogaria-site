@@ -383,7 +383,24 @@ function aplicarNaPagina() {
        rodapé o erro era visível para quem conhecia as duas lojas; aqui
        ele sai em dinheiro, na conta de um cliente que não tem como
        desconfiar. */
-    const temCoordenada = Number.isFinite(l.latitude) && Number.isFinite(l.longitude);
+    /* Zero nos DOIS eixos não é coordenada: é a "Ilha Nula", no Golfo
+       da Guiné, onde vai parar todo valor que se perdeu pelo caminho.
+
+       Aconteceu com a filial de Diadema: o worker devolvia 0 para
+       qualquer negativo (ver o comentário da função coordenada lá), a
+       loja foi salva em 0/0, e esta linha — que só perguntava se o
+       número era finito — deu o aval. O site então calculou com
+       confiança a distância até a África e disse ao cliente "fora da
+       área de entrega (5672,1 km)".
+
+       A causa foi consertada no worker. Esta conferência fica porque
+       uma trava só não basta para um valor que o resto do sistema
+       aceita como plausível: 0 é finito, e era exatamente isso que
+       deixava passar. */
+    const naIlhaNula = l.latitude === 0 && l.longitude === 0;
+
+    const temCoordenada =
+        Number.isFinite(l.latitude) && Number.isFinite(l.longitude) && !naIlhaNula;
 
     if (typeof LOJA_SEM_COORDENADA !== "undefined") LOJA_SEM_COORDENADA = !temCoordenada;
 

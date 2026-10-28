@@ -264,6 +264,50 @@ console.log("\n3. a mesma filial, agora com coordenada");
     await contexto.close();
 }
 
+/* ---- 4. a Ilha Nula -------------------------------------------------- */
+console.log("\n4. zero nos dois eixos não é coordenada");
+{
+    /* O caso real, visto no ar no dia seguinte ao conserto anterior.
+
+       O worker devolvia 0 para qualquer valor negativo — a função
+       nasceu para dinheiro, onde negativo não existe, e coordenada no
+       Brasil é negativa nos dois eixos. A filial de Diadema foi salva
+       em latitude 0, longitude 0: o Golfo da Guiné.
+
+       E a bandeira de "esta loja não tem coordenada" NÃO disparou,
+       porque 0 é um número finito. O site calculou com confiança a
+       distância até a África e disse ao cliente, em vermelho:
+       "Endereço fora da área de entrega (5672,1 km)". */
+    const { pagina, contexto } = await abrirCarrinho({
+        ...FILIAL_SEM_COORDENADA, latitude: 0, longitude: 0
+    });
+
+    const estado = await pagina.evaluate(() => ({
+        bandeira: LOJA_SEM_COORDENADA, lat: LOJA_LAT
+    }));
+
+    conferir("o site trata 0/0 como loja sem coordenada",
+        estado.bandeira === true, JSON.stringify(estado));
+
+    await pagina.selectOption("#tipoEntrega", "Entrega");
+    await pagina.waitForTimeout(300);
+    await pagina.fill("#cep", "09960-500");
+    await pagina.waitForTimeout(900);
+    await pagina.fill("#numero", "78");
+    await pagina.click("#btnCalcularFrete");
+    await pagina.waitForTimeout(1500);
+
+    const resultado = (await pagina.textContent("#resultadoFrete") || "").replace(/\s+/g, " ");
+
+    conferir("não manda o cliente embora com 'fora da área'",
+        !/fora da área/i.test(resultado), resultado);
+
+    conferir("e nenhuma distância de milhares de quilômetros",
+        !/\d{3,}[.,]?\d*\s*km/i.test(resultado), resultado);
+
+    await contexto.close();
+}
+
 await navegador.close();
 
 console.log(falhas ? `\n${falhas} falha(s).\n` : "\nTudo certo.\n");
