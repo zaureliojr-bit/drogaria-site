@@ -1644,7 +1644,7 @@
     </div>
 
     <div class="bloco">
-      <h2>Procuraram e não acharam <small>cada linha é uma venda que não aconteceu</small></h2>
+      <h2>Procuraram e não acharam <small>cada linha é uma venda que não aconteceu — da mais recente para a mais antiga</small></h2>
       <div class="tabela-wrap" id="naoEncontrados"></div>
     </div>
 
@@ -3526,9 +3526,18 @@ async function carregar() {
     "Ninguém buscou algo que o site não tivesse. Bom sinal."
   );
 
+  /* A data entra aqui também, mas a ORDEM continua por quantidade —
+     é o que o título "o que mais procuram" promete, e ordenar por data
+     transformaria o ranking num diário.
+
+     A coluna muda a leitura do número: 113 buscas por ibuprofeno com
+     "última vez" de ontem é demanda viva; as mesmas 113 paradas há três
+     semanas são de uma campanha que acabou. */
   tabelaPaginada("maisProcurados",
-    [{ titulo: "Termo", larga: true }, { titulo: "Buscas", num: true }, { titulo: "Sem resultado", num: true }],
-    (resumo.maisProcurados || []).map(b => [esc(b.termo), b.buscas, b.vazias || 0]),
+    [{ titulo: "Termo", larga: true }, { titulo: "Buscas", num: true },
+     { titulo: "Sem resultado", num: true }, { titulo: "Última vez" }],
+    (resumo.maisProcurados || []).map(b =>
+      [esc(b.termo), b.buscas, b.vazias || 0, b.ultima ? dataHora(b.ultima) : "—"]),
     "Nenhuma busca registrada no período."
   );
 
