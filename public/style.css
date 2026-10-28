@@ -3207,3 +3207,103 @@ body.sem-barra-carrinho .carrinho { display: none; }
   .atalho-ic { width: 44px; height: 44px; }
   .atalho-nome { font-size: 11.5px; }
 }
+
+/* ========================= */
+/* 🪧 AVISO DE ENTRADA       */
+/* ========================= */
+/* O pop-up de campanha, mostrado a partir da segunda visita. As regras
+   de QUANDO ele aparece estão no script.js; aqui é só a aparência —
+   com duas decisões que são de desenho e importam:
+
+   1. O X fica DENTRO do card, grande e no canto de cima. No modelo que
+      a loja mostrou ele era pequeno e ficava longe, embaixo da imagem:
+      quem quer fechar tem de procurar, e procurar vira raiva.
+
+   2. A imagem manda na altura. Banner de farmácia vem em proporções
+      diferentes a cada campanha, e forçar uma altura cortaria metade
+      da arte de algumas delas. */
+.aviso-entrada {
+  position: fixed;
+  inset: 0;
+  /* ACIMA do cabeçalho (1000), da gaveta do carrinho (2000) e do
+     convite de instalar (1100); ABAIXO do toast (9999), que precisa
+     continuar aparecendo por cima de tudo.
+
+     Começou em 90 e o teste pegou: o cabeçalho ficava por cima do
+     fundo escuro. Não era só feio — dava para tocar nos botões dele
+     ATRAVÉS do aviso, e o clique-fora não funcionava no topo da tela,
+     que é justamente onde o dedo vai primeiro para fechar. */
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: 20px 16px;
+}
+
+.aviso-entrada-fundo {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 8, 40, 0.62);
+  animation: aviso-aparece .18s ease-out;
+}
+
+.aviso-entrada-card {
+  position: relative;
+  width: min(420px, 100%);
+  max-height: calc(100vh - 40px);
+  border-radius: var(--raio-lg);
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(10, 8, 40, 0.35);
+  animation: aviso-sobe .22s ease-out;
+}
+
+.aviso-entrada-img,
+.aviso-entrada-img img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 40px de alvo: é o mínimo que um dedo acerta sem errar. O X do
+   modelo de referência tinha menos da metade disso. */
+.aviso-entrada-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--tinta);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 10px rgba(10, 8, 40, 0.25);
+}
+
+.aviso-entrada-x:hover { background: var(--branco); }
+
+/* O diálogo recebe o foco ao abrir e não deve desenhar anel por isso. */
+.aviso-entrada:focus { outline: none; }
+.aviso-entrada-x:focus-visible { outline: 3px solid var(--amarelo); outline-offset: 2px; }
+
+/* A página atrás não rola enquanto o aviso está aberto: rolar por trás
+   de um modal dá a impressão de que o toque "vazou". */
+body.com-aviso { overflow: hidden; }
+
+@keyframes aviso-aparece { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes aviso-sobe {
+  from { opacity: 0; transform: translateY(14px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Quem pediu menos animação não chega a ver isto — o script.js nem
+   mostra o aviso nesse caso —, mas a regra fica para o dia em que essa
+   decisão mudar. */
+@media (prefers-reduced-motion: reduce) {
+  .aviso-entrada-fundo,
+  .aviso-entrada-card { animation: none; }
+}

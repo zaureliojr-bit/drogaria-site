@@ -937,11 +937,178 @@ async function carregarBanners() {
       }, { once: true });
     });
 
+    /* A mesma lista decide o aviso de entrada. Nenhuma chamada a mais:
+       o banner marcado no painel já veio aqui com `entrada: 1`. */
+    avisoDeEntrada(validos);
+
   } catch (e) {
     // sem arquivo, com o arquivo escrito errado ou sem rede: a home
     // continua inteira, só sem a faixa
     console.info("Sem banners para mostrar.", e);
   }
+}
+
+/* =========================
+🪧 O AVISO DE ENTRADA
+=========================
+
+   O pop-up de campanha que os aplicativos grandes mostram ao abrir. A
+   loja pediu depois de ver um no 99, e a pergunta certa não é "dá para
+   fazer" — é "como fazer sem piorar o número que a gente está tentando
+   melhorar".
+
+   O funil diz que 251 pessoas entram e 84 buscam alguma coisa. As
+   outras 167 saem sem procurar nada, e é justamente nelas que um
+   pop-up na chegada bate primeiro. O Google também chama isso de
+   interstitial intrusivo e penaliza no celular quando cobre a página de
+   quem veio da busca.
+
+   Então são quatro travas, e cada uma corresponde a um jeito conhecido
+   de o recurso dar errado:
+
+     1. SÓ NA HOME. Quem abriu o link de um produto no WhatsApp veio
+        buscar aquele produto; tapar a tela é perder a venda que já
+        estava feita.
+
+     2. SÓ DA SEGUNDA VISITA EM DIANTE. Na primeira, a pessoa vê a
+        farmácia. Quem volta já sabe onde está e aí recebe a campanha.
+
+     3. UMA VEZ POR PESSOA, POR CAMPANHA. Guardado pelo id do banner:
+        trocou o banner, aparece de novo; o mesmo, não.
+
+     4. FECHA FÁCIL — X grande, Esc e clique fora. O pop-up que a loja
+        mostrou de referência tem o X pequeno e longe do card; é o que
+        transforma campanha em irritação.
+
+   Quem pediu menos animação no sistema não recebe nada disso: a mesma
+   preferência que já desliga o giro do carrossel. */
+
+const VISITAS_DA_LOJA = "visitas-loja";
+const AVISOS_VISTOS   = "avisos-de-entrada";
+
+/* Quantas vezes esta pessoa já abriu o site desta farmácia.
+
+   Conta uma vez por ABA (sessionStorage de controle) e guarda o total
+   no aparelho (localStorage). Sem o controle por aba, trocar de
+   categoria e voltar contaria visitas novas e o aviso apareceria no
+   primeiro minuto da primeira visita — exatamente o que ele não deve
+   fazer. */
+function contarVisita() {
+    const chave = `${VISITAS_DA_LOJA}:${LojaAtual.slug() || "casa"}`;
+    try {
+        if (sessionStorage.getItem(chave)) return Number(localStorage.getItem(chave)) || 1;
+        const total = (Number(localStorage.getItem(chave)) || 0) + 1;
+        localStorage.setItem(chave, String(total));
+        sessionStorage.setItem(chave, "1");
+        return total;
+    } catch (e) {
+        /* Aba privada ou armazenamento bloqueado: trata como primeira
+           visita, que é o lado seguro — não mostra nada. */
+        return 1;
+    }
+}
+
+function avisoJaVisto(id) {
+    try {
+        return (JSON.parse(localStorage.getItem(AVISOS_VISTOS) || "[]")).includes(id);
+    } catch (e) {
+        return false;
+    }
+}
+
+function guardarAvisoVisto(id) {
+    try {
+        const vistos = JSON.parse(localStorage.getItem(AVISOS_VISTOS) || "[]");
+        if (!vistos.includes(id)) vistos.push(id);
+        /* Só os vinte últimos: a lista cresceria para sempre com uma
+           campanha nova por semana, e ninguém volta a um banner de dois
+           anos atrás. */
+        localStorage.setItem(AVISOS_VISTOS, JSON.stringify(vistos.slice(-20)));
+    } catch (e) {
+        /* Sem onde guardar, o aviso reaparece na próxima visita. É
+           chato e é o pior que acontece. */
+    }
+}
+
+function fecharAvisoDeEntrada() {
+    const caixa = el("avisoEntrada");
+    if (!caixa) return;
+    caixa.remove();
+    document.body.classList.remove("com-aviso");
+}
+
+function avisoDeEntrada(banners) {
+
+    const alvo = (banners || []).find(b => b && b.entrada && b.imagem);
+    if (!alvo) return;
+
+    if (typeof estaNaHome === "function" && !estaNaHome()) return;
+
+    /* A busca na barra de endereço é alguém chegando atrás de um
+       produto específico — de um link compartilhado, quase sempre. */
+    try {
+        if (new URL(location.href).searchParams.get("busca")) return;
+    } catch (e) { /* URL estranha: segue */ }
+
+    const menosMovimento = window.matchMedia
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (menosMovimento) return;
+
+    const id = String(alvo.id || alvo.imagem);
+    if (avisoJaVisto(id)) return;
+    if (contarVisita() < 2) return;
+
+    const caixa = document.createElement("div");
+    caixa.id = "avisoEntrada";
+    caixa.className = "aviso-entrada";
+    caixa.setAttribute("role", "dialog");
+    caixa.setAttribute("aria-modal", "true");
+    caixa.setAttribute("aria-label", alvo.alt || "Promoção da loja");
+
+    const imagem = `<img src="${esc(alvo.imagem)}" alt="${esc(alvo.alt || "")}" decoding="async">`;
+
+    caixa.innerHTML = `
+      <div class="aviso-entrada-fundo" data-fechar-aviso></div>
+      <div class="aviso-entrada-card">
+        <button type="button" class="aviso-entrada-x" data-fechar-aviso
+                aria-label="Fechar">&times;</button>
+        ${alvo.link
+            ? `<a href="${esc(alvo.link)}" target="_blank" rel="sponsored nofollow noopener"
+                  class="aviso-entrada-img">${imagem}</a>`
+            : `<div class="aviso-entrada-img">${imagem}</div>`}
+      </div>`;
+
+    document.body.appendChild(caixa);
+    document.body.classList.add("com-aviso");
+
+    /* Guardado ao MOSTRAR, não ao fechar: quem sai da página sem clicar
+       em nada já viu a campanha, e reaparecer na visita seguinte seria
+       cobrar duas vezes a atenção de quem não quis. */
+    guardarAvisoVisto(id);
+
+    caixa.addEventListener("click", (ev) => {
+        if (ev.target.closest("[data-fechar-aviso]")) fecharAvisoDeEntrada();
+    });
+
+    document.addEventListener("keydown", function aoTeclar(ev) {
+        if (ev.key !== "Escape") return;
+        document.removeEventListener("keydown", aoTeclar);
+        fecharAvisoDeEntrada();
+    });
+
+    /* O foco vai para o diálogo, não para o X.
+
+       Focar o botão fazia o anel amarelo de teclado aparecer sozinho
+       em cima da arte, no primeiro quadro, para quem abriu o site com
+       o dedo e não com o teclado. O diálogo com tabindex="-1" recebe o
+       foco sem desenhar nada, o Esc continua funcionando e o leitor de
+       tela continua anunciando o aviso ao abrir. */
+    caixa.setAttribute("tabindex", "-1");
+    caixa.focus({ preventScroll: true });
+
+    /* Imagem que não carrega não pode deixar uma moldura vazia por cima
+       da vitrine — isso é pior que não ter pop-up nenhum. */
+    caixa.querySelector("img")?.addEventListener("error", fecharAvisoDeEntrada, { once: true });
 }
 
 function estaNaHome() {

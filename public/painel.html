@@ -1346,6 +1346,19 @@
 
         <div class="campo-duplo">
           <label class="campo campo-linha">
+            <input type="checkbox" id="bannerEntrada">
+            <span>Mostrar também como aviso de entrada</span>
+          </label>
+          <p class="dica">
+            Aparece por cima da vitrine, como o pop-up de campanha dos
+            aplicativos. Só na página inicial, só a partir da segunda
+            visita da pessoa, e uma vez por campanha — pop-up na chegada
+            de quem vem da busca afasta cliente e o Google penaliza.
+          </p>
+        </div>
+
+        <div class="campo-duplo">
+          <label class="campo campo-linha">
             <input type="checkbox" id="bannerAtivo" checked>
             <span>No ar</span>
           </label>
@@ -4629,6 +4642,7 @@ function abrirFormulario(b) {
   el("bannerInicio").value = b?.inicio || "";
   el("bannerFim").value = b?.fim || "";
   el("bannerAtivo").checked = b ? !!b.ativo : true;
+  el("bannerEntrada").checked = !!(b && b.entrada);
   el("bannerOrdem").value = b?.ordem ?? 0;
   el("bannerArquivo").value = "";
   mostrarPrevia(b?.imagem || "");
@@ -4711,6 +4725,7 @@ el("formBanner").addEventListener("submit", async (ev) => {
         inicio: el("bannerInicio").value,
         fim: el("bannerFim").value,
         ativo: el("bannerAtivo").checked,
+        entrada: el("bannerEntrada").checked,
         ordem: Number(el("bannerOrdem").value) || 0,
         r2Chave
       })
@@ -4721,7 +4736,15 @@ el("formBanner").addEventListener("submit", async (ev) => {
 
     fecharFormulario();
     await carregarBanners();
-    avisoBanner("Banner salvo. A home atualiza na próxima vez que alguém abrir.", "ok");
+
+    /* O worker salva o banner e devolve `aviso` quando a marca de
+       entrada não coube — a farmácia ainda não rodou o schema. Recado,
+       e não erro: o banner foi salvo, e recusar tudo por causa do
+       pop-up faria a loja perder o que acabou de montar. */
+    avisoBanner(
+        dados.aviso || "Banner salvo. A home atualiza na próxima vez que alguém abrir.",
+        dados.aviso ? "erro" : "ok"
+    );
 
   } catch (e) {
     avisoBanner(e.message);
