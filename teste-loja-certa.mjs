@@ -295,6 +295,79 @@ console.log("\n6. aba privada com armazenamento bloqueado");
     await contexto.close();
 }
 
+/* ---- 7. o cache não empresta uma farmácia para a outra -------------- */
+console.log("\n7. o cache do cadastro é por farmácia");
+{
+    /* O cache guardava o cadastro em "loja-v1" — uma chave só, para
+       todas as lojas. No domínio próprio de cada farmácia isso não
+       aparecia, porque sessionStorage é por origem.
+
+       Mas no endereço da PLATAFORMA as lojas dividem a mesma origem.
+       Quem abrisse /loja/mais-barato e depois /loja/prudente-01 na
+       mesma aba levaria, por até uma hora, o cadastro da primeira para
+       a página da segunda: rodapé, WhatsApp e a coordenada do frete.
+
+       É a quinta vez que esta família de defeito aparece — e esta
+       estava escondida dentro de uma otimização. */
+    const contexto = await navegador.newContext();
+    const pagina = await contexto.newPage();
+
+    await pagina.addInitScript(() => { navigator.sendBeacon = () => false; });
+
+    const cadastros = {
+        "mais-barato": { slug: "mais-barato", nome: "Mais Barato SBC",
+                         cidade: "São Bernardo do Campo", uf: "SP",
+                         whatsapp: "5511925190101" },
+        "prudente-01": { slug: "prudente-01", nome: "Mais Barato Prudente",
+                         cidade: "Diadema", uf: "SP",
+                         whatsapp: "5511951388388" }
+    };
+
+    await pagina.route(/raw\.githubusercontent|produtos.*\.json/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify(CATALOGO)
+    }));
+
+    await pagina.route(/farmatech-pedidos-proxy/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ ok: true, banners: [], encarte: null, promocoes: [] })
+    }));
+
+    await pagina.route(/farmatech-pedidos-proxy[^/]*\/loja(\?|$)/, (rota) => {
+        const alvo = new URL(rota.request().url()).searchParams.get("loja");
+        return rota.fulfill({
+            status: 200, contentType: "application/json",
+            headers: { "Access-Control-Allow-Origin": "*" },
+            body: JSON.stringify({ loja: cadastros[alvo] || null, horario: [], visual: null })
+        });
+    });
+
+    const nomeNaTela = async () =>
+        (await pagina.textContent('[data-loja="identificacao"]') || "").trim();
+
+    await pagina.goto(BASE + "/loja/mais-barato", { waitUntil: "domcontentloaded" });
+    await pagina.waitForTimeout(2200);
+    const primeira = await nomeNaTela();
+    conferir("a primeira loja aparece", /Mais Barato SBC/.test(primeira), primeira);
+
+    /* MESMA ABA, outra farmácia. É aqui que o cache emprestava. */
+    /* Slug que EXISTE em produção: a função da Pages resolve a loja no
+       servidor, e o page.route do Playwright só alcança o navegador. */
+    await pagina.goto(BASE + "/loja/prudente-01", { waitUntil: "domcontentloaded" });
+    await pagina.waitForTimeout(2200);
+    const segunda = await nomeNaTela();
+
+    conferir("a segunda mostra o cadastro DELA",
+        /Prudente/.test(segunda), segunda);
+
+    conferir("e não o da primeira, vindo do cache",
+        !/SBC/.test(segunda), segunda);
+
+    await contexto.close();
+}
+
 await navegador.close();
 
 console.log(falhas === 0 ? "\nTudo certo.\n" : `\n${falhas} falha(s).\n`);

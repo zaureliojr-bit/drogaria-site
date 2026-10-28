@@ -3181,7 +3181,22 @@ function baseDoSite() {
      plataforma. Montar outro aqui seria arriscar gerar, dentro do
      anúncio pago, um link que não abre. */
   const link = el("verSite");
-  return (link && link.href) ? link.href.replace(/\/+$/, "") : "";
+  if (!link || !link.href) return "";
+
+  /* Sem o ?fresco=1 e sem a barra do fim.
+
+     O link "Ver o site" carrega esse carimbo para quem clica nele no
+     painel pular o cache do cadastro uma vez. Ele não pode vazar para
+     o link do ANÚNCIO: ali o endereço ganha /produto/... e ?c=campanha
+     depois, e uma query no meio do caminho produziria uma URL torta no
+     Google Ads — descoberta só quando alguém clicasse. */
+  try {
+    const url = new URL(link.href);
+    url.search = "";
+    return url.toString().replace(/\/+$/, "");
+  } catch (erro) {
+    return link.href.split("?")[0].replace(/\/+$/, "");
+  }
 }
 
 function prazoDeEntrega() {
@@ -5690,10 +5705,19 @@ async function carregarSessao() {
 
     if (link) {
 
-      /* Primeiro o endereço da plataforma, que funciona sempre. */
+      /* O `?fresco=1` faz o site ignorar o cache do cadastro uma vez.
+
+         O site guarda os dados da loja por uma hora no navegador, e
+         sessionStorage não morre no F5 — só quando a aba fecha. Para o
+         cliente isso é bom. Para quem ACABOU de corrigir o cadastro no
+         painel e clica aqui para conferir, é só confusão: o banco
+         certo e a tela velha. Aconteceu no dia em que a coordenada da
+         filial foi arrumada.
+
+         Vai só neste link, que é o único que sai do painel. */
       link.href = slugDaSessao
-        ? `${SITE_URL}/loja/${encodeURIComponent(slugDaSessao)}`
-        : SITE_URL;
+        ? `${SITE_URL}/loja/${encodeURIComponent(slugDaSessao)}?fresco=1`
+        : `${SITE_URL}?fresco=1`;
 
       /* E, se a farmácia já tem o domínio dela de pé, troca para ele.
 
@@ -5711,7 +5735,7 @@ async function carregarSessao() {
           .then((responde) => {
             if (responde) {
               subdominiosNoAr.add(slugDaSessao);
-              link.href = enderecoProprio(slugDaSessao);
+              link.href = enderecoProprio(slugDaSessao) + "?fresco=1";
             }
           })
           .catch(() => { /* fica no endereço da plataforma */ });

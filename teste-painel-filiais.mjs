@@ -303,8 +303,11 @@ let chamadasDoDono;
        para um domínio próprio da FarmaTech: lá, a raiz não é site de
        farmácia nenhuma. */
     const verSite = await pagina.getAttribute("#verSite", "href");
+    /* O caminho, não a query: o link carrega `?fresco=1` para quem
+       clica nele pular o cache do cadastro uma vez — ver o comentário
+       no painel. */
     conferir("o link do site aponta para a vitrine da filial",
-        /\/loja\/mais-barato$/.test(verSite || ""), verSite);
+        /\/loja\/mais-barato(\?|$)/.test(verSite || ""), verSite);
 
     const opcoes = await pagina.$$eval("#senhaLojaAlvo option", (os) => os.map((o) => o.value));
     conferir("o seletor de senha traz as três", opcoes.length === 3, opcoes.join(","));

@@ -80,7 +80,25 @@ let HORARIO_LOJA = [...HORARIO_PADRAO];
 /* Logotipo e cor. Nulo é o caso da farmácia que usa a marca padrão. */
 let VISUAL = null;
 
-const CACHE_LOJA = "loja-v1";
+/* A chave do cache leva o SLUG, e isso não é detalhe.
+
+   Era "loja-v1" para todo mundo. No domínio próprio de cada farmácia
+   não dava problema, porque sessionStorage é por origem. Mas no
+   endereço da plataforma — drogaria-site.pages.dev/loja/<slug> — as
+   lojas dividem a mesma origem: quem abrisse /loja/mais-barato e
+   depois /loja/prudente-01 na MESMA aba receberia, por até uma hora, o
+   cadastro da primeira na página da segunda. Rodapé, WhatsApp,
+   coordenada do frete, tudo.
+
+   É a mesma família de defeito que já apareceu quatro vezes nesta
+   plataforma, e desta vez estava escondida dentro de uma otimização.
+
+   O `v2` zera os caches gravados pela versão antiga, que não sabiam de
+   qual farmácia eram. */
+function chaveDoCache() {
+    const slug = (typeof LojaAtual !== "undefined" && LojaAtual.slug()) || "casa";
+    return `loja-v2:${slug}`;
+}
 const CACHE_LOJA_MS = 60 * 60 * 1000;   // uma hora
 
 /* Onde pedir o cadastro quando o script.js NÃO está na página.
@@ -433,9 +451,28 @@ function aplicarNaPagina() {
    CARREGAR
    ------------------------------------------------------------------ */
 
-function lerCacheLoja() {
+/* "Acabei de editar o cadastro e o site não mudou."
+
+   O cache guarda por uma hora, e sessionStorage não morre no F5 — só
+   quando a aba fecha. Para o cliente isso é bom; para quem ACABOU de
+   salvar no painel é só confusão, e foi o que aconteceu no dia em que
+   a coordenada da filial foi corrigida: o banco certo, a tela velha.
+
+   Por isso o link "Ver o site" do painel sai com ?fresco=1, e quem
+   chega com ele ignora o cache uma vez. Quem decide é quem está
+   olhando: ninguém mais abre o site com esse carimbo na URL. */
+function querFresco() {
     try {
-        const bruto = sessionStorage.getItem(CACHE_LOJA);
+        return new URL(location.href).searchParams.has("fresco");
+    } catch (erro) {
+        return false;
+    }
+}
+
+function lerCacheLoja() {
+    if (querFresco()) return null;
+    try {
+        const bruto = sessionStorage.getItem(chaveDoCache());
         if (!bruto) return null;
         const { quando, dados } = JSON.parse(bruto);
         if (Date.now() - quando > CACHE_LOJA_MS) return null;
@@ -465,7 +502,7 @@ async function carregarLoja() {
         if (!dados || !dados.loja) throw new Error("resposta sem loja");
 
         try {
-            sessionStorage.setItem(CACHE_LOJA, JSON.stringify({ quando: Date.now(), dados }));
+            sessionStorage.setItem(chaveDoCache(), JSON.stringify({ quando: Date.now(), dados }));
         } catch (erro) {
             /* sessionStorage cheio ou bloqueado: segue sem cache. */
         }

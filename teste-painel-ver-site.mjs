@@ -79,8 +79,12 @@ console.log("\n1. filial sem domínio próprio");
     /* Lido logo, antes de qualquer espera: o link tem de funcionar
        desde o primeiro instante. */
     const naHora = await pagina.getAttribute("#verSite", "href");
+    /* O `?fresco=1` faz o site ignorar o cache do cadastro uma vez.
+       Quem clica aqui costuma ter ACABADO de editar a loja no painel, e
+       o cache guarda por uma hora — o que fazia o dono ver a tela velha
+       com o banco certo. A asserção olha o caminho, não a query. */
     conferir("o link já aponta para algo que abre",
-        /\/loja\/mais-barato$/.test(naHora), naHora);
+        /\/loja\/mais-barato(\?|$)/.test(naHora), naHora);
     conferir("e não para a raiz, que é o site de outra farmácia",
         !/pages\.dev\/?$/.test(naHora), naHora);
 
@@ -105,7 +109,13 @@ console.log("\n2. filial com o domínio dela de pé");
 
     const href = await pagina.getAttribute("#verSite", "href");
     conferir("o link passa a ser o endereço DELA",
-        href === "https://mais-barato.drogalink.com.br/", href);
+        href.startsWith("https://mais-barato.drogalink.com.br/"), href);
+
+    /* E o carimbo acompanha a troca para o domínio próprio: quem
+       conferiu o cadastro pelo endereço da plataforma e quem conferiu
+       pelo domínio dela têm o mesmo problema de cache. */
+    conferir("levando o pedido de ignorar o cache",
+        /[?&]fresco=/.test(href), href);
 
     await contexto.close();
 }
