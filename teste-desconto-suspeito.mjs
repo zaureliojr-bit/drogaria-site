@@ -112,7 +112,17 @@ console.log("\n1. o preço do cliente não muda");
 
     conferir("o desconto normal continua mostrando o 'de'",
         /10,00/.test(textoNormal), textoNormal);
-    conferir("e a porcentagem", /20%/.test(textoNormal), textoNormal);
+    /* A afirmação deixou de ser "−20%" e passou a ser "Economize R$
+       2,00". Os dois dizem a mesma coisa; o segundo não depende de o
+       preço "de" ser crível para significar algo, que era o problema
+       de uma vitrine inteira abrindo com −65%, −67%, −69%.
+
+       O que este teste guarda continua sendo o mesmo: no desconto
+       plausível a comparação aparece, no implausível ela some. A
+       porcentagem não sumiu do site — segue na página do produto e na
+       ordenação "maior desconto". */
+    conferir("e o quanto se economiza, em reais",
+        /Economize R\$ ?2,00/.test(textoNormal), textoNormal);
     conferir("e a faixa de oferta",
         await normal.locator(".faixa-oferta").count() === 1, "sem faixa de oferta");
 

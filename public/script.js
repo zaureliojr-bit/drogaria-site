@@ -1269,6 +1269,7 @@ function pedeReceita(p) {
   return !!(p && (p.exigeReceita || p.receitaRemota || p.confirmarReceita));
 }
 
+
 function mapearProduto(p) {
   const venda = Number(String(p.precoVenda || 0).replace(",", "."));
   const promo = Number(String(p.precoPromocao || 0).replace(",", "."));
@@ -2278,12 +2279,32 @@ function cardHTML(p, mini = false) {
   // A linha do preço antigo sai vazia quando não há desconto, em vez de não
   // sair: assim o preço fica na mesma altura em todos os cards da fileira,
   // e não sobe no card sem oferta. Quem reserva a altura é o CSS.
+  /* O QUE SE ECONOMIZA, EM REAIS, no lugar da porcentagem.
+
+     A vitrine abria com −67%, −65%, −69% em cards seguidos, cada um ao
+     lado de um "de" alto. Repetido assim, o desconto para de convencer e
+     passa a levantar suspeita sobre o preço — e a trava de implausível
+     (DESCONTO_IMPLAUSIVEL, lá em cima) só pega o que passa de 70%, então
+     a faixa logo abaixo dela aparecia inteira.
+
+     "Economize R$ 11,91" não depende de o preço "de" ser crível para
+     significar algo: é a conta que o cliente faria. E é o trabalho que a
+     marca já dá ao amarelo — por isso a pílula é amarela, e não mais uma
+     etiqueta vermelha ao lado de outras três.
+
+     A porcentagem não some do site: continua na página do produto e na
+     ordenação "maior desconto", onde ela é a pergunta certa. */
+  const economia = Math.max(0, (p.precoOriginal || 0) - (p.preco || 0));
+
   const bloco = p.emOferta && !p.descontoSuspeito
     ? `<div class="preco-linha-de">
+         <span class="preco-antes">antes</span>
          <span class="preco-de">${fmt(p.precoOriginal)}</span>
-         <span class="preco-desconto">−${p.desconto}%</span>
        </div>
-       <span class="preco preco-por">${precoGrandeHTML(p.preco)}</span>`
+       <span class="preco preco-por">${precoGrandeHTML(p.preco)}</span>
+       ${economia >= 0.01
+          ? `<span class="preco-economia">Economize ${fmt(economia)}</span>`
+          : ""}`
     : `<div class="preco-linha-de" aria-hidden="true"></div>
        <span class="preco">${precoGrandeHTML(p.preco)}</span>`;
 

@@ -1,13 +1,37 @@
-/* Refinamento visual premium — Drogaria Mais Barato
-   Camada complementar: preserva a estrutura e os comportamentos existentes. */
+/* Refinamento visual — Drogaria Mais Barato
+   Camada complementar: preserva a estrutura e os comportamentos existentes.
+
+   AS CORES SAEM DO LOGO, e não do gosto de quem desenhou.
+
+   Esta camada nasceu puxando o tom da marca para o violeta (#302783) e
+   enchendo a página de lilás. O efeito era o contrário do pretendido: o
+   logo virava o único amarelo da tela e parecia adesivo colado sobre um
+   template de terceiro. A farmácia viu antes de nós.
+
+   Então as três cores vêm medidas do arquivo do logo:
+
+     azul-marinho #242490   o que sustenta a marca - SUSTENTA
+     amarelo      #FCF000   64% dos pixels do logo - CHAMA
+     vermelho     #CC1824   o menor pedaço         - AVISA
+
+   A divisão de trabalho é o que impede a tela de virar panfleto. O azul
+   é o que mais aparece; o amarelo entra uma vez por tela, no passo que
+   vale dinheiro (carrinho, economia, finalizar); o vermelho fica no
+   corte de preço e no aviso de receita, e em mais nada - usado em pouca
+   coisa para continuar significando alguma.
+
+   A REGRA DO AMARELO: sempre preenchimento com letra escura, nunca
+   texto. #FCF000 sobre branco dá cerca de 1,1:1 de contraste - é
+   ilegível. É assim que ele aparece no próprio logo, e é por isso que
+   --sobre-destaque existe ao lado dele. */
 :root {
-  --premium-roxo: #302783;
-  --premium-roxo-escuro: #211b63;
-  --premium-lilas: #f0effb;
-  --premium-fundo: #f7f8fc;
-  --premium-borda: #e7e8f1;
-  --premium-sombra: 0 8px 24px rgba(34, 29, 92, .07);
-  --premium-sombra-hover: 0 14px 30px rgba(34, 29, 92, .13);
+  --premium-roxo: #242490;
+  --premium-roxo-escuro: #1a1a6e;
+  --premium-lilas: #e9e9f4;
+  --premium-fundo: #f7f8fa;
+  --premium-borda: #e4e6ee;
+  --premium-sombra: 0 8px 24px rgba(20, 23, 40, .07);
+  --premium-sombra-hover: 0 14px 30px rgba(20, 23, 40, .13);
 }
 
 body {
@@ -35,7 +59,7 @@ body {
   border: 1px solid #e1e2ef;
   border-radius: 13px;
   background: #fff;
-  box-shadow: 0 2px 8px rgba(33, 27, 99, .035);
+  box-shadow: 0 2px 8px rgba(20, 23, 40, .04);
   transition: border-color .18s ease, box-shadow .18s ease;
 }
 
@@ -77,10 +101,15 @@ body {
 .recado-loja {
   margin: 8px 14px 14px;
   padding: 11px 16px;
-  border: 1px solid #e2e0fa;
+  /* Era um degradê lilás com texto violeta - o mesmo lilás que ocupava
+     na página o lugar que é do amarelo. Agora é o amarelo da marca na
+     sua forma clara, com o texto no azul escuro por cima. É a terceira
+     aparição do amarelo na primeira tela, junto do carrinho e do selo
+     de economia, e as três são preenchimento com letra escura. */
+  border: 1px solid var(--destaque-linha);
   border-radius: 12px;
-  background: linear-gradient(100deg, #f1efff, #fff);
-  color: #332b83;
+  background: var(--destaque-suave);
+  color: var(--marca-escura);
 }
 
 
@@ -237,38 +266,75 @@ body {
 
 /* Segunda camada: consistência de marca e hierarquia visual. */
 :root {
-  --marca: #302783;
-  --marca-escura: #211b63;
-  --marca-clara: #f0effb;
-  --marca-xclara: #f7f6ff;
-  --papel: #f7f8fc;
-  --papel-forte: #f0f1f7;
-  --papel-vidro: rgba(247, 248, 252, .92);
-  --linha: #e5e6f0;
+  --marca: #242490;
+  --marca-escura: #1a1a6e;
+  /* Antes #f0effb: lilás. Agora o próprio azul da marca a 10% sobre
+     branco - continua claro, mas é azul, e não violeta. */
+  --marca-clara: #e9e9f4;
+  --marca-xclara: #f4f4fa;
+  --papel: #f7f8fa;
+  --papel-forte: #eff1f5;
+  --papel-vidro: rgba(247, 248, 250, .92);
+  --linha: #e4e6ee;
+
+  /* O amarelo da marca. Só preenchimento: ver a regra no topo. */
+  --destaque: #FCF000;
+  --destaque-escuro: #e3d800;
+  --sobre-destaque: #15171C;
+  --destaque-suave: #fff8cc;
+  --destaque-linha: #f0de8a;
+
+  /* O vermelho, para o corte de preço e o aviso de receita. */
+  --corte: #CC1824;
+  --corte-suave: #fbe4e6;
   --raio-sm: 8px;
   --raio-md: 12px;
   --raio-lg: 16px;
   --raio-botao: 11px;
-  --sombra-sm: 0 2px 8px rgba(33, 27, 99, .045);
-  --sombra-md: 0 10px 24px rgba(33, 27, 99, .10);
-  --sombra-lg: 0 -8px 26px rgba(33, 27, 99, .14);
+  --sombra-sm: 0 2px 8px rgba(20, 23, 40, .05);
+  --sombra-md: 0 10px 24px rgba(20, 23, 40, .10);
+  --sombra-lg: 0 -8px 26px rgba(20, 23, 40, .14);
 }
 
 .header {
-  background: linear-gradient(115deg, #211b63 0%, #302783 62%, #43399a 100%);
+  /* Era um degradê de três roxos atravessando a tela. Sai: degradê
+     azul-violeta é assinatura de template genérico, e o logo tinha de
+     brigar com um fundo que mudava de cor atrás dele. Fica o azul da
+     marca, chapado, com um fio mais escuro embaixo para o cartão
+     branco da busca ter em que se apoiar. */
+  background: var(--marca);
+  border-bottom: 1px solid var(--marca-escura);
 }
 
+/* O CARRINHO É AMARELO.
+
+   É o passo que vale dinheiro, e é o único lugar do cabeçalho onde o
+   amarelo da marca entra. Antes era uma pastilha translúcida sobre o
+   roxo: sumia no fundo, e o logo ficava sendo o único amarelo da tela.
+
+   Letra escura por cima, como manda a regra do amarelo (15:1 de
+   contraste). */
 .header-carrinho {
-  border: 1px solid rgba(255,255,255,.24);
+  border: 1px solid var(--destaque-escuro);
   border-radius: 12px;
-  background: rgba(255,255,255,.09);
+  background: var(--destaque);
+  color: var(--sobre-destaque);
+  font-weight: 700;
   transition: background .18s ease, transform .18s ease;
 }
 
 .header-carrinho:hover {
-  background: rgba(255,255,255,.17);
+  background: var(--destaque-escuro);
   transform: translateY(-1px);
 }
+
+/* A bolinha da quantidade inverte: escura sobre o amarelo. */
+.header-carrinho .header-carrinho-qtd {
+  background: var(--sobre-destaque);
+  color: var(--destaque);
+}
+
+.header-carrinho .ic { color: var(--sobre-destaque); }
 
 .header-whats {
   border-radius: 11px;
@@ -318,7 +384,7 @@ body {
 .card,
 .card-mini {
   border-color: #e6e7f0;
-  box-shadow: 0 3px 10px rgba(33, 27, 99, .045);
+  box-shadow: 0 3px 10px rgba(20, 23, 40, .05);
 }
 
 .card {
@@ -368,12 +434,15 @@ body {
 }
 
 .carrinho-barra {
-  background: linear-gradient(105deg, #211b63, #302783);
+  background: var(--marca-escura);
 }
 
 .carrinho-barra-cta {
-  background: #f5d94e;
-  color: #211b63;
+  /* O amarelo já vivia aqui, sozinho e meio desbotado. Agora é o da
+     marca e tem companhia - o mesmo amarelo do carrinho no topo e do
+     selo de economia no card. */
+  background: var(--destaque);
+  color: var(--sobre-destaque);
   font-weight: 800;
 }
 
@@ -468,5 +537,40 @@ body {
     padding-left: 10px;
     padding-right: 10px;
     margin-top: 6px;
+  }
+}
+
+
+/* =====================================================
+   O BANNER NO COMPUTADOR
+   =====================================================
+
+   Numa tela de 1440, o banner ocupava 439px de altura: começava em
+   392px e terminava em 831px. Numa janela de 900, isso é a primeira
+   tela inteira sem um único produto — o título "Destaques da semana"
+   ficava cortado na borda de baixo. No celular o mesmo banner tem
+   138px e o primeiro card aparece em 543px, que é o certo; o defeito
+   era só aqui.
+
+   A conta é simples: 3:1 numa faixa de 1250px dá 417px de altura. Não
+   é o banner que está errado, é a largura que o deixamos ocupar.
+
+   Por isso a correção é na LARGURA e não no object-fit. Trocar
+   `contain` por `cover` resolveria a altura cortando a arte — e a
+   razão escrita em style.css continua valendo: banner cortado é
+   dinheiro de mídia jogado fora, e ninguém percebe pelo painel. Com
+   920px a peça continua inteira, em 3:1, e cabe em 307px.
+
+   No celular nada muda: a regra só vale de 980px para cima.
+   ===================================================== */
+@media (min-width: 980px) {
+  .promos {
+    max-width: 920px;
+  }
+
+  /* Os pontinhos acompanham a faixa, senão ficam centralizados na
+     página e não embaixo do banner. */
+  .promos-pontos {
+    max-width: 920px;
   }
 }

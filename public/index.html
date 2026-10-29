@@ -20,7 +20,7 @@
   <meta property="og:image" content="https://drogaria-site.pages.dev/logo.png">
   <meta property="og:image:alt" content="Logotipo da Drogaria Mais Barato">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="theme-color" content="#26247B">
+  <meta name="theme-color" content="#242490">
 
   <!-- A loja, em dado que a máquina lê.
        Tudo aqui já estava no site: endereço e CRF no rodapé, as
@@ -214,12 +214,18 @@
 <section class="busca-container" role="search">
   <div class="busca-wrapper">
     <svg class="busca-icon" width="15" height="15" aria-hidden="true"><use href="#ic-search"></use></svg>
+    <!-- O texto do campo é curto porque o celular corta: em 390px o
+         anterior ("Buscar por nome, marca ou laboratório") aparecia
+         como "...ou labora", e placeholder cortado lê como tela
+         quebrada. O campo continua aceitando a mesma coisa, e o
+         aria-label guarda a frase inteira para quem usa leitor de
+         tela, que não tem largura para perder. -->
     <input
       type="search"
       id="busca"
-      placeholder="Buscar por nome, marca ou laboratório"
+      placeholder="Buscar remédio ou marca"
       autocomplete="off"
-      aria-label="Buscar produtos"
+      aria-label="Buscar por nome, marca ou laboratório"
       onkeydown="if(event.key==='Enter') buscar()"
       role="combobox" aria-expanded="false" aria-controls="sugestoes" aria-autocomplete="list"
     >

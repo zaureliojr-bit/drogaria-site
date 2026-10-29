@@ -6,9 +6,22 @@
 /* =========================================================== */
 :root {
   /* identidade visual alinhada à rede Drogarias Mais Barato */
-  --marca: #26247B;         /* azul-marinho (cor principal) */
-  --marca-escura: #17153F;  /* azul mais escuro */
-  --marca-clara: #ECEBF7;   /* azul bem clarinho, para fundos/realces */
+  /* Medido do arquivo do logo, não escolhido: ver o cabeçalho de
+     visual-premium.css, onde as três cores da marca e a regra do
+     amarelo estão escritas por extenso. */
+  --marca: #242490;         /* azul-marinho do logo (cor principal) */
+  --marca-escura: #1A1A6E;  /* azul mais escuro */
+  --marca-clara: #E9E9F4;   /* azul bem clarinho, para fundos/realces */
+
+  /* O amarelo e o vermelho ficam aqui também para a página não perder
+     a marca se visual-premium.css não chegar a carregar. */
+  --destaque: #FCF000;      /* amarelo: SÓ preenchimento, letra escura */
+  --destaque-escuro: #E3D800;
+  --sobre-destaque: #15171C;
+  --destaque-suave: #FFF8CC;
+  --destaque-linha: #F0DE8A;
+  --corte: #CC1824;         /* vermelho: corte de preço e aviso de receita */
+  --corte-suave: #FBE4E6;
   --marca-xclara: #F5F5FB;
 
   /* nomes antigos mantidos como apelido, para não quebrar nada */
@@ -21,8 +34,11 @@
   --tag-escura: #C42230;
   --tag-clara: #FBE4E6;
 
-  --amarelo: #FFD400;       /* amarelo da marca (faixa/tagline) */
-  --amarelo-escura: #E0B800;
+  /* UM amarelo só. Este era #FFD400 e o --destaque acima é #FCF000: dois
+     amarelos quase iguais na mesma página é o tipo de diferença que
+     ninguém nomeia e todo mundo sente. Fica o medido do logo. */
+  --amarelo: #FCF000;       /* mesmo que --destaque */
+  --amarelo-escura: #E3D800;
 
   /* Cinza neutro, não lavanda. O fundo lavanda tirado do azul da marca
      tingia a página inteira e dava ar de modelo pronto — num site de
@@ -1232,6 +1248,36 @@ h1, h2 { font-family: var(--fonte-titulo); }
 
 .card-mini .preco-de { font-size: 10px; }
 
+/* "antes R$ 41,90" em vez de um número riscado solto: a palavra diz o
+   que o riscado significa para quem lê rápido, no celular, de relance. */
+.preco-antes {
+  color: var(--tinta-suave);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.card-mini .preco-antes { font-size: 10px; }
+
+/* A pílula amarela de economia — o lugar do amarelo da marca dentro do
+   card. Letra escura sobre o amarelo, sempre: #FCF000 como TEXTO sobre
+   branco dá cerca de 1,1:1 e é ilegível (ver visual-premium.css). */
+.preco-economia {
+  display: inline-block;
+  margin-top: 5px;
+  background: var(--destaque);
+  color: var(--sobre-destaque);
+  font-family: var(--fonte-titulo);
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.card-mini .preco-economia { font-size: 9.5px; padding: 3px 7px; margin-top: 4px; }
+
 .chip-desconto {
   background: var(--amarelo);
   color: var(--tinta);
@@ -1260,7 +1306,13 @@ h1, h2 { font-family: var(--fonte-titulo); }
   vertical-align: 0.5em;
 }
 
-.preco-por { color: var(--tag-escura) !important; }
+/* O preço "por" passa a ser AZUL, e não vermelho.
+
+   Com o vermelho reservado ao corte de preço e ao aviso de receita, ele
+   volta a significar alguma coisa quando aparece. E o preço em
+   azul-marinho, que é a cor que sustenta a página, lê como preço da
+   loja — não como liquidação. */
+.preco-por { color: var(--marca) !important; }
 
 /* ========================= */
 /* 🈳 ESTADOS VAZIOS         */
@@ -3198,8 +3250,16 @@ body.sem-barra-carrinho .carrinho { display: none; }
   font-size: 10.5px;
   line-height: 1.2;
   font-weight: 600;
-  /* "Anticoncepcional" é uma palavra só e mais larga que o cartão:
-     sem isto ela vaza por cima da borda do vizinho. */
+  /* "Anticoncepcional" é uma palavra só e mais larga que o cartão.
+
+     Com `overflow-wrap: anywhere` sozinho ela quebrava onde calhasse -
+     "Anticoncepci / onal" -, que é o tipo de detalhe que faz a home
+     parecer malfeita sem ninguém saber dizer por quê. Com hífen a
+     quebra cai na sílaba ("Anticoncep- / cional"), e o `anywhere`
+     fica de rede para o navegador que não tenha o dicionário de
+     português. A página declara lang="pt-BR", que é o que liga isso. */
+  hyphens: auto;
+  -webkit-hyphens: auto;
   overflow-wrap: anywhere;
   /* Duas linhas no máximo: "Vitaminas e Suplementos" não pode empurrar
      a altura da fileira inteira por causa de um nome comprido. */
