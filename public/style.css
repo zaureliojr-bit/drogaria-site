@@ -3522,78 +3522,7 @@ body.com-aviso { overflow: hidden; }
     z-index: 3000;
   }
 
-  .cat-fundo {
-    position: absolute;
-    inset: 0;
-    background: rgba(20, 23, 40, .45);
-  }
 
-  .cat-painel {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    max-height: 72vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--branco);
-    border-radius: 18px 18px 0 0;
-    padding-bottom: calc(var(--abas-h) + env(safe-area-inset-bottom, 0px));
-    animation: cat-sobe .22s ease;
-  }
-
-  @keyframes cat-sobe {
-    from { transform: translateY(14%); opacity: .6; }
-    to   { transform: translateY(0);   opacity: 1; }
-  }
-
-  .cat-topo {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 18px 12px;
-    border-bottom: 1px solid var(--linha);
-    font-family: var(--fonte-titulo);
-    font-size: 16px;
-    color: var(--tinta);
-  }
-
-  .cat-x {
-    border: 0;
-    background: none;
-    font-size: 26px;
-    line-height: 1;
-    color: var(--tinta-suave);
-    padding: 0 6px;
-    cursor: pointer;
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  .cat-lista { overflow-y: auto; }
-
-  .cat-linha {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    min-height: 52px;
-    padding: 14px 18px;
-    border: 0;
-    border-bottom: 1px solid var(--marca-xclara);
-    background: none;
-    font: inherit;
-    font-size: 14.5px;
-    font-weight: 600;
-    color: var(--tinta);
-    text-align: left;
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  .cat-linha:active { background: var(--marca-clara); }
-
-  /* Com a folha aberta, a página atrás não rola junto. */
-  body.com-folha { overflow: hidden; }
 
 }
 
@@ -3607,5 +3536,235 @@ body.com-aviso { overflow: hidden; }
     height: 20px;
     margin-right: 13px;
     color: var(--marca);
+  }
+}
+
+
+
+/* ========================= */
+/* 🗂️ FOLHA DESLIZANTE       */
+/* ========================= */
+
+/* Serve a duas telas: a de categorias (só no celular, pela barra de
+   abas) e a de CEP (em qualquer largura). Por isso as peças ficam fora
+   da media query — quem decide onde aparece é o container de cada uma,
+   logo abaixo. */
+
+.cep-folha {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+}
+
+.cat-fundo {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 23, 40, .45);
+}
+
+.cat-painel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 72vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--branco);
+  border-radius: 18px 18px 0 0;
+  padding-bottom: calc(var(--abas-h) + env(safe-area-inset-bottom, 0px));
+  animation: cat-sobe .22s ease;
+}
+
+@keyframes cat-sobe {
+  from { transform: translateY(14%); opacity: .6; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.cat-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--linha);
+  font-family: var(--fonte-titulo);
+  font-size: 16px;
+  color: var(--tinta);
+}
+
+.cat-x {
+  border: 0;
+  background: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--tinta-suave);
+  padding: 0 6px;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.cat-lista { overflow-y: auto; }
+
+.cat-linha {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 14px 18px;
+  border: 0;
+  border-bottom: 1px solid var(--marca-xclara);
+  background: none;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--tinta);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cat-linha:active { background: var(--marca-clara); }
+
+/* Com a folha aberta, a página atrás não rola junto. */
+body.com-folha { overflow: hidden; }
+
+
+/* ========================= */
+/* 📍 A FAIXA DE CEP         */
+/* ========================= */
+
+/* A mesma faixa de recado da home: genérica enquanto não há CEP,
+   pessoal depois dele. Uma faixa só — a primeira tela não ganha um
+   pixel. */
+
+.recado-acao {
+  flex-shrink: 0;
+  margin-left: auto;
+  border: 0;
+  background: none;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--marca);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.recado-pessoal {
+  justify-content: flex-start;
+  text-align: left;
+  gap: 10px;
+}
+
+.recado-miolo { line-height: 1.35; }
+
+.recado-detalhe {
+  font-weight: 600;
+  font-size: 12px;
+  opacity: .88;
+}
+
+/* Fora da área: amarelo de aviso não serve aqui (o amarelo é do preço).
+   Fica a tinta neutra num fundo de atenção, com a palavra dizendo o
+   que a cor não diz. */
+.recado-fora {
+  background: var(--destaque-suave);
+  border-color: var(--destaque-linha);
+  color: var(--tinta);
+}
+
+.cep-corpo { padding: 18px; }
+
+.cep-rotulo {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tinta-suave);
+  margin-bottom: 7px;
+}
+
+.cep-campo {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1.5px solid var(--linha-forte, #8c8278);
+  border-radius: var(--raio-md);
+  font: inherit;
+  font-size: 17px;           /* 16px ou mais: abaixo disso o iPhone dá zoom sozinho */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+}
+
+.cep-campo:focus {
+  outline: none;
+  border-color: var(--marca);
+  box-shadow: 0 0 0 3px var(--marca-clara);
+}
+
+.cep-aviso {
+  min-height: 20px;
+  margin: 8px 0 2px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--tinta-suave);
+}
+
+.cep-aviso[data-erro] { color: var(--corte); font-weight: 600; }
+
+.cep-ok {
+  width: 100%;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 9999px;
+  padding: 14px;
+  background: var(--marca);
+  color: var(--branco);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 48px;
+}
+
+.cep-apagar {
+  width: 100%;
+  margin-top: 8px;
+  border: 0;
+  background: none;
+  padding: 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tinta-suave);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.cep-nota {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--tinta-suave);
+}
+
+@media (min-width: 640px) {
+  /* No computador a folha não vem de baixo: vira um cartão no meio da
+     tela, que é onde o olho já está. */
+  .cep-folha .cat-painel {
+    left: 50%;
+    bottom: auto;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    border-radius: 18px;
+    padding-bottom: 0;
+    animation: none;
   }
 }
