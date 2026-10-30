@@ -1828,23 +1828,44 @@ function filtrarCategoria(familiaId) {
 
 /* =========================
 🏷️ SUBCATEGORIA (dentro da família)
-Vem só de quem a Lista da distribuidora trouxer (ver extrairCategoria.js
-no padronizador) - a maioria do catálogo não tem, e a barra fica
-escondida nesse caso. Calculada a cada troca de família, não guardada
-junto com FAMILIAS: a lista de subcategorias muda a cada publicação,
-diferente da família, que é fixa no código.
+A subcategoria da DPC (ver extrairCategoria.js no padronizador) é a
+mais específica, mas só quem a Lista da distribuidora trouxer tem.
+Pra família não ficar sem separação nenhuma na maioria do catálogo,
+quem não tem subcategoria cai de volta na própria categoria do PDV
+(ex.: dentro de Perfumaria, sem dado da distribuidora ainda separa em
+Perfume/Desodorante/Talco, que é a categoria de cada produto). Só com
+2+ grupos diferentes é que vale mostrar a barra - família com uma
+categoria só (ex.: receita, hoje com só ETICO CONTROLADO) não ganha
+filtro nenhum, "Todas" e o único chip seriam a mesma coisa.
+Calculada a cada troca de família, não guardada junto com FAMILIAS: a
+divisão muda a cada publicação, diferente da família, que é fixa no
+código.
 ========================= */
+function grupoSubBarra(p) {
+  return p.subcategoria || p.categoria || "";
+}
+
+function tituloCaso(texto) {
+  return String(texto || "")
+    .toLowerCase()
+    .replace(/(^|[\s/])\p{L}/gu, letra => letra.toUpperCase());
+}
+
 function subcategoriasComProdutos() {
   if (categoriaAtual === "todas") return [];
 
   const contagem = new Map();
   produtos.forEach(p => {
-    if (p.familia !== categoriaAtual || !p.subcategoria) return;
-    contagem.set(p.subcategoria, (contagem.get(p.subcategoria) || 0) + 1);
+    if (p.familia !== categoriaAtual) return;
+    const chave = grupoSubBarra(p);
+    if (!chave) return;
+    contagem.set(chave, (contagem.get(chave) || 0) + 1);
   });
 
+  if (contagem.size < 2) return [];
+
   return [...contagem.entries()]
-    .map(([nome, total]) => ({ nome, total }))
+    .map(([chave, total]) => ({ chave, nome: tituloCaso(chave), total }))
     .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
@@ -1872,7 +1893,7 @@ function gerarSubfiltros() {
        Todas
      </button>`,
     ...subs.map(s => `
-      <button data-acao="filtrar-sub" data-subcategoria="${esc(s.nome)}" class="${subcategoriaAtual === s.nome ? "ativo" : ""}">
+      <button data-acao="filtrar-sub" data-subcategoria="${esc(s.chave)}" class="${subcategoriaAtual === s.chave ? "ativo" : ""}">
         ${esc(s.nome)}
       </button>`)
   ].join("");
@@ -2078,7 +2099,7 @@ function aplicarFiltro() {
   produtosFiltrados = ordenar(produtos.filter(p => {
     if (modoOfertas && !p.emOferta) return false;
     if (!modoOfertas && categoriaAtual !== "todas" && p.familia !== categoriaAtual) return false;
-    if (!modoOfertas && subcategoriaAtual !== "todas" && p.subcategoria !== subcategoriaAtual) return false;
+    if (!modoOfertas && subcategoriaAtual !== "todas" && grupoSubBarra(p) !== subcategoriaAtual) return false;
     if (termoBusca && !p.busca.includes(termoBusca)) return false;
     return true;
   }));
