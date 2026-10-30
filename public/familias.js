@@ -59,13 +59,17 @@ const FAMILIAS = [
     icone: "fam-cabelo",
     cats: ["SHAMPOO", "CONDICIONADOR", "CREME PENTEAR", "CREME TRATAMENTO", "OLEO CAPILAR",
            "GEL FIXADOR CABELO", "TINTURA", "CR ALIS E MATIZADOR", "KIT SHAMPO/COND",
-           "ESCOVA DE CABELO", "PENTE E ESCOVA"] },
+           "ESCOVA DE CABELO", "PENTE E ESCOVA",
+           // DPCNET (categoria do topo da árvore, ver dpcnet-extrator):
+           "CAPILAR", "COLORACAO"] },
 
   { id: "pele", nome: "Cuidados com a Pele",
     curto: "Pele",
     icone: "fam-pele",
     cats: ["DERMOCOSMETICO", "HIDRATANTE", "PROTETOR SOLAR", "OLEO CORPORAL",
-           "LOÇAO FACIAL", "LOCAO FACIAL", "SABONETE LIQUIDO", "SABONETE BARRA"] },
+           "LOÇAO FACIAL", "LOCAO FACIAL", "SABONETE LIQUIDO", "SABONETE BARRA",
+           // DPCNET:
+           "DERMO", "DERMO PROTETOR"] },
 
   { id: "perfumaria", nome: "Perfumaria",
     icone: "fam-perfume",
@@ -75,27 +79,40 @@ const FAMILIAS = [
     curto: "Higiene",
     icone: "fam-higiene",
     cats: ["HIGIENE BUCAL", "HIGIENE PESSOAL", "ABSORVENTE", "PRESERVATIVO",
-           "PRESTOBARBA", "DEPILATORIO"] },
+           "PRESTOBARBA", "DEPILATORIO",
+           // DPCNET:
+           "HIGIENE ORAL", "BARBA"] },
 
   { id: "beleza", nome: "Beleza e Maquiagem",
     curto: "Beleza",
     icone: "fam-beleza",
-    cats: ["ESMALTES", "MAQUIAGEM"] },
+    cats: ["ESMALTES", "MAQUIAGEM",
+           // DPCNET:
+           "BELEZA"] },
 
   { id: "infantil", nome: "Infantil",
     icone: "fam-infantil",
-    cats: ["LINHA INFANTIL", "FR INFANTIL", "FORMULA LEITE"] },
+    cats: ["LINHA INFANTIL", "FR INFANTIL", "FORMULA LEITE",
+           // DPCNET:
+           "FRALDA", "INFANTIL"] },
 
   { id: "saude", nome: "Saúde e Bem-estar",
     curto: "Saúde",
     icone: "fam-saude",
     cats: ["FR GERIATRICA", "ORTOPED", "LUVAS", "PERF/APLIC/AFERICAO", "REPELENTE",
-           "TESOURA", "OFICINAL HOSPITALAR"] },
+           "TESOURA", "OFICINAL HOSPITALAR",
+           // DPCNET:
+           "SAÚDE"] },
 
   { id: "conveniencia", nome: "Conveniência",
     curto: "Conveniência",
     icone: "fam-conveniencia",
-    cats: ["CONVENIENCIA", "DIVERSOS", "VAREJO", "PREMIUM 10", "HAVAIANA"] }
+    cats: ["CONVENIENCIA", "DIVERSOS", "VAREJO", "PREMIUM 10", "HAVAIANA",
+           // DPCNET - sem família própria que encaixe melhor: ALIMENTO
+           // (achocolatado, adoçante...), LIMPEZA (produto de limpeza
+           // doméstica, não higiene pessoal) e SANDÁLIA (chinelo comum,
+           // não calçado ortopédico - esse sim iria pra Saúde):
+           "BAZAR", "ALIMENTO", "LIMPEZA", "SANDÁLIA"] }
 ];
 
 const FAMILIA_OUTROS = { id: "outros", nome: "Outros", icone: "fam-conveniencia", cats: [] };
