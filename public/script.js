@@ -380,6 +380,7 @@ let produtosFiltrados = [];
 let maisVendidos = [];
 let carrinho = carregarCarrinho();
 let categoriaAtual = "todas";
+let subcategoriaAtual = "todas";
 let termoBusca = "";
 let modoOfertas = false;
 let ordenacao = "relevancia";
@@ -1135,6 +1136,7 @@ function ligarDelegacaoDeCliques() {
     if (acao === "mais")            { ev.preventDefault(); mais(codigo); }
     else if (acao === "menos")      { ev.preventDefault(); menos(codigo); }
     else if (acao === "filtrar")    { ev.preventDefault(); filtrarCategoria(alvo.dataset.familia); }
+    else if (acao === "filtrar-sub") { ev.preventDefault(); filtrarSubcategoria(alvo.dataset.subcategoria); }
     else if (acao === "ofertas")    { ev.preventDefault(); verOfertas(); }
     else if (acao === "receita")    { ev.preventDefault(); falarSobreReceita(codigo); }
     else if (acao === "encomendar") { ev.preventDefault(); encomendarProduto(codigo); }
@@ -1320,6 +1322,9 @@ function mapearProduto(p) {
     marca: p.marca || "",
     laboratorio: p.laboratorio || "",
     categoria: p.categoria || "",
+    // Filtro dentro da família (ver subfiltros) - só quem a Lista da
+    // distribuidora trouxer tem; o resto do catálogo fica sem.
+    subcategoria: p.subcategoria || "",
 
     familia: familia.id,
     familiaNome: familia.nome,
@@ -1803,6 +1808,10 @@ function marcarChipAtivo(chave) {
 
 function filtrarCategoria(familiaId) {
   categoriaAtual = familiaId || "todas";
+  // Subcategoria é filha da família - trocar de família sem zerar isto
+  // deixava "Fita" (de Fralda) ativa depois de entrar em Capilar, onde
+  // não existe, e nenhum produto batia o filtro escondido.
+  subcategoriaAtual = "todas";
   modoOfertas = false;
   termoBusca = "";
   const campoBusca = el("busca");
@@ -1815,6 +1824,64 @@ function filtrarCategoria(familiaId) {
   if (categoriaAtual !== "todas") {
     rolarParaResultados();
   }
+}
+
+/* =========================
+🏷️ SUBCATEGORIA (dentro da família)
+Vem só de quem a Lista da distribuidora trouxer (ver extrairCategoria.js
+no padronizador) - a maioria do catálogo não tem, e a barra fica
+escondida nesse caso. Calculada a cada troca de família, não guardada
+junto com FAMILIAS: a lista de subcategorias muda a cada publicação,
+diferente da família, que é fixa no código.
+========================= */
+function subcategoriasComProdutos() {
+  if (categoriaAtual === "todas") return [];
+
+  const contagem = new Map();
+  produtos.forEach(p => {
+    if (p.familia !== categoriaAtual || !p.subcategoria) return;
+    contagem.set(p.subcategoria, (contagem.get(p.subcategoria) || 0) + 1);
+  });
+
+  return [...contagem.entries()]
+    .map(([nome, total]) => ({ nome, total }))
+    .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
+function marcarSubchipAtivo(chave) {
+  document.querySelectorAll("#subfiltros button").forEach(btn => {
+    btn.classList.toggle("ativo", btn.dataset.subcategoria === chave);
+  });
+}
+
+function gerarSubfiltros() {
+  const container = el("subfiltros");
+  if (!container) return;
+
+  const subs = subcategoriasComProdutos();
+
+  if (!subs.length) {
+    container.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+
+  container.hidden = false;
+  container.innerHTML = [
+    `<button data-acao="filtrar-sub" data-subcategoria="todas" class="${subcategoriaAtual === "todas" ? "ativo" : ""}">
+       Todas
+     </button>`,
+    ...subs.map(s => `
+      <button data-acao="filtrar-sub" data-subcategoria="${esc(s.nome)}" class="${subcategoriaAtual === s.nome ? "ativo" : ""}">
+        ${esc(s.nome)}
+      </button>`)
+  ].join("");
+}
+
+function filtrarSubcategoria(subcategoria) {
+  subcategoriaAtual = subcategoria || "todas";
+  marcarSubchipAtivo(subcategoriaAtual);
+  aplicarFiltro();
 }
 
 /* Quanto do topo da tela está coberto por barra grudada.
@@ -2011,6 +2078,7 @@ function aplicarFiltro() {
   produtosFiltrados = ordenar(produtos.filter(p => {
     if (modoOfertas && !p.emOferta) return false;
     if (!modoOfertas && categoriaAtual !== "todas" && p.familia !== categoriaAtual) return false;
+    if (!modoOfertas && subcategoriaAtual !== "todas" && p.subcategoria !== subcategoriaAtual) return false;
     if (termoBusca && !p.busca.includes(termoBusca)) return false;
     return true;
   }));
@@ -2040,6 +2108,17 @@ function aplicarFiltro() {
 
   if (destaques) destaques.style.display = modoHome ? "" : "none";
   if (atalhos) atalhos.style.display = modoHome ? "" : "none";
+
+  // Subcategoria só faz sentido dentro de uma família escolhida, fora
+  // de busca/ofertas - nos outros casos (vitrine, busca, "Ofertas") o
+  // conjunto de produtos não tem uma família única pra oferecer
+  // subcategoria de dentro dela.
+  if (modoHome || modoOfertas || termoBusca) {
+    const subfiltros = el("subfiltros");
+    if (subfiltros) { subfiltros.hidden = true; subfiltros.innerHTML = ""; }
+  } else {
+    gerarSubfiltros();
+  }
 
   /* O encarte e os banners de parceiro ficavam. Buscar "dip" mostrava a
      chamada do encarte e um banner de 400px de altura, e o primeiro
