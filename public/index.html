@@ -274,20 +274,20 @@
   <span data-loja="cidade-entrega">em São Bernardo do Campo</span>
 </p>
 
-<!-- 🧭 ATALHOS DE CATEGORIA
-     A porta de entrada de quem chega SEM um nome de produto na cabeça —
-     que é a maior parte de quem abre a home e vai embora sem buscar.
+<!-- 🧭 A FILEIRA DE LADRILHOS DE CATEGORIA SAIU DAQUI.
 
-     Os chips de cima continuam onde estavam e servem para outra coisa:
-     eles são filtro do que já está na tela, e leem como filtro. Isto
-     aqui é navegação — ícone, nome e quantos produtos há dentro —, e é o
-     que as duas lojas que servem de referência põem logo abaixo da
-     busca.
+     Ela e os chips logo acima chamavam o MESMO data-acao="filtrar" com
+     o MESMO data-familia — duas fileiras, um comportamento. No
+     computador as duas apareciam inteiras, uma embaixo da outra, e a
+     farmácia disse o óbvio: "as categorias aparecem 2x".
 
-     Nasce vazio e é preenchido pelo renderAtalhos(), depois do
-     catálogo: família sem produto nenhum não vira porta para uma lista
-     vazia. -->
-<nav id="atalhos" class="atalhos" aria-label="Navegar por categoria"></nav>
+     Ficaram os chips, que além de filtrar mostram qual filtro está
+     ativo e trazem o "Ofertas". A navegação com ícone foi para a folha
+     da aba Categorias, no rodapé do celular (abas.js), onde a lista
+     aparece inteira em vez de rolar para o lado cortando nome.
+
+     A curadoria que os ladrilhos tinham não se perdeu: virou o
+     familiasParaNavegar() do script.js, e é a folha que a usa. -->
 
 <!-- 🖼️ OS BANNERS DA LOJA
      Subiram do meio da página para cá, logo abaixo dos atalhos.

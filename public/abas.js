@@ -112,10 +112,19 @@
     var folha = null;
 
     function familias() {
-        /* FAMILIAS vem de familias.js, que a politicas.html não carrega.
-           Sem ela a aba vira o que o href já diz: um link para a home. */
-        if (typeof FAMILIAS === "undefined" || !Array.isArray(FAMILIAS)) return null;
-        return FAMILIAS.filter(function (f) { return !f.receita; });
+        /* A MESMA curadoria que os ladrilhos da home tinham, e que não
+           podia se perder quando eles saíram: fora "Exigem receita"
+           (controlado da Portaria 344, que nem entra no carrinho), fora
+           "Outros" (que não é categoria, é o balde do não classificado)
+           e fora família com menos de 8 produtos (porta para uma lista
+           quase vazia é pior que não ter porta).
+
+           Vem do script.js, que a politicas.html não carrega — e lá a
+           folha não abre: a aba fica sendo o que o href já diz, um link
+           para a home. O catálogo também pode ainda não ter chegado, e
+           aí vale o mesmo. */
+        if (typeof familiasParaNavegar !== "function") return null;
+        try { return familiasParaNavegar(); } catch (e) { return null; }
     }
 
     /* O ícone da família vem do sprite da página, quando ela tem um.

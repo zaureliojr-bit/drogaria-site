@@ -16,7 +16,7 @@
    primeira vez que ele abrir, não na segunda.
    ===================================================== */
 
-const CACHE = "mais-barato-casca-v9";
+const CACHE = "mais-barato-casca-v10";
 
 /* Só a casca. "/index.html" fica de fora porque o Cloudflare Pages
    responde 308 nele e redireciona para "/", e resposta de redirecionamento

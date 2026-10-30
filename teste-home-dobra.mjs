@@ -100,7 +100,7 @@ const medir = (pagina) => pagina.evaluate(() => {
     return {
         grudado: Math.round(grudado),
         teto: getComputedStyle(document.documentElement).getPropertyValue("--teto-grudado").trim(),
-        atalhos: topo("#atalhos"),
+        chips: topo(".filtros, .filtros-chips"),
         /* null quando a seção está com `hidden`: é assim que a medida
            distingue "sem banner" de "banner de altura zero". */
         promos: (() => {
@@ -146,9 +146,26 @@ console.log("\n1. a primeira tela de um celular de 390px");
     conferir(`o primeiro produto aparece antes de 460px (era 441 antes da reforma) — ${m.primeiroProduto}px`,
         m.primeiroProduto !== null && m.primeiroProduto < 460, String(m.primeiroProduto));
 
-    conferir(`os atalhos de categoria vêm antes do primeiro produto — ${m.atalhos}px`,
-        m.atalhos !== null && m.primeiroProduto !== null && m.atalhos < m.primeiroProduto,
-        `atalhos ${m.atalhos} / produto ${m.primeiroProduto}`);
+    /* Era "os atalhos de categoria vêm antes do primeiro produto".
+
+       A fileira de ladrilhos saiu da home: ela e os chips chamavam o
+       mesmo data-acao="filtrar" com o mesmo data-familia, e no
+       computador apareciam inteiras uma embaixo da outra — a farmácia
+       viu e disse "as categorias aparecem 2x". A navegação com ícone
+       foi para a folha da aba Categorias.
+
+       O que o teste guardava continua valendo, só que agora sobre os
+       chips: quem chega sem nome de produto na cabeça encontra por onde
+       entrar ANTES de ver o primeiro preço. */
+    conferir(`as categorias vêm antes do primeiro produto — ${m.chips}px`,
+        m.chips !== null && m.primeiroProduto !== null && m.chips < m.primeiroProduto,
+        `chips ${m.chips} / produto ${m.primeiroProduto}`);
+
+    /* E uma fileira só. Esta asserção existe para a segunda não voltar
+       sem querer, por exemplo num merge. */
+    conferir("e são uma fileira só",
+        await pagina.locator("#atalhos, .atalhos").count() === 0,
+        "a fileira de ladrilhos voltou");
 
     /* O #promos nasce escondido: farmácia sem campanha publicada não
        ganha um buraco no alto da página. */

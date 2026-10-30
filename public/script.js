@@ -1449,7 +1449,8 @@ async function carregar() {
     maisVendidos = escolherDestaques();
 
     gerarFiltros();
-    renderAtalhos();
+    /* A fileira de ladrilhos saiu daqui: virou a folha da aba
+       Categorias (ver familiasParaNavegar). */
     renderCategoriasHome();
     aplicarFiltro();
     renderMaisVendidos();
@@ -2416,9 +2417,23 @@ function renderMais() {
    escolhe categoria por tamanho de estoque; ele escolhe pelo que veio
    buscar. O número continua existindo onde serve: no título de cada
    seção da home ("Infantil 329") e no painel. */
-function renderAtalhos() {
-  const container = el("atalhos");
-  if (!container) return;
+/* AS FAMÍLIAS QUE VIRAM PORTA DE ENTRADA.
+
+   Isto era o renderAtalhos(), que desenhava uma fileira de ladrilhos
+   logo abaixo da busca. A fileira saiu: ela e os chips de cima
+   chamavam o MESMO data-acao="filtrar" com o MESMO data-familia, e no
+   computador as duas apareciam inteiras, uma embaixo da outra. A
+   farmácia viu e disse o óbvio: "as categorias aparecem 2x".
+
+   Ficaram os chips, que além de filtrar mostram QUAL filtro está ativo
+   e trazem o "Ofertas". A navegação com ícone, que era o que os
+   ladrilhos ofereciam de diferente, está na folha da aba Categorias —
+   lista inteira, sem rolagem lateral cortando nome.
+
+   O que NÃO podia sair com eles é a curadoria abaixo. Ela não é
+   estética, e a folha de categorias passou a usá-la: sem ela, a folha
+   oferecia família sem produto nenhum e levava a uma lista vazia. */
+function familiasParaNavegar() {
 
   /* Três exclusões, e nenhuma é estética:
 
@@ -2435,20 +2450,9 @@ function renderAtalhos() {
      E família com menos de 8 produtos sai porque atalho leva a uma
      lista — "Beleza e Maquiagem 1" é uma porta para um produto só, que
      é pior que não ter a porta. */
-  const familias = familiasComProdutos()
+  return familiasComProdutos()
     .filter(f => !f.receita && f.id !== FAMILIA_OUTROS.id && f.total >= 8);
 
-  if (!familias.length) {
-    container.innerHTML = "";
-    return;
-  }
-
-  container.innerHTML = familias.map(f => `
-    <button class="atalho" data-acao="filtrar" data-familia="${esc(f.id)}"
-            aria-label="Ver ${esc(f.nome)} — ${f.total} produtos">
-      <span class="atalho-ic">${icone(f.icone || "fam-conveniencia", 22)}</span>
-      <span class="atalho-nome">${esc(f.curto || f.nome)}</span>
-    </button>`).join("");
 }
 
 function renderMaisVendidos() {
