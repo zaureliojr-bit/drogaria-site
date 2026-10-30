@@ -89,6 +89,13 @@
   --filtro-h: 58px;
   --filtro-barra-h: 5px;   /* altura da barra de rolagem dos filtros */
   --carrinho-barra-h: 52px;
+
+  /* A barra de abas do rodapé. Zero por padrão: ela só existe no
+     celular, e com a altura em 0 todas as contas abaixo (padding do
+     corpo, posição da barra do carrinho, do toast) continuam valendo
+     no computador sem um `if` em cada uma. Quem liga é a media query
+     lá embaixo. */
+  --abas-h: 0px;
 }
 
 /* ========================= */
@@ -104,8 +111,9 @@ body {
   color: var(--tinta);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
-  /* espaço para a barra do carrinho, que é fixa no rodapé da tela */
-  padding-bottom: calc(var(--carrinho-barra-h) + env(safe-area-inset-bottom, 0px));
+  /* espaço para as duas barras fixas do rodapé: a de abas (celular) e
+     a do carrinho, que fica acima dela quando há itens */
+  padding-bottom: calc(var(--abas-h) + var(--carrinho-barra-h) + env(safe-area-inset-bottom, 0px));
 }
 
 /* O atributo hidden é display:none vindo do navegador — folha de estilo
@@ -1382,11 +1390,15 @@ h1, h2 { font-family: var(--fonte-titulo); }
    carrinho num toque. */
 .carrinho {
   position: fixed;
-  bottom: 0;
+  /* Acima da barra de abas, nunca por cima dela: é assim que o
+     aplicativo de entrega que o cliente já usa se comporta, e tapar a
+     navegação com o resumo do carrinho prenderia quem quisesse voltar
+     para a vitrine. No computador --abas-h é 0 e ela encosta no pé da
+     tela como sempre. */
+  bottom: calc(var(--abas-h) + env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   z-index: 2000;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--marca);
   box-shadow: var(--sombra-lg);
 
@@ -1789,7 +1801,7 @@ body.sem-barra-carrinho .carrinho { display: none; }
 /* ========================= */
 .toast {
   position: fixed;
-  bottom: calc(var(--carrinho-barra-h) + 24px);
+  bottom: calc(var(--abas-h) + var(--carrinho-barra-h) + 24px);
   left: 50%;
   transform: translateX(-50%) translateY(20px);
   background: var(--tinta);
@@ -3403,3 +3415,197 @@ body.com-aviso { overflow: hidden; }
 .aviso-vazio-whats:hover { filter: brightness(1.05); }
 .aviso-vazio-whats:active { transform: scale(.98); }
 .aviso-vazio-whats:focus-visible { outline: 3px solid var(--marca); outline-offset: 3px; }
+
+
+/* ========================= */
+/* 📱 BARRA DE ABAS (celular) */
+/* ========================= */
+
+/* Quatro destinos fixos no rodapé — Início, Categorias, Encarte e
+   Carrinho —, montados pelo abas.js. Gramática de telefone: no
+   computador a barra não existe e --abas-h fica em 0, o que já ajusta
+   sozinho o padding do corpo, a barra do carrinho e o toast. */
+.abas { display: none; }
+.cat-folha { display: none; }
+
+@media (max-width: 639px) {
+
+  :root { --abas-h: 58px; }
+
+  .abas {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    /* Acima da barra do carrinho (2000): o resumo do carrinho desliza
+       para cima DELA, não por cima dela. */
+    z-index: 2100;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--branco);
+    border-top: 1px solid var(--linha);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -2px 14px rgba(20, 23, 40, .07);
+  }
+
+  .aba {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    /* 58px de alvo de toque: acima dos 44px mínimos, porque esta barra
+       fica na zona do polegar e é usada em pé, andando. */
+    min-height: var(--abas-h);
+    padding: 7px 2px 6px;
+    text-decoration: none;
+    color: var(--tinta-suave);
+    font-family: var(--fonte-corpo);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .aba:active { background: var(--marca-xclara); }
+
+  .aba-rotulo {
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -.01em;
+  }
+
+  /* A aba acesa: azul da marca, com um traço amarelo no topo. O traço
+     existe porque cor sozinha não basta — quem não distingue bem as
+     cores precisa de uma segunda pista, e o aria-current cuida de quem
+     usa leitor de tela. */
+  .aba-acesa { color: var(--marca); }
+
+  .aba-acesa::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 30px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--destaque);
+  }
+
+  /* O contador, na quina do ícone do carrinho. Amarelo com letra
+     escura, como manda a regra do amarelo. */
+  .aba-conta {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    margin-left: 4px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 9999px;
+    background: var(--destaque);
+    color: var(--sobre-destaque);
+    font-family: var(--fonte-titulo);
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 17px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- a folha de categorias ---- */
+
+  .cat-folha {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+  }
+
+  .cat-fundo {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 23, 40, .45);
+  }
+
+  .cat-painel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 72vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--branco);
+    border-radius: 18px 18px 0 0;
+    padding-bottom: calc(var(--abas-h) + env(safe-area-inset-bottom, 0px));
+    animation: cat-sobe .22s ease;
+  }
+
+  @keyframes cat-sobe {
+    from { transform: translateY(14%); opacity: .6; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+
+  .cat-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--linha);
+    font-family: var(--fonte-titulo);
+    font-size: 16px;
+    color: var(--tinta);
+  }
+
+  .cat-x {
+    border: 0;
+    background: none;
+    font-size: 26px;
+    line-height: 1;
+    color: var(--tinta-suave);
+    padding: 0 6px;
+    cursor: pointer;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .cat-lista { overflow-y: auto; }
+
+  .cat-linha {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 52px;
+    padding: 14px 18px;
+    border: 0;
+    border-bottom: 1px solid var(--marca-xclara);
+    background: none;
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--tinta);
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .cat-linha:active { background: var(--marca-clara); }
+
+  /* Com a folha aberta, a página atrás não rola junto. */
+  body.com-folha { overflow: hidden; }
+
+}
+
+@media (max-width: 639px) {
+  /* O ícone da família na folha de categorias. Mesmo círculo claro dos
+     atalhos da home, para as duas portas de entrada lerem como a mesma
+     coisa. */
+  .cat-ic {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    margin-right: 13px;
+    color: var(--marca);
+  }
+}
