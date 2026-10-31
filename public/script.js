@@ -1164,6 +1164,52 @@ const TARJA_ROTULO = {
   L: "Isento de prescrição"
 };
 
+/* =========================
+🏷️ OS NOMES DOS SUBFILTROS
+=========================
+
+Os rótulos da barra de subcategoria nascem do texto CRU: a categoria da
+Lista da distribuidora quando existe, senão a categoria do PDV. É código
+interno virando texto para o cliente — medido no catálogo de hoje, dava
+"Gener/Similar S/Gt", "Etico", "Fr Geriatrica", "Perf/Aplic/Afericao",
+"Varejo", e 64 chips rolando para o lado só em Higiene Pessoal.
+
+Este arquivo guarda o que a LOJA escreveu por cima: o nome que o cliente
+lê e o que ela decidiu esconder. Fica no mesmo lugar genérico onde a CMED
+e a lista da distribuidora já moram (imagens-proxy, /referencias/:chave),
+gravado pelo painel com a senha da loja e lido daqui sem chave nenhuma.
+
+É de leitura pública e de propósito: não há nada aqui que não esteja na
+tela da loja um segundo depois.
+
+Falhar aqui não pode apagar a barra: sem o dicionário, cada rótulo volta
+a ser o texto cru em Maiúsculas, que é como ele estava antes. */
+const API_ROTULOS_SUB =
+  "https://farmatech-imagens-proxy.zaureliojr.workers.dev/referencias/subcategorias";
+
+let ROTULOS_SUB = null;
+
+/* chaveRotulo() mora no familias.js, que o site e o painel carregam:
+   a chave tem de ser a mesma nos dois. */
+
+async function carregarRotulosSub() {
+  try {
+    const resposta = await fetch(API_ROTULOS_SUB);
+    if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+    const dados = await resposta.json();
+    ROTULOS_SUB = (dados && dados.rotulos) || {};
+  } catch (e) {
+    /* Sem dicionário a barra continua como era: texto cru em
+       Maiúsculas. Nunca vazia. */
+    ROTULOS_SUB = {};
+  }
+}
+
+/* O que a loja escreveu para esta chave, ou nada. */
+function rotuloEditado(chave) {
+  return (ROTULOS_SUB && ROTULOS_SUB[chaveRotulo(chave)]) || null;
+}
+
 async function carregarTarjas() {
   try {
     const resposta = await fetch(API_TARJAS);
@@ -1419,7 +1465,9 @@ async function carregar() {
     if (!lista) {
       // as duas descidas em paralelo: a tarja precisa estar na mão antes
       // de mapear os produtos, senão o bloqueio sai errado.
-      const [resposta] = await Promise.all([fetch(API_PRODUTOS), carregarTarjas()]);
+      const [resposta] = await Promise.all([
+        fetch(API_PRODUTOS), carregarTarjas(), carregarRotulosSub()
+      ]);
       if (!resposta.ok) throw new Error("HTTP " + resposta.status);
 
       const dados = await resposta.json();
@@ -1854,19 +1902,77 @@ function tituloCaso(texto) {
 function subcategoriasComProdutos() {
   if (categoriaAtual === "todas") return [];
 
+  /* JUNTA pela chave normalizada, não pelo texto cru.
+
+     O catálogo de hoje tem "Creme De Tratamento" e "Creme Tratamento"
+     na mesma família, e a barra mostrava os dois como se fossem
+     coisas diferentes. A normalização é a mesma que o painel usa para
+     gravar o nome editado — se as duas divergirem, a loja renomeia um
+     rótulo e o site continua mostrando o outro. */
   const contagem = new Map();
+
   produtos.forEach(p => {
     if (p.familia !== categoriaAtual) return;
-    const chave = grupoSubBarra(p);
+    const cru = grupoSubBarra(p);
+    if (!cru) return;
+    const chave = chaveRotulo(cru);
     if (!chave) return;
-    contagem.set(chave, (contagem.get(chave) || 0) + 1);
+
+    const atual = contagem.get(chave) || { total: 0, grafias: new Map() };
+    atual.total++;
+    /* Guarda COMO cada produto escreveu, para o nome automático do
+       chip juntado ser a grafia mais comum e não a chave normalizada:
+       entre "Creme De Tratamento" (99) e "Creme Tratamento" (3), o
+       cliente lê a de 99. Sem isto o chip sairia "Creme Tratamento",
+       porque a normalização tira o "de". */
+    atual.grafias.set(cru, (atual.grafias.get(cru) || 0) + 1);
+    contagem.set(chave, atual);
   });
 
-  if (contagem.size < 2) return [];
+  const grafiaMaisComum = (grafias) =>
+    [...grafias.entries()].sort((a, b) => b[1] - a[1])[0][0];
 
-  return [...contagem.entries()]
-    .map(([chave, total]) => ({ chave, nome: tituloCaso(chave), total }))
-    .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR"));
+  const familia = FAMILIAS.find(f => f.id === categoriaAtual);
+
+  const lista = [...contagem.entries()].map(([chave, dados]) => {
+    const editado = rotuloEditado(chave);
+    const total = dados.total;
+    return {
+      chave,
+      nome: (editado && editado.nome) || tituloCaso(grafiaMaisComum(dados.grafias)),
+      total,
+      oculto: !!(editado && editado.oculto),
+      /* O rótulo que REPETE o nome da família não filtra nada: dentro
+         de Higiene Pessoal, o chip "Higiene Pessoal" tinha 1.201 de
+         1.201 produtos. É o "Todas" com outro nome, e some sozinho —
+         sem a loja precisar esconder um por um. */
+      ehAFamilia: !!familia && chaveRotulo(familia.nome) === chave
+    };
+  });
+
+  const visiveis = lista
+    .filter(s => !s.oculto && !s.ehAFamilia)
+    .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR"))
+    /* TETO DE OITO.
+
+       Esta é a regra que faz a barra existir. Sem ela o catálogo de
+       hoje dá 61 chips em Higiene Pessoal e 93 em Outros — 276 no
+       total, rolando para o lado. Isso não é filtro, é parede, e
+       nenhuma quantidade de renomear conserta.
+
+       Oito porque os oito maiores cobrem de 84% a 100% dos produtos
+       de cada família (Higiene Pessoal é a exceção, com 58%): quem
+       procura pelo subfiltro encontra, e quem procura pelo resto usa a
+       busca, que é melhor para isso de qualquer jeito.
+
+       Vem DEPOIS do que a loja escondeu, de propósito: esconder o
+       primeiro promove o nono. É assim que ela escolhe quais oito
+       aparecem, sem precisar de uma tela de ordenação. */
+    .slice(0, 8);
+
+  /* Menos de dois chips não é filtro: ou está tudo num só, ou sobrou
+     um. A barra inteira sai. */
+  return visiveis.length < 2 ? [] : visiveis;
 }
 
 function marcarSubchipAtivo(chave) {
@@ -2099,7 +2205,12 @@ function aplicarFiltro() {
   produtosFiltrados = ordenar(produtos.filter(p => {
     if (modoOfertas && !p.emOferta) return false;
     if (!modoOfertas && categoriaAtual !== "todas" && p.familia !== categoriaAtual) return false;
-    if (!modoOfertas && subcategoriaAtual !== "todas" && grupoSubBarra(p) !== subcategoriaAtual) return false;
+    /* Pela chave NORMALIZADA, igual à que monta os chips. O chip
+       carrega a chave normalizada; comparar com o texto cru deixaria
+       "Creme Tratamento" de fora do chip "Creme De Tratamento", que é
+       justamente o par que a normalização juntou. */
+    if (!modoOfertas && subcategoriaAtual !== "todas"
+        && chaveRotulo(grupoSubBarra(p)) !== subcategoriaAtual) return false;
     if (termoBusca && !p.busca.includes(termoBusca)) return false;
     return true;
   }));

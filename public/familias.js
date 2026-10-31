@@ -129,3 +129,38 @@ function nomeFamilia(id) {
   const f = FAMILIAS.find(x => x.id === id);
   return f ? f.nome : FAMILIA_OUTROS.nome;
 }
+
+
+/* =====================================================
+   A CHAVE DE UM RÓTULO DE SUBFILTRO
+   =====================================================
+
+   Mora aqui, e não no script.js nem no painel.html, porque os DOIS
+   precisam dela e precisam que seja a mesma: o painel grava o nome
+   editado sob esta chave e o site procura por ela. Se as duas
+   divergirem, a loja renomeia um rótulo e o site continua mostrando o
+   antigo — defeito que ninguém liga a esta função.
+
+   O que ela resolve, medido no catálogo publicado:
+
+     "Creme De Tratamento" (99 produtos)  e  "Creme Tratamento" (3)
+     "Dermocosmetico"                     e  "Dermocosmético"
+
+   eram chips separados para a mesma coisa. Renomear não juntaria: daria
+   dois chips com o mesmo nome, que é pior.
+
+   Por isso ela tira acento e tira as palavrinhas de ligação. Não tira
+   "com" nem "para": "shampoo com condicionador" e "shampoo para
+   cachos" são coisas diferentes, e juntar seria pior que separar. */
+function chaveRotulo(texto) {
+
+  return String(texto || "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter((palavra) => !/^(de|da|do|das|dos|e)$/.test(palavra))
+    .join(" ");
+
+}

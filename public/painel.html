@@ -1883,6 +1883,21 @@
       <input type="text" id="buscaImagemProduto" placeholder="Busca por código, nome ou EAN..." class="busca-imagem-produto">
       <div class="tabela-wrap" id="buscaImagemResultado"></div>
 
+      <h2 style="margin-top:22px">Nomes dos subfiltros <small id="contagemRotulos"></small></h2>
+      <p class="lojas-explica">
+        S&atilde;o os bot&otilde;es que aparecem dentro de cada categoria no site. O nome
+        vem do seu PDV ou da lista da distribuidora, e nem sempre &eacute; o nome
+        que o cliente entende &mdash; <b>&ldquo;Gener/Similar S/Gt&rdquo;</b> &eacute; um exemplo real.
+        Escreva aqui como voc&ecirc; quer que apare&ccedil;a, ou esconda o que n&atilde;o serve.
+        Vale para as duas lojas, e o site muda sem precisar republicar.
+      </p>
+      <div class="fila-topo">
+        <span class="pedido-quando" id="statusRotulos">Carregando o cat&aacute;logo...</span>
+        <button type="button" id="salvarRotulos" class="btn-testar-som" disabled>Salvar</button>
+      </div>
+      <div id="avisoRotulos"></div>
+      <div id="listaRotulos"></div>
+
       <h2 style="margin-top:22px">Fotos pela listagem da distribuidora</h2>
       <div class="fila-topo">
         <span class="pedido-quando" id="statusDpc">A listagem da DPCNET est&aacute; no servidor &mdash; ela cobre boa parte da perfumaria e da higiene.</span>
@@ -1947,6 +1962,13 @@
 /* Endereço do worker de pedidos. Precisa ser o mesmo valor que está em
    API_PEDIDOS_D1 no script.js — sem ele o painel não tem de onde ler. */
 const API = "https://farmatech-pedidos-proxy.zaureliojr.workers.dev";
+
+/* O banco de imagens e das listas de referência. Entra aqui só para
+   LER (os nomes dos subfiltros já salvos): é rota pública, sem chave.
+   Gravar continua passando pelo porteiro acima, com a senha do painel —
+   a chave do banco de imagens nunca esteve neste arquivo e não vai
+   estar. */
+const PROXY_IMAGENS = "https://farmatech-imagens-proxy.zaureliojr.workers.dev";
 
 const el = id => document.getElementById(id);
 const esc = t => String(t ?? "").replace(/[&<>"']/g, c =>
@@ -3676,7 +3698,11 @@ async function abrirPainel() {
   el("conteudo").style.display = "";
   await carregarSessao();
   ligarPolling();
-  carregarCatalogo().then(() => { if (fila.length) pintarFila(); renderizarSemImagem(); });
+  carregarCatalogo().then(() => {
+    if (fila.length) pintarFila();
+    renderizarSemImagem();
+    montarRotulos().catch(() => {});
+  });
 
   // Verifica e publica sozinho ao abrir o painel, e depois a cada 10
   // minutos enquanto a aba ficar aberta - assim uma extração que chega
@@ -3988,6 +4014,10 @@ async function carregarCatalogo() {
         imagem: p.imagem || "",
         nome: p.descricao || "",
         categoria: (p.categoria || "").trim().toUpperCase(),
+        /* O que vira chip na barra de subfiltro do site. Vinha sendo
+           descartado aqui, e sem ele a tela de nomes não teria o que
+           listar nem como contar. */
+        subcategoria: p.subcategoria || "",
         marca: (p.marca || p.laboratorio || "").trim(),
         preco: numeroBR(p.precoVenda),
         promoPlanilha: numeroBR(p.precoPromocao),
@@ -6017,6 +6047,225 @@ el("pararDpc").addEventListener("click", () => {
   el("pararDpc").hidden = true;
   el("statusDpc").textContent += " Parando (termina o que já começou)...";
 });
+
+/* =====================================================
+   OS NOMES DOS SUBFILTROS
+   =====================================================
+
+   A barra de subcategoria do site mostra o texto CRU que vem do PDV ou
+   da lista da distribuidora. Medido no catálogo de hoje: 284 rótulos,
+   64 deles só em Higiene Pessoal, com coisas como "Gener/Similar S/Gt",
+   "Etico", "Fr Geriatrica", "Perf/Aplic/Afericao" e "Varejo". É código
+   interno virando texto para o cliente.
+
+   Esta tela é onde a loja escreve por cima. Grava num JSON no servidor
+   (a mesma rota genérica onde a CMED e a lista da distribuidora já
+   moram), e o site lê na hora — sem publicação, sem deploy.
+
+   DUAS COISAS QUE A TELA NÃO PEDE PARA A LOJA FAZER, porque o site já
+   resolve sozinho: o rótulo que repete o nome da família (o chip
+   "Higiene Pessoal" dentro de Higiene Pessoal, com 1.201 de 1.201
+   produtos) e os rótulos que só diferem por espaço ou maiúscula
+   ("Creme De Tratamento" e "Creme Tratamento"). Pedir que alguém
+   arrumasse isso à mão, 284 vezes, seria empurrar para a loja um
+   trabalho que é do código.
+   ===================================================== */
+
+const ROTULOS_CHAVE = "subcategorias";
+
+/* chaveRotulo() mora no familias.js, que o site e o painel carregam:
+   a chave tem de ser a mesma nos dois. */
+
+function tituloCaso(texto) {
+  return String(texto || "").toLowerCase()
+    .replace(/(^|[\s/])\p{L}/gu, (letra) => letra.toUpperCase());
+}
+
+// o que está gravado hoje: chave -> { nome, oculto }
+let rotulosSalvos = {};
+// o que a tela montou a partir do catálogo: família -> [{chave,total}]
+let rotulosPorFamilia = new Map();
+
+function avisoRotulos(msg, tipo = "erro") {
+  el("avisoRotulos").innerHTML = msg
+    ? `<div class="${tipo === "ok" ? "aviso-ok" : "erro"}">${esc(msg)}</div>`
+    : "";
+}
+
+async function carregarRotulosSalvos() {
+  try {
+    const r = await fetch(PROXY_IMAGENS + "/referencias/" + ROTULOS_CHAVE);
+    if (!r.ok) return {};
+    const d = await r.json();
+    return (d && d.rotulos) || {};
+  } catch (e) {
+    /* Servidor fora: a tela ainda monta com o catálogo e mostra os
+       nomes automáticos. Só não traz o que já foi editado — e por isso
+       salvar fica bloqueado até conseguir ler, senão um Salvar apagaria
+       o trabalho anterior. */
+    return null;
+  }
+}
+
+async function montarRotulos() {
+
+  const cat = await carregarCatalogo();
+
+  rotulosSalvos = await carregarRotulosSalvos();
+
+  if (rotulosSalvos === null) {
+    el("statusRotulos").textContent = "Não consegui ler os nomes salvos.";
+    avisoRotulos("Sem isso, salvar apagaria o que já estava escrito. Tente de novo daqui a pouco.");
+    rotulosSalvos = {};
+    return;
+  }
+
+  /* Conta por família, do jeito que o site conta: o chip nasce da
+     subcategoria da distribuidora e, quando ela não existe, da
+     categoria do PDV. */
+  rotulosPorFamilia = new Map();
+
+  for (const p of cat.values()) {
+    const familia = familiaDe(p.categoria);
+    if (!familia) continue;
+    const chave = chaveRotulo(p.subcategoria || p.categoria);
+    if (!chave) continue;
+    if (!rotulosPorFamilia.has(familia.id)) {
+      rotulosPorFamilia.set(familia.id, { nome: familia.nome, itens: new Map() });
+    }
+    const m = rotulosPorFamilia.get(familia.id).itens;
+    const atual = m.get(chave) || { total: 0, grafias: new Map() };
+    atual.total++;
+    /* A grafia mais comum é o nome automático que o site mostra — o
+       mesmo cálculo do script.js. É ela que tem de aparecer aqui como
+       placeholder, senão a loja vê um nome na tela dela e outro no
+       site, e vai "corrigir" o que já estava certo. */
+    const cru = String(p.subcategoria || p.categoria || "").trim();
+    atual.grafias.set(cru, (atual.grafias.get(cru) || 0) + 1);
+    m.set(chave, atual);
+  }
+
+  const grafiaMaisComum = (grafias) =>
+    [...grafias.entries()].sort((a, b) => b[1] - a[1])[0][0];
+
+  const linhas = [];
+  let total = 0;
+
+  for (const [fid, { nome, itens }] of rotulosPorFamilia) {
+
+    /* O site só desenha a barra com dois chips ou mais. Família com um
+       só não tem subfiltro, e listá-la aqui seria oferecer para editar
+       o que ninguém vê. */
+    if (itens.size < 2) continue;
+
+    const daFamilia = chaveRotulo(nome);
+
+    const subs = [...itens.entries()]
+      .filter(([chave]) => chave !== daFamilia)
+      .sort((a, b) => b[1].total - a[1].total);
+
+    if (subs.length < 2) continue;
+
+    total += subs.length;
+
+    /* O site mostra no máximo OITO chips por família, os maiores. Quem
+       está editando precisa saber quais são: renomear o 40º é trabalho
+       que ninguém vai ver. Os que aparecem ganham a marca; esconder um
+       dos oito promove o nono, e é assim que a loja escolhe quais
+       aparecem sem uma tela de ordenação. */
+    const NO_AR = 8;
+    const aparecem = subs.filter(([chave]) => !(rotulosSalvos[chave] || {}).oculto)
+      .slice(0, NO_AR).map(([chave]) => chave);
+
+    linhas.push(`
+      <details class="rotulo-familia">
+        <summary>${esc(nome)} <small>${aparecem.length} no ar &middot; ${subs.length} no total</small></summary>
+        ${subs.map(([chave, dados]) => {
+          const salvo = rotulosSalvos[chave] || {};
+          const automatico = tituloCaso(grafiaMaisComum(dados.grafias));
+          return `
+          <div class="rotulo-linha${aparecem.includes(chave) ? " rotulo-no-ar" : ""}">
+            <span class="rotulo-cru" title="${esc(chave)}">${esc(automatico)}<small>${dados.total}</small></span>
+            <input type="text" maxlength="40" data-rotulo="${esc(chave)}"
+                   value="${esc(salvo.nome || "")}" placeholder="${esc(automatico)}">
+            <label class="rotulo-esconder">
+              <input type="checkbox" data-ocultar="${esc(chave)}" ${salvo.oculto ? "checked" : ""}>
+              esconder
+            </label>
+          </div>`;
+        }).join("")}
+      </details>`);
+  }
+
+  el("listaRotulos").innerHTML = linhas.length
+    ? linhas.join("")
+    : `<div class="vazio">Nenhuma categoria tem subfiltro no site ainda.</div>`;
+
+  el("contagemRotulos").textContent = total ? `(${total})` : "";
+  el("statusRotulos").textContent = total
+    ? `${linhas.length} categorias com subfiltro. O site mostra os 8 maiores de cada uma — ` +
+      `marcados em azul. Campo vazio usa o nome automático.`
+    : "Nada para editar.";
+
+  el("salvarRotulos").disabled = !total;
+}
+
+async function salvarRotulos() {
+
+  const botao = el("salvarRotulos");
+  botao.disabled = true;
+  botao.textContent = "Salvando...";
+  avisoRotulos("");
+
+  /* Só o que FOI editado entra no arquivo. Gravar os 284 com o nome
+     automático dentro engordaria um JSON que o site baixa em toda
+     abertura, e no dia em que o nome automático mudasse o arquivo
+     estaria segurando o antigo sem ninguém ter pedido. */
+  const rotulos = {};
+
+  document.querySelectorAll("[data-rotulo]").forEach((campo) => {
+    const chave = campo.dataset.rotulo;
+    const nome = campo.value.trim();
+    const caixa = document.querySelector(`[data-ocultar="${CSS.escape(chave)}"]`);
+    const oculto = !!(caixa && caixa.checked);
+    if (!nome && !oculto) return;
+    rotulos[chave] = oculto ? { nome: nome || undefined, oculto: true } : { nome };
+  });
+
+  try {
+
+    const r = await fetch(`${API.replace(/\/+$/, "")}/catalogo/referencia/${ROTULOS_CHAVE}`, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        versao: 1,
+        atualizadoEm: new Date().toISOString(),
+        rotulos
+      })
+    });
+
+    if (r.status === 401) throw new Error("Senha do painel incorreta.");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+
+    rotulosSalvos = rotulos;
+
+    const editados = Object.keys(rotulos).length;
+    avisoRotulos(
+      editados
+        ? `${editados} ${editados === 1 ? "nome salvo" : "nomes salvos"}. O site já mostra — quem estiver com a página aberta vê ao recarregar.`
+        : "Tudo voltou ao nome automático.",
+      "ok"
+    );
+
+  } catch (e) {
+    avisoRotulos("Não consegui salvar: " + e.message);
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Salvar";
+  }
+}
+
+el("salvarRotulos").addEventListener("click", () => { salvarRotulos().catch(() => {}); });
 
 el("verificarCatalogo").addEventListener("click", verificarEPublicarCatalogo);
 
