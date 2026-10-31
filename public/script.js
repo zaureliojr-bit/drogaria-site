@@ -1193,6 +1193,17 @@ let ROTULOS_SUB = null;
    a chave tem de ser a mesma nos dois. */
 
 async function carregarRotulosSub() {
+
+  /* Só onde existe a barra de subcategoria, que é a home. A página do
+     produto, o carrinho, o encarte e a de políticas carregam o mesmo
+     script.js e não têm essa barra — buscar o dicionário lá é uma ida
+     à rede por nada, e o 400 de uma referência ainda não criada
+     aparecia no console de todas elas. */
+  if (!document.getElementById("subfiltros")) {
+    ROTULOS_SUB = {};
+    return;
+  }
+
   try {
     const resposta = await fetch(API_ROTULOS_SUB);
     if (!resposta.ok) throw new Error("HTTP " + resposta.status);
@@ -1948,14 +1959,30 @@ divisão muda a cada publicação, diferente da família, que é fixa no
 código.
 ========================= */
 function grupoSubBarra(p) {
+
+  /* EM MEDICAMENTO, O GRUPO FARMACOLÓGICO GANHA.
+
+     Os 1.930 remédios que cruzaram com a CMED passam a se agrupar por
+     para que servem, e não por como a farmácia os compra. Os outros
+     1.304 continuam na classe do PDV — foi a escolha da loja, e é a
+     que não esconde produto nenhum: a barra mistura dois critérios,
+     mas ninguém some num balde "Outros".
+
+     Vale só onde a família é de medicamento. Em Higiene Pessoal a
+     CMED classifica 2 produtos em 2.085, e deixar esses dois virarem
+     grupo próprio seria uma prateleira de duas unidades ao lado de
+     uma de mil. */
+  if (p.ehMedicamento) {
+    const grupo = grupoFarmacologico(p.classeTerapeutica);
+    if (grupo) return grupo;
+  }
+
   return p.subcategoria || p.categoria || "";
+
 }
 
-function tituloCaso(texto) {
-  return String(texto || "")
-    .toLowerCase()
-    .replace(/(^|[\s/])\p{L}/gu, letra => letra.toUpperCase());
-}
+/* tituloCaso() mora no familias.js, junto da chaveRotulo: o nome
+   automático tem de ser o mesmo no site e no painel. */
 
 function subcategoriasComProdutos() {
   if (categoriaAtual === "todas") return [];
@@ -1999,7 +2026,7 @@ function subcategoriasComProdutos() {
     const total = dados.total;
     return {
       chave,
-      nome: (editado && editado.nome) || tituloCaso(grafiaMaisComum(dados.grafias)),
+      nome: (editado && editado.nome) || rotuloDeExibicao(grafiaMaisComum(dados.grafias)),
       total,
       oculto: !!(editado && editado.oculto),
       /* O rótulo que REPETE o nome da família não filtra nada: dentro

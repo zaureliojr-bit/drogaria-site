@@ -442,6 +442,105 @@ console.log("\n9. um ciclo não trava a tela");
     await contexto.close();
 }
 
+/* ---- 10. o grupo farmacológico da CMED ------------------------------- */
+console.log("\n10. em medicamento, o grupo da CMED manda");
+{
+    /* A classificação do PDV diz como a farmácia COMPRA ("Etico",
+       "Generico"); a da CMED diz para que o remédio SERVE. Quem chega
+       com "dor nas costas" na cabeça não encontra nada em "Etico".
+
+       Aqui tem de tudo: com classe CMED, sem classe, com letra que não
+       virou grupo, e um produto de higiene com classe (que existe no
+       catálogo real: 2 em 2.085). */
+    const MISTO = { produtos: [
+        ...Array.from({ length: 7 }, () => item({ categoria: "ETICO",
+            classeTerapeutica: "M1A1 - ANTIRREUMÁTICOS NÃO ESTEROIDAIS PUROS" })),
+        ...Array.from({ length: 5 }, () => item({ categoria: "GENERICO",
+            classeTerapeutica: "C10A1 - ESTATINAS, INIBIDORES DA REDUTASE HMG-CoA" })),
+        /* Sem classe: mantém a classe do PDV — a escolha da loja. */
+        ...Array.from({ length: 6 }, () => item({ categoria: "SIMILAR" })),
+        /* Letra fora da lista (V tem 5 produtos no catálogo real): não
+           vira grupo, cai na classe do PDV. */
+        ...Array.from({ length: 4 }, () => item({ categoria: "ETICO",
+            classeTerapeutica: "V8A - OUTROS PRODUTOS" })),
+        /* Fora de medicamento COM classe da CMED (acontece: 2 em 2.085
+           produtos de Higiene Pessoal no catálogo real). Não pode virar
+           grupo lá. SHAMPOO e CONDICIONADOR são da família Cabelo. */
+        ...Array.from({ length: 9 }, () => item({ categoria: "SHAMPOO",
+            classeTerapeutica: "D11A - OUTRAS PREPARAÇÕES DERMATOLÓGICAS" })),
+        ...Array.from({ length: 9 }, () => item({ categoria: "CONDICIONADOR" }))
+    ] };
+
+    const contexto = await navegador.newContext({ viewport: { width: 1280, height: 900 } });
+    const pagina = await contexto.newPage();
+
+    await pagina.route(/farmatech-pedidos-proxy/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" }, body: "{}" }));
+    await pagina.route(/referencias\/subcategorias/, (r) => r.fulfill({ status: 404, body: "" }));
+    await pagina.route(/raw\.githubusercontent|produtos.*\.json/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(MISTO) }));
+
+    await pagina.goto(BASE + "/", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await pagina.waitForTimeout(2500);
+    await pagina.keyboard.press("Escape").catch(() => {});
+    await pagina.click('[data-acao="filtrar"][data-familia="medicamentos"]');
+    await pagina.waitForTimeout(900);
+
+    const lista = await chips(pagina);
+
+    conferir("o grupo farmacológico vira chip",
+        lista.includes("Músculos e articulações") && lista.includes("Coração e pressão"),
+        JSON.stringify(lista));
+
+    /* O nome do grupo já vem escrito como se lê. Passá-lo pelo
+       tituloCaso devolvia "Dor e Sistema Nervoso" — o tipo de detalhe
+       que faz a prateleira parecer automática. */
+    conferir("escrito como se lê, sem capitalizar a ligação",
+        !lista.some((c) => /\se\s[A-ZÀ-Ý]/.test(c)), JSON.stringify(lista));
+
+    /* "Etico" continua na barra, e tem de continuar: são os 4 produtos
+       de letra não mapeada (V8A), que por decisão da loja mantêm a
+       classe do PDV. O que mudou é que os 7 antirreumáticos, também
+       cadastrados como ETICO, saíram de lá para "Músculos e
+       articulações" — é isso que a asserção mede. */
+    await pagina.click('[data-acao="filtrar-sub"][data-subcategoria="etico"]');
+    await pagina.waitForTimeout(800);
+    const emEtico = await pagina.evaluate(() => produtosFiltrados.length);
+
+    conferir(`em "Etico" sobraram só os 4 sem grupo — ${emEtico}`,
+        emEtico === 4, String(emEtico));
+
+    /* Quem não cruzou com a CMED mantém a classe do PDV: foi a escolha
+       da loja, e é a que não esconde produto num balde "Outros". */
+    conferir("sem classe CMED, a classe do PDV fica",
+        lista.includes("Similar"), JSON.stringify(lista));
+
+    /* "V8A" existe no catálogo real com 5 produtos. Inventar um grupo
+       para cinco seria prateleira vazia com placa. */
+    conferir("letra fora da lista não vira grupo",
+        !lista.some((c) => /outros produtos/i.test(c)), JSON.stringify(lista));
+
+    /* E o clique tem de levar os produtos certos. */
+    await pagina.click('[data-acao="filtrar-sub"][data-subcategoria="musculos articulacoes"]');
+    await pagina.waitForTimeout(800);
+    const n = await pagina.evaluate(() => produtosFiltrados.length);
+    conferir(`o grupo filtra os 7 antirreumáticos — ${n}`, n === 7, String(n));
+
+    /* ---- e fora de medicamento, a CMED não manda ---- */
+    await pagina.click('[data-acao="filtrar"][data-familia="cabelo"]');
+    await pagina.waitForTimeout(900);
+
+    const cabelo = await chips(pagina);
+    conferir("fora de medicamento, a classe CMED não vira grupo",
+        !cabelo.some((c) => /dermatol|^Pele$/i.test(c)), JSON.stringify(cabelo));
+    conferir("e lá continua valendo a categoria do PDV",
+        cabelo.includes("Shampoo"), JSON.stringify(cabelo));
+
+    await contexto.close();
+}
+
 await navegador.close();
 
 console.log(falhas === 0 ? "\nTudo certo.\n" : `\n${falhas} falha(s).\n`);

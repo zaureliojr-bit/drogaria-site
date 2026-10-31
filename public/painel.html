@@ -4018,6 +4018,9 @@ async function carregarCatalogo() {
            descartado aqui, e sem ele a tela de nomes não teria o que
            listar nem como contar. */
         subcategoria: p.subcategoria || "",
+        /* A classe da CMED ("C10A1 - ESTATINAS..."), de onde sai o
+           grupo farmacológico que virou o subfiltro de medicamento. */
+        classeTerapeutica: p.classeTerapeutica || "",
         marca: (p.marca || p.laboratorio || "").trim(),
         preco: numeroBR(p.precoVenda),
         promoPlanilha: numeroBR(p.precoPromocao),
@@ -6076,10 +6079,8 @@ const ROTULOS_CHAVE = "subcategorias";
 /* chaveRotulo() mora no familias.js, que o site e o painel carregam:
    a chave tem de ser a mesma nos dois. */
 
-function tituloCaso(texto) {
-  return String(texto || "").toLowerCase()
-    .replace(/(^|[\s/])\p{L}/gu, (letra) => letra.toUpperCase());
-}
+/* tituloCaso() mora no familias.js, junto da chaveRotulo: o nome
+   automático tem de ser o mesmo no site e no painel. */
 
 // o que está gravado hoje: chave -> { nome, oculto }
 let rotulosSalvos = {};
@@ -6126,10 +6127,28 @@ async function montarRotulos() {
   rotulosPorFamilia = new Map();
 
   for (const p of cat.values()) {
-    const familia = familiaDe(p.categoria);
-    if (!familia) continue;
-    const chave = chaveRotulo(p.subcategoria || p.categoria);
+
+    /* A MESMA conta do grupoSubBarra() do site, e isso não é
+       preciosismo: se as duas divergirem, esta tela oferece para
+       editar rótulos que não existem na vitrine, e esconde os que
+       existem. Em medicamento ganha o grupo farmacológico da CMED;
+       sem ele, a classe do PDV. */
+    const porPdv = familiaDe(p.categoria);
+    if (!porPdv) continue;
+
+    const bruto = (porPdv.medicamento && grupoFarmacologico(p.classeTerapeutica))
+      || p.subcategoria || p.categoria || "";
+
+    const chave = chaveRotulo(bruto);
     if (!chave) continue;
+
+    /* E a família que a loja mandou, quando mandou: sem isto o painel
+       listaria "aerossol" em Perfumaria depois de ela já tê-lo movido
+       para Higiene, e a lista de "juntar com" ofereceria os vizinhos
+       errados. */
+    const mandada = (rotulosSalvos[chave] || {}).familia;
+    const familia = (mandada && FAMILIAS.find(f => f.id === mandada)) || porPdv;
+
     if (!rotulosPorFamilia.has(familia.id)) {
       rotulosPorFamilia.set(familia.id, { nome: familia.nome, itens: new Map() });
     }
@@ -6140,7 +6159,7 @@ async function montarRotulos() {
        mesmo cálculo do script.js. É ela que tem de aparecer aqui como
        placeholder, senão a loja vê um nome na tela dela e outro no
        site, e vai "corrigir" o que já estava certo. */
-    const cru = String(p.subcategoria || p.categoria || "").trim();
+    const cru = String(bruto).trim();
     atual.grafias.set(cru, (atual.grafias.get(cru) || 0) + 1);
     m.set(chave, atual);
   }
@@ -6182,7 +6201,7 @@ async function montarRotulos() {
         <summary>${esc(nome)} <small>${aparecem.length} no ar &middot; ${subs.length} no total</small></summary>
         ${subs.map(([chave, dados]) => {
           const salvo = rotulosSalvos[chave] || {};
-          const automatico = tituloCaso(grafiaMaisComum(dados.grafias));
+          const automatico = rotuloDeExibicao(grafiaMaisComum(dados.grafias));
 
           /* "Juntar com" só oferece os rótulos DESTA família, e nunca o
              próprio. Juntar com um de outra família esconderia o produto
@@ -6191,7 +6210,7 @@ async function montarRotulos() {
           const alvos = subs
             .filter(([outra]) => outra !== chave)
             .map(([outra, d]) =>
-              `<option value="${esc(outra)}" ${salvo.juntarCom === outra ? "selected" : ""}>${esc(tituloCaso(grafiaMaisComum(d.grafias)))}</option>`)
+              `<option value="${esc(outra)}" ${salvo.juntarCom === outra ? "selected" : ""}>${esc(rotuloDeExibicao(grafiaMaisComum(d.grafias)))}</option>`)
             .join("");
 
           const familias = FAMILIAS
