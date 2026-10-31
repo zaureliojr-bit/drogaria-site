@@ -3824,3 +3824,36 @@ body.com-folha { overflow: hidden; }
    renomeando o quadragésimo, que ninguém vê. */
 .rotulo-no-ar { background: var(--marca-xclara); }
 .rotulo-no-ar .rotulo-cru { color: var(--tinta); font-weight: 600; }
+
+/* Com os dois seletores, a linha passa a ter cinco colunas. */
+.rotulo-linha { grid-template-columns: 1fr 1.1fr auto auto auto; }
+
+.rotulo-linha select {
+  padding: 7px 8px;
+  border: 1.5px solid var(--linha);
+  border-radius: var(--raio-sm);
+  font: inherit;
+  font-size: 12px;
+  background: var(--branco);
+  color: var(--tinta);
+  max-width: 160px;
+}
+
+.rotulo-linha select:focus {
+  outline: none;
+  border-color: var(--marca);
+  box-shadow: 0 0 0 3px var(--marca-clara);
+}
+
+/* Um seletor EM USO deixa de parecer "nada escolhido": sem isto a loja
+   mexe em dez e não lembra em quais. A opção vazia é sempre a primeira
+   e tem value="", então :has resolve sem JavaScript nenhum. */
+.rotulo-linha select:not(:has(option[value=""]:checked)) {
+  border-color: var(--marca);
+  font-weight: 600;
+}
+
+@media (max-width: 879px) {
+  .rotulo-linha { grid-template-columns: 1fr; gap: 6px; }
+  .rotulo-linha select { max-width: none; width: 100%; }
+}

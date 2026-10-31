@@ -1210,6 +1210,63 @@ function rotuloEditado(chave) {
   return (ROTULOS_SUB && ROTULOS_SUB[chaveRotulo(chave)]) || null;
 }
 
+/* JUNTAR DOIS RÓTULOS NUM SÓ.
+
+   "Gener/Similar S/Gt" são 823 produtos cujo nome não diz nada ao
+   cliente, e a loja quer que eles contem dentro de "Genérico". Isso não
+   é renomear: renomear daria dois chips com o mesmo nome, cada um com
+   metade dos produtos.
+
+   A ida é de um salto, mas quem aponta para quem é a loja, e nada
+   impede que ela aponte A para B e B para A sem perceber. O limite de
+   saltos é o que faz este laço terminar — e, ao parar num ciclo, ele
+   devolve onde parou, que é um chip esquisito, nunca uma tela travada. */
+function chaveFinalRotulo(chave) {
+
+  let atual = chaveRotulo(chave);
+  const vistos = new Set();
+
+  for (let salto = 0; salto < 6; salto++) {
+    if (vistos.has(atual)) break;
+    vistos.add(atual);
+    const destino = (ROTULOS_SUB && ROTULOS_SUB[atual] || {}).juntarCom;
+    if (!destino) break;
+    const proximo = chaveRotulo(destino);
+    if (!proximo || proximo === atual) break;
+    atual = proximo;
+  }
+
+  return atual;
+}
+
+/* A chave do subfiltro de um produto, já com o que a loja juntou. É a
+   mesma conta nos dois lugares que precisam dela: montar os chips e
+   decidir quem entra quando um chip está escolhido. Duas contas seria
+   um chip que mostra 9 produtos e filtra 6. */
+function chaveSubfiltro(p) {
+  return chaveFinalRotulo(grupoSubBarra(p));
+}
+
+/* A FAMÍLIA que a loja mandou, quando mandou.
+
+   "Aerossol" aparecia em Perfumaria e em Higiene Pessoal, e pertence à
+   segunda. A regra é por RÓTULO e vale no catálogo inteiro: aerossol é
+   higiene onde quer que ele esteja cadastrado.
+
+   Devolve null quando não há regra, ou quando ela aponta para uma
+   família que não existe mais — o que acontece se alguém renomear uma
+   família no familias.js depois de a loja ter escolhido. Nesse caso
+   vale a família de sempre, e não um buraco. */
+function familiaMandadaPelaLoja(categoria, subcategoria) {
+
+  if (!ROTULOS_SUB) return null;
+
+  const regra = ROTULOS_SUB[chaveRotulo(subcategoria || categoria)];
+  if (!regra || !regra.familia) return null;
+
+  return FAMILIAS.find(f => f.id === regra.familia) || null;
+}
+
 async function carregarTarjas() {
   try {
     const resposta = await fetch(API_TARJAS);
@@ -1322,7 +1379,8 @@ function mapearProduto(p) {
   const venda = Number(String(p.precoVenda || 0).replace(",", "."));
   const promo = Number(String(p.precoPromocao || 0).replace(",", "."));
   const emOferta = promo > 0 && promo < venda;
-  const familia = familiaDe(p.categoria);
+  const familia = familiaMandadaPelaLoja(p.categoria, p.subcategoria)
+    || familiaDe(p.categoria);
   // O padronizador passou a gravar a tarja no próprio produtos.json. Quando
   // ela vem de lá, o tarjas.json não é consultado — e assim que todo o
   // catálogo estiver exportado com o campo, aquele arquivo pode ser apagado.
@@ -1915,7 +1973,9 @@ function subcategoriasComProdutos() {
     if (p.familia !== categoriaAtual) return;
     const cru = grupoSubBarra(p);
     if (!cru) return;
-    const chave = chaveRotulo(cru);
+    /* Já com o que a loja juntou: o produto de "Gener/Similar S/Gt"
+       conta dentro de "Genérico" se foi para lá. */
+    const chave = chaveSubfiltro(p);
     if (!chave) return;
 
     const atual = contagem.get(chave) || { total: 0, grafias: new Map() };
@@ -2210,7 +2270,7 @@ function aplicarFiltro() {
        "Creme Tratamento" de fora do chip "Creme De Tratamento", que é
        justamente o par que a normalização juntou. */
     if (!modoOfertas && subcategoriaAtual !== "todas"
-        && chaveRotulo(grupoSubBarra(p)) !== subcategoriaAtual) return false;
+        && chaveSubfiltro(p) !== subcategoriaAtual) return false;
     if (termoBusca && !p.busca.includes(termoBusca)) return false;
     return true;
   }));

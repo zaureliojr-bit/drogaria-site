@@ -178,7 +178,7 @@ console.log("\n3. duas grafias, um chip");
 
     const ativo = await pagina.locator("#subfiltros button.ativo").textContent();
     if (/creme/i.test(ativo || "")) {
-        const n = await pagina.locator("#produtos .card").count();
+        const n = await pagina.evaluate(() => produtosFiltrados.length);
         conferir(`e o chip leva os 10 produtos das duas grafias — ${n}`,
             n === 10, String(n));
     } else {
@@ -284,6 +284,160 @@ console.log("\n6. a barra não passa de oito chips");
 
     conferir("o décimo continua de fora",
         !lista.includes("Tipo 10"), JSON.stringify(lista));
+
+    await contexto.close();
+}
+
+/* ---- 7. mover um rótulo de família ----------------------------------- */
+console.log("\n7. 'Aerossol' pertence a Higiene, não a Perfumaria");
+{
+    /* O caso real: "Aerossol" aparece nas duas famílias, e a loja diz
+       que ele é higiene onde quer que esteja cadastrado. A regra é por
+       RÓTULO e vale no catálogo inteiro. */
+    const MISTO = { produtos: [
+        /* PERFUME e não "PERFUMARIA": a família Perfumaria mapeia as
+           categorias PERFUME, DESODORANTE e TALCO do PDV. */
+        ...Array.from({ length: 5 }, () => item({ categoria: "PERFUME", subcategoria: "Aerossol" })),
+        ...Array.from({ length: 4 }, () => item({ categoria: "PERFUME", subcategoria: "Colônia" })),
+        ...Array.from({ length: 6 }, () => item({ categoria: "HIGIENE PESSOAL", subcategoria: "Sabonete" }))
+    ] };
+
+    const contexto = await navegador.newContext({ viewport: { width: 1280, height: 900 } });
+    const pagina = await contexto.newPage();
+
+    await pagina.route(/farmatech-pedidos-proxy/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" }, body: "{}" }));
+    await pagina.route(/referencias\/subcategorias/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ versao: 1, rotulos: { "aerossol": { familia: "higiene" } } }) }));
+    await pagina.route(/raw\.githubusercontent|produtos.*\.json/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(MISTO) }));
+
+    await pagina.goto(BASE + "/", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await pagina.waitForTimeout(2500);
+    await pagina.keyboard.press("Escape").catch(() => {});
+
+    await pagina.click('[data-acao="filtrar"][data-familia="higiene"]');
+    await pagina.waitForTimeout(900);
+
+    const emHigiene = await pagina.evaluate(() => produtosFiltrados.length);
+    conferir(`os 5 aerossóis foram para Higiene — ${emHigiene} produtos`,
+        emHigiene === 11, String(emHigiene));
+
+    conferir("e o chip Aerossol está lá",
+        (await chips(pagina)).some((c) => /Aerossol/i.test(c)),
+        JSON.stringify(await chips(pagina)));
+
+    await pagina.click('[data-acao="filtrar"][data-familia="perfumaria"]');
+    await pagina.waitForTimeout(900);
+
+    /* Sobrou só a colônia. Com um rótulo só, a barra inteira some — e é
+       isso que prova que o aerossol saiu daqui de verdade, e não ficou
+       nos dois lugares. */
+    const emPerfumaria = await pagina.evaluate(() => produtosFiltrados.length);
+    conferir(`e saíram de Perfumaria — ${emPerfumaria} produtos`,
+        emPerfumaria === 4, String(emPerfumaria));
+
+    await contexto.close();
+}
+
+/* ---- 8. juntar dois rótulos num só ----------------------------------- */
+console.log("\n8. 'Gener/Similar S/Gt' conta dentro de 'Genérico'");
+{
+    const MEDS = { produtos: [
+        ...Array.from({ length: 9 }, () => item({ categoria: "GENERICO" })),
+        ...Array.from({ length: 7 }, () => item({ categoria: "GENER/SIMILAR S/GT" })),
+        ...Array.from({ length: 5 }, () => item({ categoria: "SIMILAR" }))
+    ] };
+
+    const contexto = await navegador.newContext({ viewport: { width: 1280, height: 900 } });
+    const pagina = await contexto.newPage();
+
+    await pagina.route(/farmatech-pedidos-proxy/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" }, body: "{}" }));
+    await pagina.route(/referencias\/subcategorias/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ versao: 1, rotulos: {
+            "gener/similar s/gt": { juntarCom: "generico" },
+            "generico": { nome: "Genéricos" }
+        } }) }));
+    await pagina.route(/raw\.githubusercontent|produtos.*\.json/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(MEDS) }));
+
+    await pagina.goto(BASE + "/", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await pagina.waitForTimeout(2500);
+    await pagina.keyboard.press("Escape").catch(() => {});
+    await pagina.click('[data-acao="filtrar"][data-familia="medicamentos"]');
+    await pagina.waitForTimeout(900);
+
+    const lista = await chips(pagina);
+
+    conferir("o rótulo juntado não tem chip próprio",
+        !lista.some((c) => /Gener\/Similar/i.test(c)), JSON.stringify(lista));
+
+    conferir("e o de destino está lá com o nome que a loja deu",
+        lista.includes("Genéricos"), JSON.stringify(lista));
+
+    /* A asserção que importa: o chip tem de FILTRAR os dois. Juntar na
+       contagem e não no clique daria um chip que promete 16 e entrega 9
+       — pior que os dois chips separados. */
+    await pagina.click('[data-acao="filtrar-sub"][data-subcategoria="generico"]');
+    await pagina.waitForTimeout(800);
+
+    /* Pelo produtosFiltrados, e não contando cards: a grade pagina de
+       12 em 12 (POR_PAGINA), então contar o que está desenhado mede a
+       paginação e não o filtro — 16 apareceriam como 12. */
+    const n = await pagina.evaluate(() => produtosFiltrados.length);
+    conferir(`o chip leva os 9 + 7 = 16 produtos — ${n}`, n === 16, String(n));
+
+    await contexto.close();
+}
+
+/* ---- 9. a loja aponta A para B e B para A ---------------------------- */
+console.log("\n9. um ciclo não trava a tela");
+{
+    /* Nada na tela impede a loja de juntar A com B e B com A. Sem o
+       limite de saltos, isso seria um laço infinito na primeira
+       abertura da home — tela branca, no site inteiro. */
+    const DOIS = { produtos: [
+        ...Array.from({ length: 6 }, () => item({ categoria: "GENERICO" })),
+        ...Array.from({ length: 4 }, () => item({ categoria: "SIMILAR" }))
+    ] };
+
+    const contexto = await navegador.newContext({ viewport: { width: 1280, height: 900 } });
+    const pagina = await contexto.newPage();
+
+    await pagina.route(/farmatech-pedidos-proxy/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" }, body: "{}" }));
+    await pagina.route(/referencias\/subcategorias/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ versao: 1, rotulos: {
+            "generico": { juntarCom: "similar" },
+            "similar": { juntarCom: "generico" }
+        } }) }));
+    await pagina.route(/raw\.githubusercontent|produtos.*\.json/, (r) => r.fulfill({
+        status: 200, contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(DOIS) }));
+
+    await pagina.goto(BASE + "/", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await pagina.waitForTimeout(3000);
+    await pagina.keyboard.press("Escape").catch(() => {});
+    await pagina.click('[data-acao="filtrar"][data-familia="medicamentos"]');
+    await pagina.waitForTimeout(900);
+
+    /* A asserção é sobre a página estar VIVA, não sobre qual chip
+       sobrou: num ciclo não existe resposta certa, só a obrigação de
+       não travar. */
+    const vivos = await pagina.evaluate(() => produtosFiltrados.length);
+    conferir(`a vitrine continua respondendo — ${vivos} produtos`, vivos === 10, String(vivos));
 
     await contexto.close();
 }

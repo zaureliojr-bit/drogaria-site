@@ -6183,11 +6183,33 @@ async function montarRotulos() {
         ${subs.map(([chave, dados]) => {
           const salvo = rotulosSalvos[chave] || {};
           const automatico = tituloCaso(grafiaMaisComum(dados.grafias));
+
+          /* "Juntar com" só oferece os rótulos DESTA família, e nunca o
+             próprio. Juntar com um de outra família esconderia o produto
+             num lugar onde ele não está - e para mudar de família existe
+             o campo ao lado, que é o certo para isso. */
+          const alvos = subs
+            .filter(([outra]) => outra !== chave)
+            .map(([outra, d]) =>
+              `<option value="${esc(outra)}" ${salvo.juntarCom === outra ? "selected" : ""}>${esc(tituloCaso(grafiaMaisComum(d.grafias)))}</option>`)
+            .join("");
+
+          const familias = FAMILIAS
+            .filter(f => !f.receita)
+            .map(f => `<option value="${esc(f.id)}" ${salvo.familia === f.id ? "selected" : ""}>${esc(f.nome)}</option>`)
+            .join("");
+
           return `
           <div class="rotulo-linha${aparecem.includes(chave) ? " rotulo-no-ar" : ""}">
             <span class="rotulo-cru" title="${esc(chave)}">${esc(automatico)}<small>${dados.total}</small></span>
             <input type="text" maxlength="40" data-rotulo="${esc(chave)}"
                    value="${esc(salvo.nome || "")}" placeholder="${esc(automatico)}">
+            <select data-familia-de="${esc(chave)}" aria-label="Categoria de ${esc(automatico)}">
+              <option value="">continua aqui</option>${familias}
+            </select>
+            <select data-juntar="${esc(chave)}" aria-label="Juntar ${esc(automatico)} com">
+              <option value="">n&atilde;o juntar</option>${alvos}
+            </select>
             <label class="rotulo-esconder">
               <input type="checkbox" data-ocultar="${esc(chave)}" ${salvo.oculto ? "checked" : ""}>
               esconder
@@ -6224,12 +6246,26 @@ async function salvarRotulos() {
   const rotulos = {};
 
   document.querySelectorAll("[data-rotulo]").forEach((campo) => {
+
     const chave = campo.dataset.rotulo;
+    const achar = (attr) => document.querySelector(`[${attr}="${CSS.escape(chave)}"]`);
+
     const nome = campo.value.trim();
-    const caixa = document.querySelector(`[data-ocultar="${CSS.escape(chave)}"]`);
+    const caixa = achar("data-ocultar");
     const oculto = !!(caixa && caixa.checked);
-    if (!nome && !oculto) return;
-    rotulos[chave] = oculto ? { nome: nome || undefined, oculto: true } : { nome };
+    const familia = (achar("data-familia-de") || {}).value || "";
+    const juntarCom = (achar("data-juntar") || {}).value || "";
+
+    if (!nome && !oculto && !familia && !juntarCom) return;
+
+    const entrada = {};
+    if (nome) entrada.nome = nome;
+    if (oculto) entrada.oculto = true;
+    if (familia) entrada.familia = familia;
+    if (juntarCom) entrada.juntarCom = juntarCom;
+
+    rotulos[chave] = entrada;
+
   });
 
   try {
