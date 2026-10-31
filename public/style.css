@@ -3857,3 +3857,54 @@ body.com-folha { overflow: hidden; }
   .rotulo-linha { grid-template-columns: 1fr; gap: 6px; }
   .rotulo-linha select { max-width: none; width: 100%; }
 }
+
+
+/* ========================= */
+/* 🔎 ENSINAR A BUSCA        */
+/* ========================= */
+
+/* Uma linha por palavra que a loja ensinou: o que o cliente digita à
+   esquerda, o que o catálogo usa à direita. */
+.sin-linha {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--marca-xclara);
+}
+
+.sin-linha input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1.5px solid var(--linha);
+  border-radius: var(--raio-sm);
+  font: inherit;
+  font-size: 13px;
+  background: var(--branco);
+  color: var(--tinta);
+}
+
+.sin-linha input:focus {
+  outline: none;
+  border-color: var(--marca);
+  box-shadow: 0 0 0 3px var(--marca-clara);
+}
+
+.sin-tirar {
+  border: 0;
+  background: none;
+  color: var(--tinta-suave);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.sin-tirar:hover { color: var(--corte); }
+
+@media (max-width: 639px) {
+  .sin-linha { grid-template-columns: 1fr auto; }
+  .sin-linha input:first-child { grid-column: 1 / -1; }
+}

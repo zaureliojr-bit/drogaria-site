@@ -1189,6 +1189,25 @@ const API_ROTULOS_SUB =
 
 let ROTULOS_SUB = null;
 
+/* O QUE A LOJA ENSINOU À BUSCA.
+
+   "tinta de cabelo vermelho" foi uma busca real que deu zero num dia
+   em que a loja tinha 12 produtos exatos do que o cliente queria. Ela
+   não achou porque o cliente diz "tinta" e o catálogo diz "Coloração"
+   e "Tintura Capilar" — 323 produtos que a palavra do cliente não
+   alcançava.
+
+   Nenhuma regra automática resolve isso: é vocabulário de balcão, e
+   quem sabe é a farmácia. Daí a lista vir do painel, da mesma tela
+   onde ela já vê "Procuraram e não acharam" — o relatório vira a
+   própria lista de trabalho.
+
+   Mora no MESMO documento dos nomes dos subfiltros, e não numa chave
+   nova: a rota de referências tem lista fechada de nomes, e cada nome
+   novo custa uma republicação do worker à mão. Os dois são a mesma
+   coisa — o que a loja escreveu por cima do que o PDV mandou. */
+let SINONIMOS_BUSCA = null;
+
 /* chaveRotulo() mora no familias.js, que o site e o painel carregam:
    a chave tem de ser a mesma nos dois. */
 
@@ -1199,8 +1218,13 @@ async function carregarRotulosSub() {
      script.js e não têm essa barra — buscar o dicionário lá é uma ida
      à rede por nada, e o 400 de uma referência ainda não criada
      aparecia no console de todas elas. */
-  if (!document.getElementById("subfiltros")) {
+  /* Onde existe a barra de subcategoria (a home) ou o campo de busca.
+     A página do produto e o carrinho carregam o mesmo script.js e não
+     têm nenhum dos dois — buscar o dicionário lá é ida à rede por
+     nada. */
+  if (!document.getElementById("subfiltros") && !document.getElementById("busca")) {
     ROTULOS_SUB = {};
+    SINONIMOS_BUSCA = {};
     return;
   }
 
@@ -1209,10 +1233,13 @@ async function carregarRotulosSub() {
     if (!resposta.ok) throw new Error("HTTP " + resposta.status);
     const dados = await resposta.json();
     ROTULOS_SUB = (dados && dados.rotulos) || {};
+    SINONIMOS_BUSCA = (dados && dados.sinonimos) || {};
   } catch (e) {
     /* Sem dicionário a barra continua como era: texto cru em
-       Maiúsculas. Nunca vazia. */
+       Maiúsculas, e a busca sem os sinônimos. Nunca vazia, nunca
+       quebrada. */
     ROTULOS_SUB = {};
+    SINONIMOS_BUSCA = {};
   }
 }
 
@@ -1496,8 +1523,29 @@ function mapearProduto(p) {
     imagem: p.imagem || "",
     tipoImg: tipoImagemProduto(p.descricao, p.categoria),
 
-    // índice de busca: nome + marca + laboratório + EAN, sem acento
-    busca: normalizar([p.descricao, p.marca, p.laboratorio, p.ean].filter(Boolean).join(" "))
+    /* Só o nome, sem acento. A pontuação de relevância compara
+       contra ele para saber se a palavra está no NOME do produto ou
+       só na categoria dele — "cabelo" tem de trazer o shampoo antes
+       do esmalte que só mora na mesma família. */
+    nomeNormalizado: normalizar(p.descricao || ""),
+
+    /* ÍNDICE DE BUSCA: nome + marca + laboratório + EAN + ONDE O
+       PRODUTO ESTÁ.
+
+       A família, a categoria do PDV e a subcategoria entraram aqui
+       depois de uma busca real que deu zero: "tinta de cabelo
+       vermelho". A loja tinha 12 produtos exatos, e nenhum deles
+       escreve "cabelo" no nome — são "Coloração Maxton 06.66 Vermelho
+       Cereja". A palavra "cabelo" só existia no nome da FAMÍLIA, que
+       a busca não enxergava.
+
+       Com isto, "fralda para bebê", "absorvente noturno" e "creme
+       para o rosto" saem do zero também — medidos no catálogo de
+       hoje. */
+    busca: normalizar([
+      p.descricao, p.marca, p.laboratorio, p.ean,
+      familia.nome, p.categoria, p.subcategoria
+    ].filter(Boolean).join(" "))
   };
 }
 
@@ -2279,16 +2327,176 @@ function buscar() {
   rolarParaResultados();
 }
 
+/* =========================
+🔎 COMO A BUSCA CASA
+=========================
+
+Era uma linha: `p.busca.includes(termoBusca)` — a frase digitada tinha
+de aparecer literal e NESSA ORDEM dentro do texto do produto. Qualquer
+busca de três palavras morria ali.
+
+O caso que trouxe isto: "tinta de cabelo vermelho", uma busca real que
+deu zero num dia em que a loja tinha 12 produtos exatos do que o
+cliente queria.
+
+Agora cada palavra é procurada por conta própria, e todas precisam
+estar presentes (E, não OU: quem digita três palavras está estreitando,
+não ampliando).
+
+TRÊS CUIDADOS, e cada um é um defeito que existiria sem ele:
+
+  - CASAR POR PALAVRA, não por pedaço de texto. Na primeira versão
+    desta função, "vitamina c" devolveu 351 produtos: o "c" casava
+    dentro de "creme", "cabelo", "shampoo". Agora a palavra do produto
+    precisa COMEÇAR com o que foi digitado — "vermelho" acha "Vermelho
+    Cereja", e "c" só acha um "c" sozinho;
+
+  - as palavras de ligação saem. "creme para o rosto" tem duas
+    palavras que importam, não quatro, e exigir "para" e "o" não
+    estreita nada — só derruba o resultado;
+
+  - mas se SOBRAR só ligação, vale a frase inteira. Alguém buscando
+    "da" merece o comportamento antigo em vez de a loja inteira.
+
+Busca por nome exato não muda: "dipirona" continua achando as mesmas
+16, "dorflex" as mesmas 10. Era a parte que não podia quebrar. */
+
+const LIGACAO_NA_BUSCA = new Set([
+  "de", "da", "do", "das", "dos", "com", "para", "e", "a", "o",
+  "em", "no", "na", "que", "sem", "ao"
+]);
+
+/* As palavras da busca em curso. Preenchida pelo aplicarFiltro e lida
+   pelo ordenar — os dois precisam da mesma quebra. */
+let palavrasBuscadas = [];
+
+function palavrasDaBusca(termo) {
+
+  const todas = String(termo || "").split(/[^a-z0-9]+/).filter(Boolean);
+  const uteis = todas.filter((w) => !LIGACAO_NA_BUSCA.has(w));
+
+  return uteis.length ? uteis : todas;
+
+}
+
+/* Escapa o que o cliente digitou antes de virar expressão regular. Sem
+   isto, uma busca por "c/10" ou "50%" lança um erro de sintaxe e a
+   vitrine inteira para. */
+function escaparRegex(texto) {
+  return String(texto).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/* Abaixo disto, o pedaço digitado não identifica nada: casar por
+   início de palavra com "c" acha "creme", "cápsulas" e "com". */
+const LETRAS_PARA_PREFIXO = 3;
+
+function casaPalavra(textoDoProduto, palavra) {
+
+  const inicio = "(^|[^a-z0-9])" + escaparRegex(palavra);
+
+  /* Palavra curta ("c" de vitamina C, "10" de c/10) casa INTEIRA; da
+     terceira letra em diante, basta o começo, e é isso que faz
+     "vermelho" achar "Vermelho Cereja" e "infantil" achar
+     "Infantis".
+
+     Sem a distinção, "vitamina c" devolvia 299 produtos e "c/10"
+     devolvia 1.079 — o site inteiro, com outro nome. */
+  const padrao = palavra.length >= LETRAS_PARA_PREFIXO
+    ? inicio
+    : inicio + "([^a-z0-9]|$)";
+
+  return new RegExp(padrao).test(textoDoProduto);
+
+}
+
+/* As formas que uma palavra digitada pode assumir no catálogo: ela
+   mesma, mais o que a loja ensinou. "tinta" vira
+   ["tinta","coloracao","tintura"].
+
+   A loja escreve a lista no painel, e o site nunca inventa: sinônimo
+   de farmácia é vocabulário de balcão, e chutar aqui faria "dor"
+   trazer coisa que não alivia dor nenhuma. */
+function formasDaPalavra(palavra) {
+
+  const ensinadas = (SINONIMOS_BUSCA && SINONIMOS_BUSCA[palavra]) || [];
+
+  return [palavra, ...ensinadas];
+
+}
+
+/* O produto serve para o que foi digitado?
+
+   TODAS as palavras precisam casar (quem digita três está estreitando,
+   não ampliando), mas cada uma pode casar por qualquer das suas
+   formas. */
+function produtoCasaBusca(p, palavras) {
+  return palavras.every((palavra) =>
+    formasDaPalavra(palavra).some((forma) => casaPalavra(p.busca, forma)));
+}
+
+/* QUÃO BEM O PRODUTO RESPONDE AO QUE FOI DIGITADO.
+
+   Enquanto a busca casava a frase inteira, ordem não era problema: o
+   que casava era quase sempre uma coisa só. Agora "fralda para bebê"
+   devolve 80 produtos, e 80 em ordem de cadastro é quase tão ruim
+   quanto zero.
+
+   A régua: a palavra no NOME do produto vale mais que a palavra na
+   categoria dele. Quem busca "cabelo" quer o shampoo antes do
+   esmalte que só está na mesma família. E, em empate, o que dá para
+   comprar agora vem antes do esgotado — sugerir o que não tem é
+   mandar a pessoa bater na porta fechada. */
+function pontoDaBusca(p, palavras) {
+
+  if (!palavras.length) return 0;
+
+  let ponto = 0;
+
+  for (const palavra of palavras) {
+    const formas = formasDaPalavra(palavra);
+    /* A palavra que o cliente digitou vale mais que o sinônimo: quem
+       busca "tintura" quer ver "Tintura Capilar" antes de "Coloração",
+       mesmo que as duas sirvam. */
+    if (casaPalavra(p.nomeNormalizado, palavra)) ponto += 4;
+    else if (formas.some((f) => casaPalavra(p.nomeNormalizado, f))) ponto += 3;
+    else if (formas.some((f) => casaPalavra(p.busca, f))) ponto += 1;
+  }
+
+  /* Começar com o que foi digitado vale mais que ter no meio:
+     "Dipirona 500mg" antes de "Adesivo Dipirona". */
+  if (p.nomeNormalizado.startsWith(palavras[0])) ponto += 3;
+
+  if (!semEstoque(p)) ponto += 2;
+
+  return ponto;
+
+}
+
 function ordenar(lista) {
   const copia = [...lista];
   if (ordenacao === "menor-preco") return copia.sort((a, b) => a.preco - b.preco);
   if (ordenacao === "maior-preco") return copia.sort((a, b) => b.preco - a.preco);
   if (ordenacao === "desconto")    return copia.sort((a, b) => b.desconto - a.desconto);
   if (ordenacao === "nome")        return copia.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-  return copia;
+
+  /* "Relevância" só tem o que ordenar quando há busca. Sem termo, a
+     ordem do catálogo continua sendo a de sempre — mexer nela mudaria
+     a vitrine inteira sem ninguém ter pedido. */
+  if (!palavrasBuscadas.length) return copia;
+
+  return copia.sort((a, b) =>
+    pontoDaBusca(b, palavrasBuscadas) - pontoDaBusca(a, palavrasBuscadas)
+    || a.nome.length - b.nome.length);
 }
 
 function aplicarFiltro() {
+
+  /* Quebrado UMA vez por filtragem, e não uma vez por produto: são
+     quase dez mil produtos, e refazer a conta em cada um era o tipo de
+     desperdício que só aparece no celular antigo. De módulo porque o
+     ordenar() também precisa dele, para pontuar a relevância. */
+  palavrasBuscadas = termoBusca ? palavrasDaBusca(termoBusca) : [];
+
   produtosFiltrados = ordenar(produtos.filter(p => {
     if (modoOfertas && !p.emOferta) return false;
     if (!modoOfertas && categoriaAtual !== "todas" && p.familia !== categoriaAtual) return false;
@@ -2298,7 +2506,7 @@ function aplicarFiltro() {
        justamente o par que a normalização juntou. */
     if (!modoOfertas && subcategoriaAtual !== "todas"
         && chaveSubfiltro(p) !== subcategoriaAtual) return false;
-    if (termoBusca && !p.busca.includes(termoBusca)) return false;
+    if (termoBusca && !produtoCasaBusca(p, palavrasBuscadas)) return false;
     return true;
   }));
 

@@ -1656,6 +1656,22 @@
     <div class="bloco">
       <h2>Procuraram e não acharam <small>cada linha é uma venda que não aconteceu — da mais recente para a mais antiga</small></h2>
       <div class="tabela-wrap" id="naoEncontrados"></div>
+
+      <h3 style="margin-top:18px">Ensine a busca <small id="contagemSinonimos"></small></h3>
+      <p class="lojas-explica">
+        Quando um termo acima d&aacute; zero, quase sempre &eacute; porque o cliente usa
+        uma palavra e o cat&aacute;logo usa outra. Um caso real: algu&eacute;m buscou
+        <b>&ldquo;tinta de cabelo vermelho&rdquo;</b> e n&atilde;o achou nada &mdash; a loja tinha 12,
+        mas todos escritos como <b>&ldquo;Colora&ccedil;&atilde;o&rdquo;</b> e <b>&ldquo;Tintura Capilar&rdquo;</b>.
+        Escreva aqui a palavra do cliente e as palavras que a loja usa, separadas
+        por v&iacute;rgula. Vale para as duas lojas, e o site passa a achar sem republicar.
+      </p>
+      <div id="listaSinonimos"></div>
+      <div class="fila-topo">
+        <button type="button" id="novoSinonimo" class="btn-testar-som">Acrescentar palavra</button>
+        <button type="button" id="salvarSinonimos" class="btn-testar-som">Salvar</button>
+      </div>
+      <div id="avisoSinonimos"></div>
     </div>
 
     <div class="bloco">
@@ -6082,8 +6098,24 @@ const ROTULOS_CHAVE = "subcategorias";
 /* tituloCaso() mora no familias.js, junto da chaveRotulo: o nome
    automático tem de ser o mesmo no site e no painel. */
 
-// o que está gravado hoje: chave -> { nome, oculto }
+/* O VOCABULÁRIO DA LOJA, num documento só.
+
+   Duas telas editam partes diferentes dele: os nomes dos subfiltros
+   (aba Catálogo) e os sinônimos de busca (aba Relatórios, colada no
+   "Procuraram e não acharam"). Um documento, uma leitura, uma
+   gravação — e por isso o salvar junta o que as DUAS telas têm na
+   mão, não só a que foi clicada.
+
+   Por que não dois documentos: a rota de referências tem lista
+   fechada de nomes, e cada nome novo custa republicar o worker à mão
+   no painel da Cloudflare. Os dois são a mesma coisa, afinal — o que
+   a loja escreveu por cima do que o PDV mandou. */
+
+// chave -> { nome, oculto, familia, juntarCom }
 let rotulosSalvos = {};
+
+// palavra do cliente -> [palavras que a loja usa]
+let sinonimosSalvos = {};
 // o que a tela montou a partir do catálogo: família -> [{chave,total}]
 let rotulosPorFamilia = new Map();
 
@@ -6098,6 +6130,7 @@ async function carregarRotulosSalvos() {
     const r = await fetch(PROXY_IMAGENS + "/referencias/" + ROTULOS_CHAVE);
     if (!r.ok) return {};
     const d = await r.json();
+    sinonimosSalvos = (d && d.sinonimos) || {};
     return (d && d.rotulos) || {};
   } catch (e) {
     /* Servidor fora: a tela ainda monta com o catálogo e mostra os
@@ -6249,6 +6282,8 @@ async function montarRotulos() {
     : "Nada para editar.";
 
   el("salvarRotulos").disabled = !total;
+
+  montarSinonimos();
 }
 
 async function salvarRotulos() {
@@ -6258,11 +6293,26 @@ async function salvarRotulos() {
   botao.textContent = "Salvando...";
   avisoRotulos("");
 
+  /* Devolvido ao final: a tela de sinônimos chama este mesmo salvar e
+     precisa saber se deu certo. Sem isto ela dizia "palavras
+     ensinadas" mesmo quando o servidor recusou. */
+  let deuCerto = false;
+
   /* Só o que FOI editado entra no arquivo. Gravar os 284 com o nome
      automático dentro engordaria um JSON que o site baixa em toda
      abertura, e no dia em que o nome automático mudasse o arquivo
      estaria segurando o antigo sem ninguém ter pedido. */
   const rotulos = {};
+
+  /* A TELA QUE NÃO FOI DESENHADA NÃO PODE APAGAR A PARTE DELA.
+
+     As duas telas gravam o mesmo documento. Se a aba Relatórios nunca
+     foi aberta nesta sessão, os campos de sinônimo não existem no
+     HTML, e varrer o DOM devolveria vazio — apagando tudo o que a
+     loja escreveu lá. Quando não há tela, vale o que foi lido. */
+  const sinonimos = document.querySelector("[data-sinonimo]")
+    ? coletarSinonimos()
+    : sinonimosSalvos;
 
   document.querySelectorAll("[data-rotulo]").forEach((campo) => {
 
@@ -6295,7 +6345,8 @@ async function salvarRotulos() {
       body: JSON.stringify({
         versao: 1,
         atualizadoEm: new Date().toISOString(),
-        rotulos
+        rotulos,
+        sinonimos
       })
     });
 
@@ -6303,6 +6354,8 @@ async function salvarRotulos() {
     if (!r.ok) throw new Error("HTTP " + r.status);
 
     rotulosSalvos = rotulos;
+    sinonimosSalvos = sinonimos;
+    deuCerto = true;
 
     const editados = Object.keys(rotulos).length;
     avisoRotulos(
@@ -6318,7 +6371,133 @@ async function salvarRotulos() {
     botao.disabled = false;
     botao.textContent = "Salvar";
   }
+
+  return deuCerto;
 }
+
+/* =====================================================
+   ENSINAR A BUSCA
+   =====================================================
+
+   Colada no "Procuraram e não acharam" de propósito: o relatório é a
+   lista de trabalho, e a correção fica a um palmo do problema.
+
+   O caso que trouxe isto: "tinta de cabelo vermelho" deu zero num dia
+   em que a loja tinha 12 produtos exatos. O cliente diz "tinta"; o
+   catálogo diz "Coloração" e "Tintura Capilar" — 323 produtos que a
+   palavra do cliente não alcançava. Nenhuma regra automática resolve:
+   é vocabulário de balcão, e quem sabe é a farmácia.
+
+   Grava no MESMO documento dos nomes dos subfiltros. Ver o comentário
+   do rotulosSalvos para o porquê.
+   ===================================================== */
+
+function avisoSinonimos(msg, tipo = "erro") {
+  el("avisoSinonimos").innerHTML = msg
+    ? `<div class="${tipo === "ok" ? "aviso-ok" : "erro"}">${esc(msg)}</div>`
+    : "";
+}
+
+function linhaSinonimo(palavra = "", usadas = []) {
+  return `
+    <div class="sin-linha">
+      <input type="text" data-sinonimo maxlength="30"
+             placeholder="o que o cliente digita" value="${esc(palavra)}">
+      <input type="text" data-sinonimo-usa maxlength="120"
+             placeholder="o que a loja usa, separado por vírgula"
+             value="${esc(usadas.join(", "))}">
+      <button type="button" class="sin-tirar" aria-label="Tirar esta linha">&times;</button>
+    </div>`;
+}
+
+function montarSinonimos() {
+
+  const alvo = el("listaSinonimos");
+  if (!alvo) return;
+
+  const linhas = Object.entries(sinonimosSalvos || {})
+    .sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
+    .map(([palavra, usadas]) => linhaSinonimo(palavra, usadas));
+
+  /* Uma linha vazia sempre: sem ela, a tela de quem nunca ensinou nada
+     é um botão e um vazio, e não se entende o que fazer. */
+  alvo.innerHTML = linhas.join("") + linhaSinonimo();
+
+  el("contagemSinonimos").textContent =
+    linhas.length ? `(${linhas.length})` : "";
+}
+
+/* O que está na tela agora, pronto para gravar. A mesma normalização
+   que o site usa para procurar — se as duas divergirem, a loja ensina
+   "Tinta" e o site procura "tinta". */
+function coletarSinonimos() {
+
+  const fora = {};
+
+  document.querySelectorAll(".sin-linha").forEach((linha) => {
+
+    const palavra = semAcentoMinusculo(linha.querySelector("[data-sinonimo]").value);
+    const cru = linha.querySelector("[data-sinonimo-usa]").value;
+
+    const usadas = cru.split(",")
+      .map((x) => semAcentoMinusculo(x))
+      .filter(Boolean);
+
+    /* Linha pela metade não grava: palavra sem tradução não ensina
+       nada, e tradução sem palavra não tem a quem responder. */
+    if (!palavra || !usadas.length) return;
+
+    fora[palavra] = usadas;
+
+  });
+
+  return fora;
+}
+
+function semAcentoMinusculo(texto) {
+  return String(texto || "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+el("listaSinonimos").addEventListener("click", (ev) => {
+  const tirar = ev.target.closest(".sin-tirar");
+  if (!tirar) return;
+  tirar.closest(".sin-linha").remove();
+  /* Nunca deixa a lista sem nenhuma linha para digitar. */
+  if (!document.querySelector(".sin-linha")) {
+    el("listaSinonimos").innerHTML = linhaSinonimo();
+  }
+});
+
+el("novoSinonimo").addEventListener("click", () => {
+  el("listaSinonimos").insertAdjacentHTML("beforeend", linhaSinonimo());
+  const campos = document.querySelectorAll("[data-sinonimo]");
+  campos[campos.length - 1].focus();
+});
+
+el("salvarSinonimos").addEventListener("click", () => {
+  /* Mesmo salvar dos nomes dos subfiltros: um documento, uma gravação.
+     Ele junta as duas partes sozinho. */
+  salvarRotulos().then((deuCerto) => {
+
+    if (!deuCerto) {
+      avisoSinonimos("Não consegui salvar. O que você escreveu continua na tela.");
+      return;
+    }
+
+    const n = Object.keys(sinonimosSalvos).length;
+
+    avisoSinonimos(
+      n ? `${n} ${n === 1 ? "palavra ensinada" : "palavras ensinadas"}. ` +
+          "O site já procura por elas."
+        : "Nenhuma palavra ensinada.",
+      "ok");
+
+    montarSinonimos();
+
+  });
+});
 
 el("salvarRotulos").addEventListener("click", () => { salvarRotulos().catch(() => {}); });
 
