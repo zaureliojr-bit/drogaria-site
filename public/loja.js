@@ -483,6 +483,10 @@ function lerCacheLoja() {
     }
 }
 
+function paginaMostraHorario() {
+    return document.querySelector("#status, #lpStatus, #avisoEntregaForaExpediente");
+}
+
 let cadastroEmUso;
 let consultandoCadastro = false;
 
@@ -492,10 +496,9 @@ async function carregarLoja() {
         : API_LOJA_SEM_SCRIPT;
     if (!base || consultandoCadastro) return;
 
-    const mostraHorario = document.getElementById("status") || document.getElementById("lpStatus");
     const guardado = lerCacheLoja();
     if (guardado && !cadastroEmUso) adotar(guardado);
-    if (guardado && !mostraHorario) return;
+    if (guardado && !paginaMostraHorario()) return;
 
     consultandoCadastro = true;
     try {
@@ -582,7 +585,7 @@ function adotar(dados) {
 
 document.addEventListener("DOMContentLoaded", () => {
     carregarLoja();
-    if (!document.getElementById("status") && !document.getElementById("lpStatus")) return;
+    if (!paginaMostraHorario()) return;
 
     const atualizarCadastroVisivel = () => {
         if (!document.hidden) carregarLoja();
