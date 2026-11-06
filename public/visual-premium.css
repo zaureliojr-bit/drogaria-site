@@ -574,3 +574,254 @@ body {
     max-width: 920px;
   }
 }
+
+/* Vitrine da loja. As páginas de produto, carrinho e encarte usam a base comum. */
+.vitrine-loja {
+  --vitrine-largura: 1240px;
+  --vitrine-margem: max(14px, calc((100% - var(--vitrine-largura)) / 2));
+}
+
+.vitrine-loja .header,
+.vitrine-loja .busca-container {
+  padding-inline: var(--vitrine-margem);
+  background: #fff;
+  border-bottom-color: var(--linha);
+}
+
+.vitrine-loja .header {
+  box-shadow: none;
+}
+
+.vitrine-loja .logo {
+  box-shadow: none;
+}
+
+.vitrine-loja .titulo .status-aberto {
+  color: #1a683b;
+}
+
+.vitrine-loja .titulo .status-fechado {
+  color: #a4312b;
+}
+
+.vitrine-loja .header .btn-voltar,
+.vitrine-loja .header-whats {
+  color: var(--marca-escura);
+  background: var(--marca-xclara);
+  box-shadow: none;
+}
+
+.vitrine-loja .header .btn-voltar:hover,
+.vitrine-loja .header-whats:hover {
+  background: var(--marca-clara);
+}
+
+.vitrine-loja .busca-wrapper {
+  min-width: 0;
+}
+
+.vitrine-loja .busca-wrapper input {
+  background: #f4f6fb;
+  box-shadow: none;
+}
+
+.vitrine-loja .filtros-wrap {
+  background: #fff;
+}
+
+.vitrine-loja .filtros,
+.vitrine-loja .filtros-barra {
+  margin-inline: var(--vitrine-margem);
+}
+
+.vitrine-loja .filtros {
+  padding-inline: 0;
+}
+
+.vitrine-apresentacao {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  margin: 12px var(--vitrine-margem) 0;
+  padding: clamp(15px, 2.4vw, 30px);
+  border-radius: 20px;
+  color: #fff;
+  background: linear-gradient(110deg, var(--marca-escura), #244a9a);
+}
+
+.vitrine-apresentacao h2 {
+  font-size: clamp(1.35rem, 3.15vw, 2.85rem);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -.04em;
+  text-wrap: balance;
+}
+
+.vitrine-loja .recado-loja {
+  justify-content: flex-start;
+  max-width: none;
+  margin: 0 var(--vitrine-margem);
+  padding: 3px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+.vitrine-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+}
+
+.vitrine-acoes a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.vitrine-whats {
+  padding-inline: 11px;
+  border-radius: 10px;
+  background: var(--destaque);
+  color: var(--sobre-destaque);
+}
+
+.vitrine-whats:hover {
+  background: var(--destaque-escuro);
+}
+
+.vitrine-catalogo {
+  color: #fff;
+}
+
+.vitrine-catalogo:hover {
+  text-decoration: underline;
+}
+
+.vitrine-acoes a:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.vitrine-ilustracao {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(135px, 20vw, 255px);
+  min-height: 112px;
+}
+
+.vitrine-ilustracao::before {
+  position: absolute;
+  z-index: -1;
+  width: 135%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, #8ab5ff66, transparent 68%);
+  content: "";
+}
+
+.vitrine-ilustracao-cruz {
+  display: grid;
+  place-items: center;
+  width: 104px;
+  aspect-ratio: 1;
+  border-radius: 27px;
+  background: #edf4ff;
+  box-shadow: 0 10px 20px #0a20554d;
+  transform: rotate(-12deg);
+}
+
+.vitrine-ilustracao-cruz::before {
+  width: 58%;
+  aspect-ratio: 1;
+  background: #3055a5;
+  clip-path: polygon(36% 0, 64% 0, 64% 36%, 100% 36%, 100% 64%, 64% 64%, 64% 100%, 36% 100%, 36% 64%, 0 64%, 0 36%, 36% 36%);
+  content: "";
+}
+
+.vitrine-ilustracao .ic {
+  position: absolute;
+  right: 14%;
+  bottom: 0;
+  padding: 7px;
+  border-radius: 13px;
+  background: var(--destaque);
+  color: var(--sobre-destaque);
+  transform: rotate(12deg);
+}
+
+#vitrine-destaques {
+  scroll-margin-top: calc(var(--teto-grudado, 215px) + 8px);
+}
+
+.vitrine-loja .mais-vendidos,
+.vitrine-loja #categoriasHome {
+  max-width: calc(var(--vitrine-largura) + 28px);
+  margin-inline: auto;
+}
+
+.vitrine-loja .mais-vendidos h2,
+.vitrine-loja .categoria-bloco-header h2 {
+  color: var(--marca-escura);
+  font-size: clamp(17px, 1.75vw, 22px);
+  letter-spacing: -.025em;
+}
+
+.vitrine-loja .card-mini {
+  border-radius: 14px;
+  background: #fff;
+}
+
+@media (max-width: 639px) {
+  .vitrine-loja {
+    --vitrine-margem: 10px;
+  }
+
+  .vitrine-apresentacao {
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 8px;
+    border-radius: 16px;
+  }
+
+  .vitrine-ilustracao {
+    display: none;
+  }
+}
+
+@media (min-width: 980px) {
+  .vitrine-abertura:has(#promos:not([hidden])) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 18px;
+    margin: 8px var(--vitrine-margem) 0;
+  }
+
+  .vitrine-abertura:has(#promos:not([hidden])) .vitrine-apresentacao {
+    margin: 0;
+  }
+
+  .vitrine-abertura:has(#promos:not([hidden])) .vitrine-ilustracao {
+    width: clamp(100px, 11vw, 155px);
+  }
+
+  .vitrine-campanha .promos {
+    padding: 0;
+    scroll-padding-inline: 0;
+  }
+
+  .vitrine-campanha .promos-pontos {
+    margin: 8px 0 0;
+  }
+}
