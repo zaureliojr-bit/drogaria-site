@@ -626,16 +626,51 @@ body {
 }
 
 .vitrine-loja .filtros-wrap {
-  background: #fff;
-}
-
-.vitrine-loja .filtros,
-.vitrine-loja .filtros-barra {
-  margin-inline: var(--vitrine-margem);
+  padding-bottom: 0;
+  border-bottom: 0;
+  background: var(--marca-escura);
 }
 
 .vitrine-loja .filtros {
-  padding-inline: 0;
+  gap: 0;
+  padding: 0 var(--vitrine-margem);
+}
+
+.vitrine-loja .filtros :is(button, a) {
+  min-height: 44px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  transform: none;
+}
+
+.vitrine-loja .filtros :is(button, a):hover,
+.vitrine-loja .filtros :is(button, a).ativo {
+  background: rgba(255, 255, 255, .15);
+  color: #fff;
+}
+
+.vitrine-loja .filtros :is(button, a).ativo {
+  box-shadow: inset 0 -3px var(--destaque);
+}
+
+.vitrine-loja .filtros :is(button, a):focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -4px;
+}
+
+.vitrine-loja .filtros-barra {
+  height: 4px;
+  margin: 0 var(--vitrine-margem);
+  border-radius: 0;
+  background: rgba(255, 255, 255, .18);
+}
+
+.vitrine-loja .filtros-barra .filtros-thumb {
+  border-radius: 0;
+  background: #e4e9ff;
 }
 
 .vitrine-apresentacao {
