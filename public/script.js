@@ -2547,6 +2547,9 @@ function aplicarFiltro() {
     gerarSubfiltros();
   }
 
+  const apresentacao = el("apresentacaoVitrine");
+  if (apresentacao) apresentacao.hidden = !modoHome;
+
   /* O encarte e os banners de parceiro ficavam. Buscar "dip" mostrava a
      chamada do encarte e um banner de 400px de altura, e o primeiro
      resultado caía abaixo da tela: o cliente digitava e não via resposta

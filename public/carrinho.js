@@ -68,6 +68,23 @@
     if (box && !box.hidden && !box.querySelector(".aviso-vazio")) mostrarConteudo();
   }, 12000);
 
+  const avisoEntrega = document.getElementById("avisoEntregaForaExpediente");
+  const tipoEntrega = document.getElementById("tipoEntrega");
+  if (avisoEntrega && tipoEntrega) {
+    let horarioCarregado = false;
+    const atualizarAviso = () => {
+      avisoEntrega.hidden = !horarioCarregado || tipoEntrega.value !== "Entrega" || lojaAbertaAgora();
+    };
+
+    document.addEventListener("lojaPronta", () => {
+      horarioCarregado = true;
+      atualizarAviso();
+    });
+    tipoEntrega.addEventListener("change", atualizarAviso);
+    document.addEventListener("visibilitychange", atualizarAviso);
+    setInterval(atualizarAviso, 60000);
+  }
+
   /* ---------- cupom ----------
      A regra mora no script.js (aplicarCupom), que é quem fala com o
      servidor; aqui ficam só os gatilhos desta página. */

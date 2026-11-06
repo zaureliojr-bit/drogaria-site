@@ -130,6 +130,10 @@
           <option value="Entrega">Entrega em casa</option>
         </select>
 
+        <p id="avisoEntregaForaExpediente" class="aviso-encomenda" role="status" hidden>
+          <strong>Pedido fora do expediente.</strong> Sua entrega será feita nas primeiras horas do próximo período de atendimento da loja.
+        </p>
+
         <input type="text" id="nome" placeholder="Seu nome *" autocomplete="name">
         <input type="tel" id="telefone" placeholder="Telefone *" autocomplete="tel"
           maxlength="15" inputmode="numeric" oninput="mascaraTelefone(this)">

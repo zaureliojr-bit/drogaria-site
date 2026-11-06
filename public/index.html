@@ -109,7 +109,7 @@
   <link rel="stylesheet" href="/visual-premium.css">
 </head>
 
-<body>
+<body class="vitrine-loja">
 
 <!-- 🎨 SPRITE DE ÍCONES (não aparece na tela; os cards usam via <use>) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -250,62 +250,38 @@
   </div>
 </div>
 
-<!-- 🚚 O RECADO DA LOJA
-     Uma linha, fixa, legível de uma vez. Estava no cabeçalho, em
-     rodízio com outros dois, custando 30px grudados no topo de toda
-     página. Aqui ele sobe com a página depois de lido - e é a entrega
-     em duas horas que responde "por que comprar aqui", não o rodízio. -->
 <p class="recado-loja">
-  <svg class="ic" width="15" height="15" aria-hidden="true"><use href="#ic-truck"></use></svg>
-  <strong>Entrega rápida</strong>
-  <!-- A cidade vem do cadastro da loja, como o rodapé.
-
-       Estava escrita aqui — "em São Bernardo do Campo" —, e o site da
-       filial de Diadema prometia entrega em São Bernardo, na primeira
-       linha da primeira tela. Mesmo defeito do rodapé e da coordenada
-       do frete: o HTML da raiz é o da primeira farmácia, e o que não é
-       trocado pelo cadastro fica sendo dela.
-
-       E saiu o "em até 2 horas". Era promessa fixa de uma loja só, e
-       nenhuma filial tem como garanti-la no dia do cadastro — prazo
-       que o site promete e a entrega não cumpre volta como reclamação
-       no WhatsApp. "Entrega rápida" diz o que todas podem sustentar; o
-       prazo exato quem combina é a loja, na confirmação do pedido. -->
-  <span data-loja="cidade-entrega">em São Bernardo do Campo</span>
+  <svg class="ic" width="16" height="16" aria-hidden="true"><use href="#ic-truck"></use></svg>
+  <span><strong>Entrega rápida</strong> <span data-loja="cidade-entrega">em São Bernardo do Campo</span></span>
 </p>
 
-<!-- 🧭 A FILEIRA DE LADRILHOS DE CATEGORIA SAIU DAQUI.
-
-     Ela e os chips logo acima chamavam o MESMO data-acao="filtrar" com
-     o MESMO data-familia — duas fileiras, um comportamento. No
-     computador as duas apareciam inteiras, uma embaixo da outra, e a
-     farmácia disse o óbvio: "as categorias aparecem 2x".
-
-     Ficaram os chips, que além de filtrar mostram qual filtro está
-     ativo e trazem o "Ofertas". A navegação com ícone foi para a folha
-     da aba Categorias, no rodapé do celular (abas.js), onde a lista
-     aparece inteira em vez de rolar para o lado cortando nome.
-
-     A curadoria que os ladrilhos tinham não se perdeu: virou o
-     familiasParaNavegar() do script.js, e é a folha que a usa. -->
-
-<!-- 🖼️ OS BANNERS DA LOJA
-     Subiram do meio da página para cá, logo abaixo dos atalhos.
-
-     Eles são a única peça da home que a FARMÁCIA escreve: campanha do
-     mês, encarte, parceria com laboratório. Enterrados depois das
-     ofertas e do encarte, a loja publicava um banner e ele quase não
-     era visto — o que, na prática, era o painel de banners existir sem
-     servir para nada.
-
-     Continua nascendo escondido: `hidden` sai no carregarBanners(),
-     quando há banner de verdade para mostrar. Loja sem banner nenhum
-     não ganha um buraco no alto da página — os destaques simplesmente
-     sobem. -->
-<section id="promos" class="promos" aria-label="Promoções e parceiros" hidden></section>
+<div id="apresentacaoVitrine" class="vitrine-abertura">
+  <section class="vitrine-apresentacao" aria-labelledby="vitrine-titulo">
+    <div class="vitrine-intro">
+      <h2 id="vitrine-titulo">Sua saúde em boas mãos</h2>
+      <div class="vitrine-acoes">
+        <a class="vitrine-whats" data-loja="whatsapp" href="https://wa.me/5511925190101?text=Ol%C3%A1!%20Quero%20fazer%20um%20pedido%20r%C3%A1pido%20pelo%20WhatsApp." target="_blank" rel="noopener">
+          <svg class="ic" width="17" height="17" aria-hidden="true"><use href="#ic-whats"></use></svg>
+          Pedir pelo WhatsApp
+        </a>
+        <a class="vitrine-catalogo" href="#vitrine-destaques">
+          Ver produtos
+          <svg class="ic" width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"></use></svg>
+        </a>
+      </div>
+    </div>
+    <div class="vitrine-ilustracao" aria-hidden="true">
+      <span class="vitrine-ilustracao-cruz"></span>
+      <svg class="ic" width="46" height="46"><use href="#ic-fam-remedio"></use></svg>
+    </div>
+  </section>
+  <div class="vitrine-campanha">
+    <section id="promos" class="promos" aria-label="Promoções e parceiros" hidden></section>
+  </div>
+</div>
 
 <!-- 🔥 DESTAQUES -->
-<section class="mais-vendidos" aria-label="Destaques da semana">
+<section id="vitrine-destaques" class="mais-vendidos" aria-label="Destaques da semana" tabindex="-1">
   <h2>
     <svg class="ic" width="17" height="17" aria-hidden="true"><use href="#ic-trending"></use></svg>
     Destaques da semana

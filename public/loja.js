@@ -169,9 +169,17 @@ function faixasDoDia(dia) {
 
 function lojaAbertaAgora() {
     const { dia, minutos } = agoraNaLoja();
-    return faixasDoDia(dia).some(
-        (f) => minutos >= emMinutos(f.abre) && minutos < emMinutos(f.fecha)
-    );
+    const abertaHoje = faixasDoDia(dia).some(({ abre, fecha }) => {
+        const inicio = emMinutos(abre);
+        const fim = emMinutos(fecha);
+        return minutos >= inicio && (fim < inicio || minutos < fim);
+    });
+
+    // O trecho depois da meia-noite pertence ao expediente do dia anterior.
+    return abertaHoje || faixasDoDia((dia + 6) % 7).some(({ abre, fecha }) => {
+        const fim = emMinutos(fecha);
+        return fim < emMinutos(abre) && minutos < fim;
+    });
 }
 
 /* "7h" / "7h30" — do jeito que se fala, não "07:00". */
@@ -451,16 +459,9 @@ function aplicarNaPagina() {
    CARREGAR
    ------------------------------------------------------------------ */
 
-/* "Acabei de editar o cadastro e o site não mudou."
-
-   O cache guarda por uma hora, e sessionStorage não morre no F5 — só
-   quando a aba fecha. Para o cliente isso é bom; para quem ACABOU de
-   salvar no painel é só confusão, e foi o que aconteceu no dia em que
-   a coordenada da filial foi corrigida: o banco certo, a tela velha.
-
-   Por isso o link "Ver o site" do painel sai com ?fresco=1, e quem
-   chega com ele ignora o cache uma vez. Quem decide é quem está
-   olhando: ninguém mais abre o site com esse carimbo na URL. */
+/* O link “Ver o site” do painel pode ignorar a cópia da sessão. Nas
+   páginas com indicador de horário, o cadastro é revalidado mesmo quando
+   há uma cópia, pois o horário pode ter mudado no painel. */
 function querFresco() {
     try {
         return new URL(location.href).searchParams.has("fresco");
@@ -482,20 +483,26 @@ function lerCacheLoja() {
     }
 }
 
+function paginaMostraHorario() {
+    return document.querySelector("#status, #lpStatus, #avisoEntregaForaExpediente");
+}
+
+let cadastroEmUso;
+let consultandoCadastro = false;
+
 async function carregarLoja() {
     const base = (typeof API_PEDIDOS_D1 !== "undefined" && API_PEDIDOS_D1)
         ? API_PEDIDOS_D1
         : API_LOJA_SEM_SCRIPT;
-    if (!base) return;
+    if (!base || consultandoCadastro) return;
 
     const guardado = lerCacheLoja();
-    if (guardado) {
-        adotar(guardado);
-        return;
-    }
+    if (guardado && !cadastroEmUso) adotar(guardado);
+    if (guardado && !paginaMostraHorario()) return;
 
+    consultandoCadastro = true;
     try {
-        const resposta = await fetch(LojaAtual.api(base, "/loja"));
+        const resposta = await fetch(LojaAtual.api(base, "/loja"), { cache: "no-store" });
         if (!resposta.ok) throw new Error("HTTP " + resposta.status);
 
         const dados = await resposta.json();
@@ -515,6 +522,8 @@ async function carregarLoja() {
            nada, e um aviso vermelho no console de uma farmácia não ajuda
            ninguém. Vira console.info para quem estiver depurando. */
         console.info("Cadastro da loja não carregou; usando o que está na página.", erro.message);
+    } finally {
+        consultandoCadastro = false;
     }
 }
 
@@ -553,6 +562,9 @@ const SO_DESTA_FARMACIA = [
 ];
 
 function adotar(dados) {
+    const cadastro = JSON.stringify(dados);
+    if (cadastro === cadastroEmUso) return;
+    cadastroEmUso = cadastro;
 
     const vinda = dados.loja || {};
 
@@ -566,9 +578,18 @@ function adotar(dados) {
     }
 
     LOJA = { ...base, ...vinda };
-    if (Array.isArray(dados.horario) && dados.horario.length) HORARIO_LOJA = dados.horario;
+    if (Array.isArray(dados.horario)) HORARIO_LOJA = dados.horario;
     VISUAL = dados.visual || null;
     aplicarNaPagina();
 }
 
-document.addEventListener("DOMContentLoaded", carregarLoja);
+document.addEventListener("DOMContentLoaded", () => {
+    carregarLoja();
+    if (!paginaMostraHorario()) return;
+
+    const atualizarCadastroVisivel = () => {
+        if (!document.hidden) carregarLoja();
+    };
+    document.addEventListener("visibilitychange", atualizarCadastroVisivel);
+    setInterval(atualizarCadastroVisivel, 5 * 60 * 1000);
+});
