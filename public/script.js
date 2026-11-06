@@ -2808,7 +2808,7 @@ function cardHTML(p, mini = false) {
 
   const bloco = p.emOferta && !p.descontoSuspeito
     ? `<div class="preco-linha-de">
-         <span class="preco-antes">antes</span>
+         <span class="preco-antes">Antes</span>
          <span class="preco-de">${fmt(p.precoOriginal)}</span>
        </div>
        <span class="preco preco-por">${precoGrandeHTML(p.preco)}</span>
