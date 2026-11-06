@@ -860,3 +860,47 @@ body {
     margin: 8px 0 0;
   }
 }
+
+/* Alinha nomes, preços e ações nos cards da vitrine e dos resultados. */
+.vitrine-loja :is(.card, .card-mini) .produto-nome-link {
+  font-size: 13px;
+  line-height: 1.35;
+  min-height: 4.05em;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow-wrap: anywhere;
+}
+
+.vitrine-loja .card-preco {
+  display: grid;
+  grid-template-rows: 15px auto 16px;
+  justify-items: start;
+}
+
+.vitrine-loja :is(.card, .card-mini) .preco {
+  color: var(--marca-escura);
+  font-size: 20px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.vitrine-loja :is(.card, .card-mini) .preco-economia {
+  margin: 2px 0 0;
+  padding: 0;
+  background: none;
+  color: var(--tinta-suave);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+@media (max-width: 639px) {
+  .vitrine-loja .scroll-horizontal > .card-mini {
+    flex-basis: calc((100% - 10px) / 2);
+    min-width: 0;
+  }
+
+  .vitrine-loja :is(.card, .card-mini) > :is(.btn-add, .controle, .controle-mini) {
+    min-height: 44px;
+  }
+}
