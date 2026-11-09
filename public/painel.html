@@ -7964,7 +7964,18 @@ el("abas").addEventListener("click", (ev) => {
   if (aba === "lojas") carregarLojas().catch(e => avisoLojas("Não consegui carregar as filiais: " + e.message));
 });
 
+const filialDoLink = new URLSearchParams(location.search).get("filial");
+if (filialDoLink !== null && /^[a-z0-9-]*$/.test(filialDoLink)) {
+  el("lojaLogin").value = filialDoLink;
+  if (senha && lojaAtual !== filialDoLink) {
+    sessionStorage.removeItem("painelKey");
+    sessionStorage.removeItem("painelLoja");
+    senha = "";
+    lojaAtual = "";
+  }
+}
 tentar();
+
 </script>
 
 </body>
