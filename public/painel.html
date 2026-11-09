@@ -1430,6 +1430,7 @@
 
         <div class="pedido-acoes">
           <button type="submit" class="principal" id="salvarBanner">Salvar banner</button>
+          <button type="submit" id="publicarLoteBanner" hidden>Publicar em lojas selecionadas</button>
           <button type="button" id="cancelarBanner">Cancelar</button>
         </div>
       </form>
@@ -1492,6 +1493,7 @@
 
         <div class="pedido-acoes">
           <button type="submit" class="principal" id="salvarEncarte">Salvar encarte</button>
+          <button type="submit" id="publicarLoteEncarte" hidden>Publicar em lojas selecionadas</button>
           <button type="button" id="cancelarEncarte">Cancelar</button>
         </div>
       </form>
@@ -1603,6 +1605,7 @@
 
         <div class="form-acoes">
           <button type="submit" class="principal">Criar cupom</button>
+          <button type="submit" id="publicarLoteCupom" hidden>Publicar em lojas selecionadas</button>
         </div>
       </form>
 
@@ -2063,6 +2066,80 @@ function cabecalhos(extra = {}) {
     ...(lojaAtual ? { "X-Painel-Loja": lojaAtual } : {}),
     ...extra
   };
+}
+
+async function publicarLote(botao, publicar, avisar, avisoInicial = "") {
+  const form = botao.form;
+  const controles = [...form.elements].filter(c => !c.disabled);
+  controles.forEach(c => { c.disabled = true; });
+  try {
+    if (!souDono) throw new Error("Entre com a chave de dono da plataforma.");
+    const { lojas = [] } = await api("/lojas");
+    const ativas = lojas.filter(l => l.ativo && l.slug);
+    if (!ativas.length) throw new Error("Nenhuma loja ativa disponível.");
+
+    const dialogo = document.createElement("dialog");
+    const escolhas = document.createElement("form");
+    escolhas.method = "dialog";
+    const titulo = document.createElement("h3");
+    titulo.textContent = "Publicar em lojas selecionadas";
+    escolhas.append(titulo);
+    for (const loja of ativas) {
+      const rotulo = document.createElement("label");
+      rotulo.style.display = "block";
+      const campo = document.createElement("input");
+      campo.type = "checkbox";
+      campo.value = loja.slug;
+      rotulo.append(campo, " " + loja.nome);
+      escolhas.append(rotulo);
+    }
+    const recado = document.createElement("p");
+    recado.textContent = avisoInicial;
+    escolhas.append(recado);
+    for (const [valor, texto] of [["cancelar", "Cancelar"], ["publicar", "Publicar"]]) {
+      const acao = document.createElement("button");
+      acao.value = valor;
+      acao.textContent = texto;
+      escolhas.append(acao);
+    }
+    dialogo.append(escolhas);
+    document.body.append(dialogo);
+    const selecionadas = await new Promise(resolve => {
+      dialogo.addEventListener("close", () => {
+        resolve(dialogo.returnValue === "publicar"
+          ? [...escolhas.querySelectorAll("input:checked")].map(c => c.value) : []);
+        dialogo.remove();
+      }, { once: true });
+      dialogo.showModal();
+    });
+    if (!selecionadas.length) return;
+
+    const resultados = [];
+    for (const loja of ativas.filter(l => selecionadas.includes(l.slug))) {
+      try {
+        const dados = await publicar(loja.slug);
+        resultados.push(loja.nome + " — publicado" + (dados.aviso ? " (" + dados.aviso + ")" : ""));
+      } catch (erro) {
+        resultados.push(loja.nome + " — falhou: " + erro.message);
+      }
+    }
+    avisar(resultados.join(" | "));
+  } catch (erro) {
+    avisar(erro.message);
+  } finally {
+    controles.forEach(c => { c.disabled = false; });
+  }
+}
+
+async function enviarPublicacao(rota, corpo, slug) {
+  const resposta = await fetch(API.replace(/\/+$/, "") + rota, {
+    method: "POST",
+    headers: cabecalhos({ "Content-Type": "application/json", "X-Painel-Loja": slug }),
+    body: JSON.stringify(corpo)
+  });
+  const dados = await resposta.json().catch(() => ({}));
+  if (!resposta.ok) throw new Error(dados.erro || "HTTP " + resposta.status);
+  return dados;
 }
 
 async function api(rota) {
@@ -3168,6 +3245,13 @@ el("formCupom")?.addEventListener("submit", async (ev) => {
     raioKm: numeroBR(el("cupomRaio").value),
     descricao: el("cupomDescricao").value
   };
+
+  if (ev.submitter === el("publicarLoteCupom")) {
+    await publicarLote(ev.submitter, slug => enviarPublicacao("/cupons", corpo, slug),
+      msg => avisoCupom(msg, false), "Se o código já existir em uma loja selecionada, seus dados serão atualizados.");
+    await carregarCupons();
+    return;
+  }
 
   try {
 
@@ -4898,6 +4982,7 @@ async function carregarBanners() {
 function abrirFormulario(b) {
   el("formBanner").hidden = false;
   el("bannerId").value = b?.id || "";
+  el("publicarLoteBanner").hidden = !souDono || !!b?.id;
   el("bannerR2").value = b?.r2_chave || "";
   el("bannerImagem").value = b?.imagem || "";
   el("bannerAlt").value = b?.alt || "";
@@ -4969,10 +5054,10 @@ el("bannerArquivo").addEventListener("change", e => {
   mostrarPrevia(URL.createObjectURL(arquivo));
 });
 
-async function enviarArquivoDoBanner(arquivo) {
+async function enviarArquivoDoBanner(arquivo, slug = lojaAtual) {
   const r = await fetch(`${API.replace(/\/+$/, "")}/banners/imagem`, {
     method: "POST",
-    headers: cabecalhos({ "Content-Type": arquivo.type }),
+    headers: cabecalhos({ "Content-Type": arquivo.type, ...(slug ? { "X-Painel-Loja": slug } : {}) }),
     body: arquivo
   });
   const dados = await r.json().catch(() => ({}));
@@ -4982,6 +5067,34 @@ async function enviarArquivoDoBanner(arquivo) {
 
 el("formBanner").addEventListener("submit", async (ev) => {
   ev.preventDefault();
+
+  if (ev.submitter === el("publicarLoteBanner")) {
+    if (el("bannerId").value) return avisoBanner("Abra um novo banner para publicar em várias lojas.");
+    const arquivo = el("bannerArquivo").files?.[0];
+    const arte = el("entradaArquivo").files?.[0];
+    const corpo = {
+      imagem: el("bannerImagem").value.trim(), alt: el("bannerAlt").value.trim(),
+      link: el("bannerLink").value.trim(), inicio: el("bannerInicio").value,
+      fim: el("bannerFim").value, ativo: el("bannerAtivo").checked,
+      entrada: el("bannerEntrada").checked, entradaImagem: el("entradaImagem").value.trim(),
+      ordem: Number(el("bannerOrdem").value) || 0
+    };
+    if (!corpo.alt || (!arquivo && !corpo.imagem)) return avisoBanner("Preencha a imagem e a descrição.");
+    await publicarLote(ev.submitter, async slug => {
+      const alvo = { ...corpo };
+      if (arquivo) {
+        const imagem = await enviarArquivoDoBanner(arquivo, slug);
+        Object.assign(alvo, { imagem: imagem.url, r2Chave: imagem.chave });
+      }
+      if (arte && alvo.entrada) {
+        const imagem = await enviarArquivoDoBanner(arte, slug);
+        Object.assign(alvo, { entradaImagem: imagem.url, entradaR2: imagem.chave });
+      }
+      return enviarPublicacao("/banners", alvo, slug);
+    }, msg => avisoBanner(msg, "ok"));
+    await carregarBanners();
+    return;
+  }
 
   const botao = el("salvarBanner");
   botao.disabled = true;
@@ -5178,10 +5291,10 @@ function pintarFilaDePaginas() {
   `).join("");
 }
 
-async function enviarArquivo(arquivo, pasta) {
+async function enviarArquivo(arquivo, pasta, slug = lojaAtual) {
   const r = await fetch(`${API.replace(/\/+$/, "")}/arquivos?pasta=${pasta}`, {
     method: "POST",
-    headers: cabecalhos({ "Content-Type": arquivo.type }),
+    headers: cabecalhos({ "Content-Type": arquivo.type, ...(slug ? { "X-Painel-Loja": slug } : {}) }),
     body: arquivo
   });
   const dados = await r.json().catch(() => ({}));
@@ -5205,7 +5318,7 @@ el("encarteArquivos").addEventListener("change", async (ev) => {
       continue;
     }
 
-    const espaco = { imagem: "", r2Chave: null, enviando: true };
+    const espaco = { imagem: "", r2Chave: null, enviando: true, arquivo };
     paginasDoEncarte.push(espaco);
     pintarFilaDePaginas();
 
@@ -5255,6 +5368,7 @@ el("encarteFila").addEventListener("click", (ev) => {
 function abrirFormularioEncarte(e) {
   el("formEncarte").hidden = false;
   el("encarteId").value = e?.id || "";
+  el("publicarLoteEncarte").hidden = !souDono || !!e?.id;
   el("encarteTitulo").value = e?.titulo || "";
   el("encarteInicio").value = e?.inicio || "";
   el("encarteFim").value = e?.fim || "";
@@ -5279,6 +5393,29 @@ el("formEncarte").addEventListener("submit", async (ev) => {
   const paginas = paginasDoEncarte.filter(p => p.imagem);
   if (!el("encarteTitulo").value.trim()) return avisoEncarte("Dê um nome ao encarte.");
   if (!paginas.length) return avisoEncarte("O encarte precisa de pelo menos uma página.");
+
+  if (ev.submitter === el("publicarLoteEncarte")) {
+    if (el("encarteId").value || paginas.some(p => !p.arquivo)) {
+      return avisoEncarte("Abra um novo encarte e selecione as páginas para publicar em várias lojas.");
+    }
+    const arquivoPdf = el("encarteArquivoPdf").files?.[0];
+    const corpo = { titulo: el("encarteTitulo").value.trim(), inicio: el("encarteInicio").value,
+      fim: el("encarteFim").value, ativo: el("encarteAtivo").checked };
+    await publicarLote(ev.submitter, async slug => {
+      const alvo = { ...corpo, paginas: [] };
+      for (const { arquivo } of paginas) {
+        const imagem = await enviarArquivo(arquivo, "encarte", slug);
+        alvo.paginas.push({ imagem: imagem.url, r2Chave: imagem.chave });
+      }
+      if (arquivoPdf) {
+        const pdf = await enviarArquivo(arquivoPdf, "encarte", slug);
+        Object.assign(alvo, { pdf: pdf.url, pdfChave: pdf.chave });
+      }
+      return enviarPublicacao("/encartes", alvo, slug);
+    }, msg => avisoEncarte(msg, "ok"));
+    await carregarEncartes();
+    return;
+  }
 
   const botao = el("salvarEncarte");
   botao.disabled = true; botao.textContent = "Salvando…";
@@ -6559,6 +6696,9 @@ async function carregarSessao() {
   try {
     const s = await api("/sessao");
     souDono = !!s.dono;
+    el("publicarLoteCupom").hidden = !souDono;
+    el("publicarLoteBanner").hidden = !souDono || !!el("bannerId").value;
+    el("publicarLoteEncarte").hidden = !souDono || !!el("encarteId").value;
     if (s.loja && s.loja.slug) lojaAtual = s.loja.slug;
     if (s.loja && s.loja.nome) lojaNome = s.loja.nome;
     el("botaoAbaLojas").hidden = !souDono;
