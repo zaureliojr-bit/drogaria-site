@@ -1973,6 +1973,7 @@
           <label>Categoria<input name="categoria" maxlength="1500"></label>
           <fieldset id="filiaisRede"><legend>Filiais com este produto</legend></fieldset>
           <button type="submit" class="principal">Salvar nas lojas marcadas</button>
+          <button type="button" id="fecharEditorRede">Fechar edição</button>
           <p id="resultadoRede" role="status"></p>
         </form>
       </section>
@@ -2266,6 +2267,8 @@ function listarRede() {
   paginaCatalogoRede = Math.min(paginaCatalogoRede, Math.max(0, paginas - 1));
   const inicio = paginaCatalogoRede * porPagina;
   const lista = el("listaRede");
+  const editor = el("editarRede");
+  el("paginacaoRede").after(editor);
   lista.innerHTML = encontrados.slice(inicio, inicio + porPagina).map(([ean, registros]) => {
     const produto = registros[0].produto;
     const foto = registros.map(r => fotoCatalogoRede(r.produto)).find(Boolean);
@@ -2277,6 +2280,11 @@ function listarRede() {
       '<small>' + esc(registros.map(r => r.loja.nome).join(" · ")) + '</small></div>' +
       '<button type="button" data-editar-rede="' + esc(ean) + '">Editar produto</button></article>';
   }).join("") || '<p class="vazio">Nenhum produto encontrado.</p>';
+  if (!editor.hidden) {
+    const linha = lista.querySelector(`[data-editar-rede="${CSS.escape(selecionadoRede)}"]`)?.closest(".rede-produto");
+    if (linha) linha.after(editor);
+    else editor.hidden = true;
+  }
   lista.querySelectorAll("img").forEach(img => {
     const mostrarErro = () => {
       const texto = document.createElement("span");
@@ -2376,8 +2384,14 @@ el("listaRede").addEventListener("click", evento => {
     rotulo.append(marcar, " " + loja.nome);
     filiais.append(rotulo);
   }
+  botao.closest(".rede-produto").after(form);
   form.hidden = false;
   form.scrollIntoView({ block: "nearest" });
+});
+
+el("fecharEditorRede").addEventListener("click", () => {
+  el("editarRede").hidden = true;
+  el("listaRede").querySelector(`[data-editar-rede="${CSS.escape(selecionadoRede)}"]`)?.focus();
 });
 
 el("editarRede").addEventListener("submit", async evento => {
