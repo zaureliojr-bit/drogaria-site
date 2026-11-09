@@ -1923,6 +1923,28 @@
     <!-- ===== ABA: CATÁLOGO ===== -->
     <div id="abaCatalogo" hidden>
 
+      <section id="catalogoRede" class="form-banner" hidden>
+        <h2>Catálogo da rede</h2>
+        <p>Compare os produtos publicados por filial. Busque por nome, EAN ou código.</p>
+        <button type="button" id="carregarRede">Carregar catálogos</button>
+        <input id="buscarRede" class="busca-imagem-produto" type="search" placeholder="Buscar produto" aria-label="Buscar produto na rede">
+        <p id="statusRede" role="status"></p>
+        <div id="listaRede" class="tabela-wrap"></div>
+        <form id="editarRede" class="form-banner" hidden>
+          <h3 id="produtoRede"></h3>
+          <img id="fotoRede" alt="Foto atual do produto" width="96" height="96" style="object-fit:contain" hidden>
+          <p>Preencha só o que deseja alterar e marque as filiais.</p>
+          <label>Foto (URL HTTPS)<input name="imagem" type="url" maxlength="1500"></label>
+          <label>Nome<input name="nome" maxlength="1500"></label>
+          <label>Descrição<textarea name="descricao" maxlength="1500"></textarea></label>
+          <label>Categoria<input name="categoria" maxlength="1500"></label>
+          <fieldset id="filiaisRede"><legend>Filiais com este produto</legend></fieldset>
+          <button type="submit" class="principal">Salvar nas lojas marcadas</button>
+          <p id="resultadoRede" role="status"></p>
+        </form>
+      </section>
+
+
       <div class="fila-topo">
         <span class="pedido-quando">Recebe a extração do Firebird e atualiza o catálogo do site sozinho.</span>
         <button type="button" id="verificarCatalogo" class="btn-testar-som">Verificar agora</button>
@@ -2186,6 +2208,142 @@ async function publicarLote(botao, publicar, avisar, avisoInicial = "") {
     controles.forEach(c => { c.disabled = false; });
   }
 }
+
+const produtosRede = new Map();
+let selecionadoRede = "";
+
+function listarRede() {
+  const busca = el("buscarRede").value.trim().toLowerCase();
+  const encontrados = [...produtosRede.entries()].filter(([ean, registros]) =>
+    ean.includes(busca) || registros.some(({ produto }) =>
+      [produto.nome, produto.descricao, produto.codigo].some(v => String(v ?? "").toLowerCase().includes(busca))));
+  el("listaRede").innerHTML = tabela(
+    [{ titulo: "Produto" }, { titulo: "EAN" }, { titulo: "Filiais" }, { titulo: "" }],
+    encontrados.slice(0, 60).map(([ean, registros]) => [
+      esc(registros[0].produto.nome || registros[0].produto.descricao || ean),
+      esc(ean), esc(registros.map(r => r.loja.nome).join(", ")),
+      '<button type="button" data-editar-rede="' + esc(ean) + '">Editar</button>'
+    ]), "Nenhum produto encontrado.");
+}
+
+el("carregarRede").addEventListener("click", async () => {
+  const botao = el("carregarRede");
+  botao.disabled = true;
+  el("editarRede").hidden = true;
+  el("statusRede").textContent = "Carregando catálogos…";
+  try {
+    const { lojas } = await api("/lojas");
+    const resultados = await Promise.allSettled(lojas.filter(l => l.ativo && l.slug).map(async loja => {
+      try {
+        const { catalogo } = await api("/loja?slug=" + encodeURIComponent(loja.slug));
+        if (!catalogo) throw new Error();
+        const resposta = await fetch(catalogo, { cache: "no-cache" });
+        if (!resposta.ok) throw new Error();
+        const { produtos } = await resposta.json();
+        if (!Array.isArray(produtos)) throw new Error();
+        return { loja, produtos };
+      } catch {
+        throw new Error(loja.nome);
+      }
+    }));
+    produtosRede.clear();
+    const falhas = [];
+    for (const resultado of resultados) {
+      if (resultado.status === "rejected") {
+        falhas.push(resultado.reason.message);
+        continue;
+      }
+      const { loja, produtos } = resultado.value;
+      for (const produto of produtos) {
+        const ean = String(produto?.ean || "");
+        if (!/^\d{8,14}$/.test(ean)) continue;
+        if (!produtosRede.has(ean)) produtosRede.set(ean, []);
+        const registros = produtosRede.get(ean);
+        if (!registros.some(r => r.loja.slug === loja.slug)) registros.push({ loja, produto });
+      }
+    }
+    el("statusRede").textContent = produtosRede.size + " produtos com EAN. Até 60 resultados por busca."
+      + (falhas.length ? " Catálogos indisponíveis: " + falhas.join(", ") + "." : "");
+    listarRede();
+  } catch (erro) {
+    el("statusRede").textContent = erro.message;
+  } finally {
+    botao.disabled = false;
+  }
+});
+
+el("buscarRede").addEventListener("input", listarRede);
+el("listaRede").addEventListener("click", evento => {
+  const botao = evento.target.closest("[data-editar-rede]");
+  if (!botao || el("carregarRede").disabled) return;
+  selecionadoRede = botao.dataset.editarRede;
+  const registros = produtosRede.get(selecionadoRede);
+  if (!registros?.length) return;
+  const form = el("editarRede");
+  form.reset();
+  el("resultadoRede").textContent = "";
+  const produto = registros[0].produto;
+  const foto = el("fotoRede");
+  foto.hidden = !/^https:\/\//i.test(produto.imagem || "");
+  if (foto.hidden) foto.removeAttribute("src");
+  else foto.src = produto.imagem;
+  el("produtoRede").textContent = (produto.nome || produto.descricao || "") + " · " + selecionadoRede;
+  for (const campo of ["imagem", "nome", "descricao", "categoria"]) {
+    form.elements.namedItem(campo).placeholder = produto[campo] || "";
+  }
+  const filiais = el("filiaisRede");
+  filiais.querySelectorAll("label").forEach(rotulo => rotulo.remove());
+  for (const { loja } of registros) {
+    const rotulo = document.createElement("label");
+    const marcar = document.createElement("input");
+    marcar.type = "checkbox";
+    marcar.name = "filial";
+    marcar.value = loja.slug;
+    rotulo.append(marcar, " " + loja.nome);
+    filiais.append(rotulo);
+  }
+  form.hidden = false;
+  form.scrollIntoView({ block: "nearest" });
+});
+
+el("editarRede").addEventListener("submit", async evento => {
+  evento.preventDefault();
+  const form = evento.currentTarget;
+  const dados = new FormData(form);
+  const edicao = { ean: selecionadoRede };
+  for (const campo of ["imagem", "nome", "descricao", "categoria"]) {
+    const valor = dados.get(campo)?.trim();
+    if (valor) edicao[campo] = valor;
+  }
+  const filiais = dados.getAll("filial");
+  const resultado = el("resultadoRede");
+  if (!filiais.length || Object.keys(edicao).length === 1) {
+    resultado.textContent = "Preencha pelo menos um campo e selecione uma filial.";
+    return;
+  }
+  const controles = [...form.elements, el("carregarRede")].filter(c => !c.disabled);
+  controles.forEach(c => { c.disabled = true; });
+  const registros = produtosRede.get(edicao.ean);
+  const mensagens = [];
+  resultado.textContent = "Salvando…";
+  try {
+    for (const slug of filiais) {
+      const registro = registros.find(r => r.loja.slug === slug);
+      try {
+        await enviarPublicacao("/catalogo/editar-rede", { edicao }, slug);
+        const { ean, ...campos } = edicao;
+        Object.assign(registro.produto, campos);
+        mensagens.push(registro.loja.nome + " — salvo");
+      } catch (erro) {
+        mensagens.push(registro.loja.nome + " — " + erro.message);
+      }
+    }
+    listarRede();
+    resultado.textContent = mensagens.join(" | ");
+  } finally {
+    controles.forEach(c => { c.disabled = false; });
+  }
+});
 
 async function lerArtePublicada(url, chave) {
   if (!url) return null;
@@ -6789,6 +6947,7 @@ async function carregarSessao() {
   try {
     const s = await api("/sessao");
     souDono = !!s.dono;
+    el("catalogoRede").hidden = !souDono;
     el("publicarLoteCupom").hidden = !souDono;
     el("publicarLoteBanner").hidden = !souDono;
     el("publicarLoteEncarte").hidden = !souDono;
