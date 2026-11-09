@@ -1460,7 +1460,7 @@ function mapearProduto(p) {
     tarjaNome: TARJA_ROTULO[tarja] || "",
     codigo: p.codigo,
     ean: p.ean,
-    nome: p.descricao,
+    nome: p.nome || p.descricao,
     marca: p.marca || "",
     laboratorio: p.laboratorio || "",
     categoria: p.categoria || "",
@@ -1527,7 +1527,7 @@ function mapearProduto(p) {
        contra ele para saber se a palavra está no NOME do produto ou
        só na categoria dele — "cabelo" tem de trazer o shampoo antes
        do esmalte que só mora na mesma família. */
-    nomeNormalizado: normalizar(p.descricao || ""),
+    nomeNormalizado: normalizar(p.nome || p.descricao || ""),
 
     /* ÍNDICE DE BUSCA: nome + marca + laboratório + EAN + ONDE O
        PRODUTO ESTÁ.
@@ -1543,7 +1543,7 @@ function mapearProduto(p) {
        para o rosto" saem do zero também — medidos no catálogo de
        hoje. */
     busca: normalizar([
-      p.descricao, p.marca, p.laboratorio, p.ean,
+      p.nome, p.descricao, p.marca, p.laboratorio, p.ean,
       familia.nome, p.categoria, p.subcategoria
     ].filter(Boolean).join(" "))
   };
