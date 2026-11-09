@@ -73,7 +73,7 @@
         /* "painel" e "www" não são farmácias. */
         if (prefixo === "painel" || prefixo === "www") return "";
 
-        return limpar(prefixo);
+        return prefixo === "mb-prudente" ? "prudente-01" : limpar(prefixo);
 
     }
 
