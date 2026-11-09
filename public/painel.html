@@ -816,6 +816,7 @@
     </div>
   </div>
   <div class="painel-topo-acoes">
+    <button type="button" id="btnSair" hidden>Sair</button>
     <button type="button" id="btnInstalar" class="btn-instalar-painel" hidden>Instalar no computador</button>
     <a id="verSite" href="https://drogaria-site.pages.dev">← Ver o site</a>
   </div>
@@ -2180,6 +2181,7 @@ async function api(rota) {
 function mostrarLogin(mensagem) {
   el("login").style.display = "";
   el("conteudo").style.display = "none";
+  el("btnSair").hidden = true;
   el("erroLogin").innerHTML = mensagem ? `<div class="erro">${esc(mensagem)}</div>` : "";
   el("senha").focus();
 }
@@ -3735,6 +3737,7 @@ async function carregar() {
   mostrarQuemESoQueHoras();
   el("login").style.display = "none";
   el("conteudo").style.display = "";
+  el("btnSair").hidden = false;
 }
 
 /* "Apagar dados" — o pedido de exclusão do art. 18 da LGPD.
@@ -3807,6 +3810,7 @@ async function abrirPainel() {
   await carregarFila();          // falha aqui = senha errada ou servidor fora, e cai no catch de tentar()
   el("login").style.display = "none";
   el("conteudo").style.display = "";
+  el("btnSair").hidden = false;
   await carregarSessao();
   ligarPolling();
   carregarCatalogo().then(() => {
@@ -3861,6 +3865,13 @@ async function tentar() {
     mostrarLogin(recado);
   }
 }
+
+el("btnSair").addEventListener("click", () => {
+  sessionStorage.removeItem("painelKey");
+  sessionStorage.removeItem("painelLoja");
+  el("senha").value = "";
+  location.reload();
+});
 
 el("btnEntrar").addEventListener("click", () => {
   senha = el("senha").value.trim();
