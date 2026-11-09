@@ -798,6 +798,39 @@
     background: var(--branco); border: 1px dashed var(--linha); border-radius: var(--raio-md);
     padding: 40px 20px; text-align: center; color: var(--tinta-suave); font-size: 13.5px;
   }
+  .publicacao-lojas {
+    position: fixed; inset: 0; margin: auto;
+    width: min(460px, calc(100% - 32px)); max-height: calc(100dvh - 32px);
+    padding: 24px; overflow: auto; border: 1px solid var(--linha);
+    border-radius: 18px; background: var(--branco); color: var(--tinta);
+    box-shadow: 0 24px 70px #12143745;
+  }
+  .publicacao-lojas::backdrop { background: #15163188; }
+  .publicacao-lojas h3 { font-size: 21px; line-height: 1.2; }
+  .publicacao-lojas p { margin: 8px 0 16px; font-size: 13px; line-height: 1.5; color: var(--tinta-suave); }
+  .publicacao-lojas-lista { display: grid; gap: 8px; }
+  .publicacao-lojas-lista label {
+    display: flex; align-items: center; gap: 12px; min-height: 46px;
+    padding: 10px 12px; border: 1px solid var(--linha); border-radius: 10px;
+    background: var(--papel); font-size: 14px; cursor: pointer;
+  }
+  .publicacao-lojas-lista label:has(input:checked) {
+    border-color: var(--marca); background: var(--marca-clara);
+  }
+  .publicacao-lojas-lista input { width: 17px; height: 17px; flex: none; accent-color: var(--marca); }
+  .publicacao-lojas .publicacao-recado {
+    margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--papel);
+  }
+  .publicacao-lojas-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .publicacao-lojas-acoes button {
+    min-height: 42px; padding: 8px 14px; border: 1px solid var(--linha);
+    border-radius: 10px; background: var(--branco); color: var(--tinta); font: inherit;
+    font-weight: 700; cursor: pointer;
+  }
+  .publicacao-lojas-acoes button[value="publicar"] {
+    background: var(--marca); border-color: var(--marca); color: var(--branco);
+  }
+  .publicacao-lojas-acoes button:disabled { opacity: .5; cursor: default; }
 </style>
 </head>
 
@@ -2082,27 +2115,49 @@ async function publicarLote(botao, publicar, avisar, avisoInicial = "") {
     const dialogo = document.createElement("dialog");
     const escolhas = document.createElement("form");
     escolhas.method = "dialog";
+    dialogo.className = "publicacao-lojas";
+    dialogo.setAttribute("aria-labelledby", "publicacao-lojas-titulo");
     const titulo = document.createElement("h3");
-    titulo.textContent = "Publicar em lojas selecionadas";
-    escolhas.append(titulo);
+    titulo.id = "publicacao-lojas-titulo";
+    titulo.textContent = botao.textContent.trim();
+    const instrucao = document.createElement("p");
+    instrucao.textContent = "Marque as filiais que devem receber esta publicação.";
+    const lista = document.createElement("div");
+    lista.className = "publicacao-lojas-lista";
+    escolhas.append(titulo, instrucao, lista);
     for (const loja of ativas) {
       const rotulo = document.createElement("label");
-      rotulo.style.display = "block";
       const campo = document.createElement("input");
       campo.type = "checkbox";
       campo.value = loja.slug;
       rotulo.append(campo, " " + loja.nome);
-      escolhas.append(rotulo);
+      lista.append(rotulo);
     }
-    const recado = document.createElement("p");
-    recado.textContent = avisoInicial;
-    escolhas.append(recado);
+    if (avisoInicial) {
+      const recado = document.createElement("p");
+      recado.className = "publicacao-recado";
+      recado.textContent = avisoInicial;
+      escolhas.append(recado);
+    }
+    const acoes = document.createElement("div");
+    acoes.className = "publicacao-lojas-acoes";
+    escolhas.append(acoes);
     for (const [valor, texto] of [["cancelar", "Cancelar"], ["publicar", "Publicar"]]) {
       const acao = document.createElement("button");
       acao.value = valor;
       acao.textContent = texto;
-      escolhas.append(acao);
+      acoes.append(acao);
     }
+    const confirmar = acoes.querySelector('[value="publicar"]');
+    function atualizarConfirmacao() {
+      const quantidade = lista.querySelectorAll("input:checked").length;
+      confirmar.disabled = quantidade === 0;
+      confirmar.textContent = quantidade
+        ? "Publicar em " + quantidade + (quantidade === 1 ? " loja" : " lojas")
+        : "Publicar";
+    }
+    lista.addEventListener("change", atualizarConfirmacao);
+    atualizarConfirmacao();
     dialogo.append(escolhas);
     document.body.append(dialogo);
     const selecionadas = await new Promise(resolve => {
