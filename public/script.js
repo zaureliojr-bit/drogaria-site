@@ -4102,6 +4102,9 @@ function finalizar() {
   // código curto para casar o WhatsApp com a linha da planilha
   const ref = gerarNumeroDoPedido();
 
+  const painelDaLoja = new URL("/painel", location.origin);
+  painelDaLoja.searchParams.set("filial", LojaAtual.slug() || "");
+
   const montarMensagem = (comCodigos) => {
 
     let m = `🛒 NOVO PEDIDO — ${ref}\n\n`;
@@ -4170,6 +4173,7 @@ function finalizar() {
       itensControleEspecial.forEach(({ item }) => { m += `\n• ${item.nome}`; });
     }
 
+    m += `\n\nEquipe da loja — abrir painel de pedidos:\n${painelDaLoja.href}`;
     return m;
   };
 
