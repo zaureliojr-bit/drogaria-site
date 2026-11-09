@@ -79,6 +79,7 @@ function prefixoDoEndereco(request, env) {
 /* A farmácia dona deste endereço, ou "" quando é a plataforma. */
 function lojaDoEndereco(request, env) {
     const prefixo = prefixoDoEndereco(request, env);
+    if (prefixo === "mb-prudente") return "prudente-01";
     return RESERVADOS.has(prefixo) ? "" : prefixo;
 }
 
@@ -109,6 +110,12 @@ export async function onRequest(contexto) {
     /* O caminho de 100% do tráfego de hoje: não é subdomínio de loja,
        segue para o arquivo ou para a rota de sempre. */
     if (!loja) return next();
+
+    if (loja === "prudente-01" && prefixoDoEndereco(request, env) === "mb-prudente"
+        && (caminho === "/painel" || caminho === "/painel.html") && !url.searchParams.has("filial")) {
+        url.searchParams.set("filial", loja);
+        return Response.redirect(url.href, 302);
+    }
 
     /* A raiz do domínio dela é a vitrine dela. */
     if (caminho === "/") {
