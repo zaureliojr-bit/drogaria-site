@@ -831,6 +831,27 @@
     background: var(--marca); border-color: var(--marca); color: var(--branco);
   }
   .publicacao-lojas-acoes button:disabled { opacity: .5; cursor: default; }
+  #catalogoRede .rede-filtros, #catalogoRede .rede-paginacao {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  }
+  #catalogoRede .rede-filtros input { flex: 1 1 210px; min-width: 0; margin: 0; }
+  #catalogoRede .rede-lista { display: grid; gap: 8px; }
+  #catalogoRede .rede-produto {
+    display: grid; grid-template-columns: 64px minmax(0, 1fr) auto;
+    align-items: center; gap: 12px; padding: 12px;
+    background: var(--branco); border: 1px solid var(--linha); border-radius: 10px;
+  }
+  #catalogoRede .rede-produto strong, #catalogoRede .rede-produto small { display: block; overflow-wrap: anywhere; }
+  #catalogoRede .rede-produto small { color: var(--tinta-suave); margin-top: 4px; }
+  #catalogoRede .rede-foto { width: 64px; height: 64px; object-fit: contain; border-radius: 8px; background: var(--papel); }
+  #catalogoRede span.rede-foto { display: grid; place-items: center; font-size: 11px; color: var(--tinta-suave); }
+  #catalogoRede button, #catalogoRede select { padding: 8px 12px; border: 1px solid var(--linha); border-radius: 8px; background: var(--branco); color: var(--tinta); }
+  #catalogoRede button.principal { background: var(--marca); color: var(--branco); }
+  #catalogoRede button:disabled { opacity: .5; }
+  @media (max-width: 560px) {
+    #catalogoRede .rede-produto { grid-template-columns: 64px minmax(0, 1fr); }
+    #catalogoRede .rede-produto button { grid-column: 2; justify-self: start; }
+  }
 </style>
 </head>
 
@@ -1926,10 +1947,22 @@
       <section id="catalogoRede" class="form-banner" hidden>
         <h2>Catálogo da rede</h2>
         <p>Compare os produtos publicados por filial. Busque por nome, EAN ou código.</p>
-        <button type="button" id="carregarRede">Carregar catálogos</button>
-        <input id="buscarRede" class="busca-imagem-produto" type="search" placeholder="Buscar produto" aria-label="Buscar produto na rede">
+        <div class="rede-filtros">
+          <input id="buscarRede" class="busca-imagem-produto" type="search" placeholder="Nome, EAN ou código" aria-label="Buscar produto na rede">
+          <select id="filtroFotoRede" aria-label="Filtrar por imagem">
+            <option value="">Todas as imagens</option>
+            <option value="com">Com imagem</option>
+            <option value="sem">Sem imagem</option>
+          </select>
+          <button type="button" class="principal" id="carregarRede">Carregar catálogos</button>
+        </div>
         <p id="statusRede" role="status"></p>
-        <div id="listaRede" class="tabela-wrap"></div>
+        <div id="listaRede" class="rede-lista"></div>
+        <div id="paginacaoRede" class="rede-paginacao" hidden>
+          <button type="button" id="anteriorRede">Anterior</button>
+          <span id="paginaRede" role="status"></span>
+          <button type="button" id="proximaRede">Próxima</button>
+        </div>
         <form id="editarRede" class="form-banner" hidden>
           <h3 id="produtoRede"></h3>
           <img id="fotoRede" alt="Foto atual do produto" width="96" height="96" style="object-fit:contain" hidden>
@@ -2212,18 +2245,52 @@ async function publicarLote(botao, publicar, avisar, avisoInicial = "") {
 const produtosRede = new Map();
 let selecionadoRede = "";
 
+let paginaCatalogoRede = 0;
+
+function fotoCatalogoRede(produto) {
+  const url = String(produto.imagem || "").trim();
+  return /^https:\/\/[^\s]+$/i.test(url) && !/\/sem-imagem(?:-neutra)?\./i.test(url) ? url : "";
+}
+
 function listarRede() {
   const busca = el("buscarRede").value.trim().toLowerCase();
-  const encontrados = [...produtosRede.entries()].filter(([ean, registros]) =>
-    ean.includes(busca) || registros.some(({ produto }) =>
-      [produto.nome, produto.descricao, produto.codigo].some(v => String(v ?? "").toLowerCase().includes(busca))));
-  el("listaRede").innerHTML = tabela(
-    [{ titulo: "Produto" }, { titulo: "EAN" }, { titulo: "Filiais" }, { titulo: "" }],
-    encontrados.slice(0, 60).map(([ean, registros]) => [
-      esc(registros[0].produto.nome || registros[0].produto.descricao || ean),
-      esc(ean), esc(registros.map(r => r.loja.nome).join(", ")),
-      '<button type="button" data-editar-rede="' + esc(ean) + '">Editar</button>'
-    ]), "Nenhum produto encontrado.");
+  const filtro = el("filtroFotoRede").value;
+  const encontrados = [...produtosRede.entries()].filter(([ean, registros]) => {
+    const comFoto = registros.some(({ produto }) => fotoCatalogoRede(produto));
+    if ((filtro === "com" && !comFoto) || (filtro === "sem" && comFoto)) return false;
+    return ean.includes(busca) || registros.some(({ produto }) =>
+      [produto.nome, produto.descricao, produto.codigo].some(v => String(v ?? "").toLowerCase().includes(busca)));
+  });
+  const porPagina = 30;
+  const paginas = Math.ceil(encontrados.length / porPagina);
+  paginaCatalogoRede = Math.min(paginaCatalogoRede, Math.max(0, paginas - 1));
+  const inicio = paginaCatalogoRede * porPagina;
+  const lista = el("listaRede");
+  lista.innerHTML = encontrados.slice(inicio, inicio + porPagina).map(([ean, registros]) => {
+    const produto = registros[0].produto;
+    const foto = registros.map(r => fotoCatalogoRede(r.produto)).find(Boolean);
+    return '<article class="rede-produto">' +
+      (foto ? '<img class="rede-foto" loading="lazy" alt="" src="' + esc(foto) + '">' :
+        '<span class="rede-foto">Sem foto</span>') +
+      '<div><strong>' + esc(produto.nome || produto.descricao || ean) + '</strong>' +
+      '<small>' + esc(["EAN " + ean, produto.codigo && "Cód. " + produto.codigo, produto.categoria].filter(Boolean).join(" · ")) + '</small>' +
+      '<small>' + esc(registros.map(r => r.loja.nome).join(" · ")) + '</small></div>' +
+      '<button type="button" data-editar-rede="' + esc(ean) + '">Editar produto</button></article>';
+  }).join("") || '<p class="vazio">Nenhum produto encontrado.</p>';
+  lista.querySelectorAll("img").forEach(img => {
+    const mostrarErro = () => {
+      const texto = document.createElement("span");
+      texto.className = "rede-foto";
+      texto.textContent = "Foto indisponível";
+      img.replaceWith(texto);
+    };
+    img.addEventListener("error", mostrarErro, { once: true });
+    if (img.complete && !img.naturalWidth) mostrarErro();
+  });
+  el("paginacaoRede").hidden = !paginas;
+  el("paginaRede").textContent = encontrados.length + " produtos · Página " + (paginaCatalogoRede + 1) + " de " + paginas;
+  el("anteriorRede").disabled = paginaCatalogoRede === 0;
+  el("proximaRede").disabled = paginaCatalogoRede + 1 >= paginas;
 }
 
 el("carregarRede").addEventListener("click", async () => {
@@ -2262,7 +2329,7 @@ el("carregarRede").addEventListener("click", async () => {
         if (!registros.some(r => r.loja.slug === loja.slug)) registros.push({ loja, produto });
       }
     }
-    el("statusRede").textContent = produtosRede.size + " produtos com EAN. Até 60 resultados por busca."
+    el("statusRede").textContent = produtosRede.size + " produtos publicados com EAN."
       + (falhas.length ? " Catálogos indisponíveis: " + falhas.join(", ") + "." : "");
     listarRede();
   } catch (erro) {
@@ -2272,7 +2339,14 @@ el("carregarRede").addEventListener("click", async () => {
   }
 });
 
-el("buscarRede").addEventListener("input", listarRede);
+function atualizarFiltroRede() {
+  paginaCatalogoRede = 0;
+  listarRede();
+}
+el("buscarRede").addEventListener("input", atualizarFiltroRede);
+el("filtroFotoRede").addEventListener("change", atualizarFiltroRede);
+el("anteriorRede").addEventListener("click", () => { paginaCatalogoRede--; listarRede(); });
+el("proximaRede").addEventListener("click", () => { paginaCatalogoRede++; listarRede(); });
 el("listaRede").addEventListener("click", evento => {
   const botao = evento.target.closest("[data-editar-rede]");
   if (!botao || el("carregarRede").disabled) return;
