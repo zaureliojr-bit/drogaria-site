@@ -5627,7 +5627,8 @@ const DOMINIO_PLATAFORMA = "drogalink.com.br";
 const subdominiosNoAr = new Set();
 
 function enderecoProprio(slug) {
-    return `https://${slug}.${DOMINIO_PLATAFORMA}/`;
+    const prefixo = slug === "prudente-01" ? "mb-prudente" : slug;
+    return `https://${prefixo}.${DOMINIO_PLATAFORMA}/`;
 }
 
 function linkDaLoja(slug) {
