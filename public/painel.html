@@ -2131,6 +2131,17 @@ async function publicarLote(botao, publicar, avisar, avisoInicial = "") {
   }
 }
 
+async function lerArtePublicada(url, chave) {
+  if (!url) return null;
+  const endereco = new URL(url);
+  const hospedada = endereco.origin === new URL(API).origin
+    && /^\/(?:banners\/arquivo|arquivos)\//.test(endereco.pathname);
+  if (!chave && !hospedada) return null;
+  const resposta = await fetch(endereco);
+  if (!resposta.ok) throw new Error("Não consegui baixar a arte publicada (HTTP " + resposta.status + ").");
+  return resposta.blob();
+}
+
 async function enviarPublicacao(rota, corpo, slug) {
   const resposta = await fetch(API.replace(/\/+$/, "") + rota, {
     method: "POST",
@@ -4982,7 +4993,9 @@ async function carregarBanners() {
 function abrirFormulario(b) {
   el("formBanner").hidden = false;
   el("bannerId").value = b?.id || "";
-  el("publicarLoteBanner").hidden = !souDono || !!b?.id;
+  el("publicarLoteBanner").hidden = !souDono;
+  el("publicarLoteBanner").textContent = b?.id
+    ? "Republicar em lojas selecionadas" : "Publicar em lojas selecionadas";
   el("bannerR2").value = b?.r2_chave || "";
   el("bannerImagem").value = b?.imagem || "";
   el("bannerAlt").value = b?.alt || "";
@@ -5069,7 +5082,8 @@ el("formBanner").addEventListener("submit", async (ev) => {
   ev.preventDefault();
 
   if (ev.submitter === el("publicarLoteBanner")) {
-    if (el("bannerId").value) return avisoBanner("Abra um novo banner para publicar em várias lojas.");
+    const republicando = !!el("bannerId").value;
+    const chave = el("bannerR2").value;
     const arquivo = el("bannerArquivo").files?.[0];
     const arte = el("entradaArquivo").files?.[0];
     const corpo = {
@@ -5082,16 +5096,18 @@ el("formBanner").addEventListener("submit", async (ev) => {
     if (!corpo.alt || (!arquivo && !corpo.imagem)) return avisoBanner("Preencha a imagem e a descrição.");
     await publicarLote(ev.submitter, async slug => {
       const alvo = { ...corpo };
-      if (arquivo) {
-        const imagem = await enviarArquivoDoBanner(arquivo, slug);
+      const imagemOriginal = arquivo || (republicando && await lerArtePublicada(corpo.imagem, chave));
+      if (imagemOriginal) {
+        const imagem = await enviarArquivoDoBanner(imagemOriginal, slug);
         Object.assign(alvo, { imagem: imagem.url, r2Chave: imagem.chave });
       }
-      if (arte && alvo.entrada) {
-        const imagem = await enviarArquivoDoBanner(arte, slug);
+      const arteOriginal = alvo.entrada && (arte || (republicando && await lerArtePublicada(corpo.entradaImagem)));
+      if (arteOriginal) {
+        const imagem = await enviarArquivoDoBanner(arteOriginal, slug);
         Object.assign(alvo, { entradaImagem: imagem.url, entradaR2: imagem.chave });
       }
       return enviarPublicacao("/banners", alvo, slug);
-    }, msg => avisoBanner(msg, "ok"));
+    }, msg => avisoBanner(msg, "ok"), republicando ? "Uma nova cópia será criada em cada loja selecionada." : "");
     await carregarBanners();
     return;
   }
@@ -5368,7 +5384,9 @@ el("encarteFila").addEventListener("click", (ev) => {
 function abrirFormularioEncarte(e) {
   el("formEncarte").hidden = false;
   el("encarteId").value = e?.id || "";
-  el("publicarLoteEncarte").hidden = !souDono || !!e?.id;
+  el("publicarLoteEncarte").hidden = !souDono;
+  el("publicarLoteEncarte").textContent = e?.id
+    ? "Republicar em lojas selecionadas" : "Publicar em lojas selecionadas";
   el("encarteTitulo").value = e?.titulo || "";
   el("encarteInicio").value = e?.inicio || "";
   el("encarteFim").value = e?.fim || "";
@@ -5395,24 +5413,32 @@ el("formEncarte").addEventListener("submit", async (ev) => {
   if (!paginas.length) return avisoEncarte("O encarte precisa de pelo menos uma página.");
 
   if (ev.submitter === el("publicarLoteEncarte")) {
-    if (el("encarteId").value || paginas.some(p => !p.arquivo)) {
-      return avisoEncarte("Abra um novo encarte e selecione as páginas para publicar em várias lojas.");
-    }
+    const republicando = !!el("encarteId").value;
     const arquivoPdf = el("encarteArquivoPdf").files?.[0];
+    const pdfSalvo = el("encartePdfUrl").value;
+    const pdfChave = el("encartePdfChave").value;
     const corpo = { titulo: el("encarteTitulo").value.trim(), inicio: el("encarteInicio").value,
       fim: el("encarteFim").value, ativo: el("encarteAtivo").checked };
     await publicarLote(ev.submitter, async slug => {
       const alvo = { ...corpo, paginas: [] };
-      for (const { arquivo } of paginas) {
-        const imagem = await enviarArquivo(arquivo, "encarte", slug);
-        alvo.paginas.push({ imagem: imagem.url, r2Chave: imagem.chave });
+      for (const pagina of paginas) {
+        const arquivo = pagina.arquivo || await lerArtePublicada(pagina.imagem, pagina.r2Chave);
+        if (arquivo) {
+          const imagem = await enviarArquivo(arquivo, "encarte", slug);
+          alvo.paginas.push({ imagem: imagem.url, r2Chave: imagem.chave });
+        } else {
+          alvo.paginas.push({ imagem: pagina.imagem });
+        }
       }
-      if (arquivoPdf) {
-        const pdf = await enviarArquivo(arquivoPdf, "encarte", slug);
+      const pdfOriginal = arquivoPdf || await lerArtePublicada(pdfSalvo, pdfChave);
+      if (pdfOriginal) {
+        const pdf = await enviarArquivo(pdfOriginal, "encarte", slug);
         Object.assign(alvo, { pdf: pdf.url, pdfChave: pdf.chave });
+      } else {
+        alvo.pdf = pdfSalvo;
       }
       return enviarPublicacao("/encartes", alvo, slug);
-    }, msg => avisoEncarte(msg, "ok"));
+    }, msg => avisoEncarte(msg, "ok"), republicando ? "Uma nova cópia será criada em cada loja selecionada." : "");
     await carregarEncartes();
     return;
   }
@@ -6697,8 +6723,8 @@ async function carregarSessao() {
     const s = await api("/sessao");
     souDono = !!s.dono;
     el("publicarLoteCupom").hidden = !souDono;
-    el("publicarLoteBanner").hidden = !souDono || !!el("bannerId").value;
-    el("publicarLoteEncarte").hidden = !souDono || !!el("encarteId").value;
+    el("publicarLoteBanner").hidden = !souDono;
+    el("publicarLoteEncarte").hidden = !souDono;
     if (s.loja && s.loja.slug) lojaAtual = s.loja.slug;
     if (s.loja && s.loja.nome) lojaNome = s.loja.nome;
     el("botaoAbaLojas").hidden = !souDono;
