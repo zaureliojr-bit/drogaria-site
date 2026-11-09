@@ -816,6 +816,7 @@
     </div>
   </div>
   <div class="painel-topo-acoes">
+    <button type="button" id="btnSair" hidden>Sair</button>
     <button type="button" id="btnInstalar" class="btn-instalar-painel" hidden>Instalar no computador</button>
     <a id="verSite" href="https://drogaria-site.pages.dev">← Ver o site</a>
   </div>
@@ -1430,6 +1431,7 @@
 
         <div class="pedido-acoes">
           <button type="submit" class="principal" id="salvarBanner">Salvar banner</button>
+          <button type="submit" id="publicarLoteBanner" hidden>Publicar em lojas selecionadas</button>
           <button type="button" id="cancelarBanner">Cancelar</button>
         </div>
       </form>
@@ -1492,6 +1494,7 @@
 
         <div class="pedido-acoes">
           <button type="submit" class="principal" id="salvarEncarte">Salvar encarte</button>
+          <button type="submit" id="publicarLoteEncarte" hidden>Publicar em lojas selecionadas</button>
           <button type="button" id="cancelarEncarte">Cancelar</button>
         </div>
       </form>
@@ -1603,6 +1606,7 @@
 
         <div class="form-acoes">
           <button type="submit" class="principal">Criar cupom</button>
+          <button type="submit" id="publicarLoteCupom" hidden>Publicar em lojas selecionadas</button>
         </div>
       </form>
 
@@ -2065,6 +2069,91 @@ function cabecalhos(extra = {}) {
   };
 }
 
+async function publicarLote(botao, publicar, avisar, avisoInicial = "") {
+  const form = botao.form;
+  const controles = [...form.elements].filter(c => !c.disabled);
+  controles.forEach(c => { c.disabled = true; });
+  try {
+    if (!souDono) throw new Error("Entre com a chave de dono da plataforma.");
+    const { lojas = [] } = await api("/lojas");
+    const ativas = lojas.filter(l => l.ativo && l.slug);
+    if (!ativas.length) throw new Error("Nenhuma loja ativa disponível.");
+
+    const dialogo = document.createElement("dialog");
+    const escolhas = document.createElement("form");
+    escolhas.method = "dialog";
+    const titulo = document.createElement("h3");
+    titulo.textContent = "Publicar em lojas selecionadas";
+    escolhas.append(titulo);
+    for (const loja of ativas) {
+      const rotulo = document.createElement("label");
+      rotulo.style.display = "block";
+      const campo = document.createElement("input");
+      campo.type = "checkbox";
+      campo.value = loja.slug;
+      rotulo.append(campo, " " + loja.nome);
+      escolhas.append(rotulo);
+    }
+    const recado = document.createElement("p");
+    recado.textContent = avisoInicial;
+    escolhas.append(recado);
+    for (const [valor, texto] of [["cancelar", "Cancelar"], ["publicar", "Publicar"]]) {
+      const acao = document.createElement("button");
+      acao.value = valor;
+      acao.textContent = texto;
+      escolhas.append(acao);
+    }
+    dialogo.append(escolhas);
+    document.body.append(dialogo);
+    const selecionadas = await new Promise(resolve => {
+      dialogo.addEventListener("close", () => {
+        resolve(dialogo.returnValue === "publicar"
+          ? [...escolhas.querySelectorAll("input:checked")].map(c => c.value) : []);
+        dialogo.remove();
+      }, { once: true });
+      dialogo.showModal();
+    });
+    if (!selecionadas.length) return;
+
+    const resultados = [];
+    for (const loja of ativas.filter(l => selecionadas.includes(l.slug))) {
+      try {
+        const dados = await publicar(loja.slug);
+        resultados.push(loja.nome + " — publicado" + (dados.aviso ? " (" + dados.aviso + ")" : ""));
+      } catch (erro) {
+        resultados.push(loja.nome + " — falhou: " + erro.message);
+      }
+    }
+    avisar(resultados.join(" | "));
+  } catch (erro) {
+    avisar(erro.message);
+  } finally {
+    controles.forEach(c => { c.disabled = false; });
+  }
+}
+
+async function lerArtePublicada(url, chave) {
+  if (!url) return null;
+  const endereco = new URL(url);
+  const hospedada = endereco.origin === new URL(API).origin
+    && /^\/(?:banners\/arquivo|arquivos)\//.test(endereco.pathname);
+  if (!chave && !hospedada) return null;
+  const resposta = await fetch(endereco);
+  if (!resposta.ok) throw new Error("Não consegui baixar a arte publicada (HTTP " + resposta.status + ").");
+  return resposta.blob();
+}
+
+async function enviarPublicacao(rota, corpo, slug) {
+  const resposta = await fetch(API.replace(/\/+$/, "") + rota, {
+    method: "POST",
+    headers: cabecalhos({ "Content-Type": "application/json", "X-Painel-Loja": slug }),
+    body: JSON.stringify(corpo)
+  });
+  const dados = await resposta.json().catch(() => ({}));
+  if (!resposta.ok) throw new Error(dados.erro || "HTTP " + resposta.status);
+  return dados;
+}
+
 async function api(rota) {
   const r = await fetch(`${API.replace(/\/+$/, "")}${rota}`, { headers: cabecalhos() });
   if (r.status === 401) throw new Error("SENHA");
@@ -2092,6 +2181,7 @@ async function api(rota) {
 function mostrarLogin(mensagem) {
   el("login").style.display = "";
   el("conteudo").style.display = "none";
+  el("btnSair").hidden = true;
   el("erroLogin").innerHTML = mensagem ? `<div class="erro">${esc(mensagem)}</div>` : "";
   el("senha").focus();
 }
@@ -3169,6 +3259,13 @@ el("formCupom")?.addEventListener("submit", async (ev) => {
     descricao: el("cupomDescricao").value
   };
 
+  if (ev.submitter === el("publicarLoteCupom")) {
+    await publicarLote(ev.submitter, slug => enviarPublicacao("/cupons", corpo, slug),
+      msg => avisoCupom(msg, false), "Se o código já existir em uma loja selecionada, seus dados serão atualizados.");
+    await carregarCupons();
+    return;
+  }
+
   try {
 
     const r = await fetch(`${API.replace(/\/+$/, "")}/cupons`, {
@@ -3640,6 +3737,7 @@ async function carregar() {
   mostrarQuemESoQueHoras();
   el("login").style.display = "none";
   el("conteudo").style.display = "";
+  el("btnSair").hidden = false;
 }
 
 /* "Apagar dados" — o pedido de exclusão do art. 18 da LGPD.
@@ -3712,6 +3810,7 @@ async function abrirPainel() {
   await carregarFila();          // falha aqui = senha errada ou servidor fora, e cai no catch de tentar()
   el("login").style.display = "none";
   el("conteudo").style.display = "";
+  el("btnSair").hidden = false;
   await carregarSessao();
   ligarPolling();
   carregarCatalogo().then(() => {
@@ -3766,6 +3865,13 @@ async function tentar() {
     mostrarLogin(recado);
   }
 }
+
+el("btnSair").addEventListener("click", () => {
+  sessionStorage.removeItem("painelKey");
+  sessionStorage.removeItem("painelLoja");
+  el("senha").value = "";
+  location.reload();
+});
 
 el("btnEntrar").addEventListener("click", () => {
   senha = el("senha").value.trim();
@@ -4898,6 +5004,9 @@ async function carregarBanners() {
 function abrirFormulario(b) {
   el("formBanner").hidden = false;
   el("bannerId").value = b?.id || "";
+  el("publicarLoteBanner").hidden = !souDono;
+  el("publicarLoteBanner").textContent = b?.id
+    ? "Republicar em lojas selecionadas" : "Publicar em lojas selecionadas";
   el("bannerR2").value = b?.r2_chave || "";
   el("bannerImagem").value = b?.imagem || "";
   el("bannerAlt").value = b?.alt || "";
@@ -4969,10 +5078,10 @@ el("bannerArquivo").addEventListener("change", e => {
   mostrarPrevia(URL.createObjectURL(arquivo));
 });
 
-async function enviarArquivoDoBanner(arquivo) {
+async function enviarArquivoDoBanner(arquivo, slug = lojaAtual) {
   const r = await fetch(`${API.replace(/\/+$/, "")}/banners/imagem`, {
     method: "POST",
-    headers: cabecalhos({ "Content-Type": arquivo.type }),
+    headers: cabecalhos({ "Content-Type": arquivo.type, ...(slug ? { "X-Painel-Loja": slug } : {}) }),
     body: arquivo
   });
   const dados = await r.json().catch(() => ({}));
@@ -4982,6 +5091,37 @@ async function enviarArquivoDoBanner(arquivo) {
 
 el("formBanner").addEventListener("submit", async (ev) => {
   ev.preventDefault();
+
+  if (ev.submitter === el("publicarLoteBanner")) {
+    const republicando = !!el("bannerId").value;
+    const chave = el("bannerR2").value;
+    const arquivo = el("bannerArquivo").files?.[0];
+    const arte = el("entradaArquivo").files?.[0];
+    const corpo = {
+      imagem: el("bannerImagem").value.trim(), alt: el("bannerAlt").value.trim(),
+      link: el("bannerLink").value.trim(), inicio: el("bannerInicio").value,
+      fim: el("bannerFim").value, ativo: el("bannerAtivo").checked,
+      entrada: el("bannerEntrada").checked, entradaImagem: el("entradaImagem").value.trim(),
+      ordem: Number(el("bannerOrdem").value) || 0
+    };
+    if (!corpo.alt || (!arquivo && !corpo.imagem)) return avisoBanner("Preencha a imagem e a descrição.");
+    await publicarLote(ev.submitter, async slug => {
+      const alvo = { ...corpo };
+      const imagemOriginal = arquivo || (republicando && await lerArtePublicada(corpo.imagem, chave));
+      if (imagemOriginal) {
+        const imagem = await enviarArquivoDoBanner(imagemOriginal, slug);
+        Object.assign(alvo, { imagem: imagem.url, r2Chave: imagem.chave });
+      }
+      const arteOriginal = alvo.entrada && (arte || (republicando && await lerArtePublicada(corpo.entradaImagem)));
+      if (arteOriginal) {
+        const imagem = await enviarArquivoDoBanner(arteOriginal, slug);
+        Object.assign(alvo, { entradaImagem: imagem.url, entradaR2: imagem.chave });
+      }
+      return enviarPublicacao("/banners", alvo, slug);
+    }, msg => avisoBanner(msg, "ok"), republicando ? "Uma nova cópia será criada em cada loja selecionada." : "");
+    await carregarBanners();
+    return;
+  }
 
   const botao = el("salvarBanner");
   botao.disabled = true;
@@ -5178,10 +5318,10 @@ function pintarFilaDePaginas() {
   `).join("");
 }
 
-async function enviarArquivo(arquivo, pasta) {
+async function enviarArquivo(arquivo, pasta, slug = lojaAtual) {
   const r = await fetch(`${API.replace(/\/+$/, "")}/arquivos?pasta=${pasta}`, {
     method: "POST",
-    headers: cabecalhos({ "Content-Type": arquivo.type }),
+    headers: cabecalhos({ "Content-Type": arquivo.type, ...(slug ? { "X-Painel-Loja": slug } : {}) }),
     body: arquivo
   });
   const dados = await r.json().catch(() => ({}));
@@ -5205,7 +5345,7 @@ el("encarteArquivos").addEventListener("change", async (ev) => {
       continue;
     }
 
-    const espaco = { imagem: "", r2Chave: null, enviando: true };
+    const espaco = { imagem: "", r2Chave: null, enviando: true, arquivo };
     paginasDoEncarte.push(espaco);
     pintarFilaDePaginas();
 
@@ -5255,6 +5395,9 @@ el("encarteFila").addEventListener("click", (ev) => {
 function abrirFormularioEncarte(e) {
   el("formEncarte").hidden = false;
   el("encarteId").value = e?.id || "";
+  el("publicarLoteEncarte").hidden = !souDono;
+  el("publicarLoteEncarte").textContent = e?.id
+    ? "Republicar em lojas selecionadas" : "Publicar em lojas selecionadas";
   el("encarteTitulo").value = e?.titulo || "";
   el("encarteInicio").value = e?.inicio || "";
   el("encarteFim").value = e?.fim || "";
@@ -5279,6 +5422,37 @@ el("formEncarte").addEventListener("submit", async (ev) => {
   const paginas = paginasDoEncarte.filter(p => p.imagem);
   if (!el("encarteTitulo").value.trim()) return avisoEncarte("Dê um nome ao encarte.");
   if (!paginas.length) return avisoEncarte("O encarte precisa de pelo menos uma página.");
+
+  if (ev.submitter === el("publicarLoteEncarte")) {
+    const republicando = !!el("encarteId").value;
+    const arquivoPdf = el("encarteArquivoPdf").files?.[0];
+    const pdfSalvo = el("encartePdfUrl").value;
+    const pdfChave = el("encartePdfChave").value;
+    const corpo = { titulo: el("encarteTitulo").value.trim(), inicio: el("encarteInicio").value,
+      fim: el("encarteFim").value, ativo: el("encarteAtivo").checked };
+    await publicarLote(ev.submitter, async slug => {
+      const alvo = { ...corpo, paginas: [] };
+      for (const pagina of paginas) {
+        const arquivo = pagina.arquivo || await lerArtePublicada(pagina.imagem, pagina.r2Chave);
+        if (arquivo) {
+          const imagem = await enviarArquivo(arquivo, "encarte", slug);
+          alvo.paginas.push({ imagem: imagem.url, r2Chave: imagem.chave });
+        } else {
+          alvo.paginas.push({ imagem: pagina.imagem });
+        }
+      }
+      const pdfOriginal = arquivoPdf || await lerArtePublicada(pdfSalvo, pdfChave);
+      if (pdfOriginal) {
+        const pdf = await enviarArquivo(pdfOriginal, "encarte", slug);
+        Object.assign(alvo, { pdf: pdf.url, pdfChave: pdf.chave });
+      } else {
+        alvo.pdf = pdfSalvo;
+      }
+      return enviarPublicacao("/encartes", alvo, slug);
+    }, msg => avisoEncarte(msg, "ok"), republicando ? "Uma nova cópia será criada em cada loja selecionada." : "");
+    await carregarEncartes();
+    return;
+  }
 
   const botao = el("salvarEncarte");
   botao.disabled = true; botao.textContent = "Salvando…";
@@ -6559,6 +6733,9 @@ async function carregarSessao() {
   try {
     const s = await api("/sessao");
     souDono = !!s.dono;
+    el("publicarLoteCupom").hidden = !souDono;
+    el("publicarLoteBanner").hidden = !souDono;
+    el("publicarLoteEncarte").hidden = !souDono;
     if (s.loja && s.loja.slug) lojaAtual = s.loja.slug;
     if (s.loja && s.loja.nome) lojaNome = s.loja.nome;
     el("botaoAbaLojas").hidden = !souDono;
