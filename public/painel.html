@@ -852,11 +852,31 @@
     #catalogoRede .rede-produto { grid-template-columns: 64px minmax(0, 1fr); }
     #catalogoRede .rede-produto button { grid-column: 2; justify-self: start; }
   }
+  #geradorLanding { position:fixed; inset:0; margin:auto; width:min(820px,calc(100% - 24px));
+    max-height:calc(100dvh - 24px); overflow:auto; padding:20px; border:1px solid var(--linha);
+    border-radius:16px; background:var(--branco); color:var(--tinta); }
+  #geradorLanding::backdrop { background:#16163988; }
+  #geradorLanding iframe { width:100%; height:420px; border:1px solid var(--linha); border-radius:10px; }
 </style>
 </head>
 
 <body>
 
+<dialog id="geradorLanding" aria-labelledby="tituloGeradorLanding">
+  <h2 id="tituloGeradorLanding">Gerar landing page</h2>
+  <form id="camposGeradorLanding" class="form-banner">
+    <label>Título<input name="titulo" maxlength="100"></label>
+    <label>Selo<input name="selo" maxlength="60"></label>
+    <label>Texto de apresentação<textarea name="promessa" maxlength="250"></textarea></label>
+    <label>Informações de entrega<input name="entrega" maxlength="120"></label>
+    <div>
+      <button type="submit" class="principal">Atualizar prévia</button>
+      <button type="button" id="baixarLanding">Baixar HTML</button>
+      <button type="button" id="fecharLanding">Fechar</button>
+    </div>
+  </form>
+  <iframe id="previaLanding" title="Prévia da landing page" sandbox></iframe>
+</dialog>
 <div class="painel-topo">
   <div class="painel-marca">
     <img src="drogalink.svg" alt="" width="34" height="34">
@@ -7118,6 +7138,60 @@ async function carregarSessao() {
   }
 }
 
+let unidadeGeradorLanding;
+
+async function gerarHtmlLanding() {
+  const { renderLanding } = await import("/gerador-landing.js");
+  const dados = Object.fromEntries(new FormData(el("camposGeradorLanding")));
+  return renderLanding({ ...unidadeGeradorLanding, ...dados });
+}
+
+el("listaLojas").addEventListener("click", async evento => {
+  const botao = evento.target.closest("[data-gerar-landing]");
+  if (!botao || !souDono) return;
+  const slug = botao.dataset.gerarLanding;
+  botao.disabled = true;
+  try {
+    const { loja, horario } = await api("/loja?slug=" + encodeURIComponent(slug));
+    unidadeGeradorLanding = {
+      slug, nome: loja.nome, whatsapp: loja.whatsapp,
+      catalogo: new URL(linkDaLoja(slug), location.origin).href,
+      endereco: [[loja.logradouro, loja.numero].filter(Boolean).join(", "),
+        loja.complemento, loja.bairro, [loja.cidade, loja.uf].filter(Boolean).join("/")].filter(Boolean).join(" · "),
+      horario: (horario || []).map(h => DIAS_DA_SEMANA[h.dia] + " " + h.abre + "–" + h.fecha).join(" · "),
+      responsavel: loja.farmaceutico, crf: loja.crf, cnpj: loja.cnpj
+    };
+    const form = el("camposGeradorLanding");
+    form.reset();
+    form.elements.namedItem("titulo").value = "Sua farmácia, a um toque";
+    form.elements.namedItem("selo").value = "Atendimento da unidade";
+    form.elements.namedItem("promessa").value = "Consulte o catálogo e confira as opções de entrega ou retirada da unidade.";
+    el("previaLanding").srcdoc = await gerarHtmlLanding();
+    el("geradorLanding").showModal();
+  } catch (erro) {
+    avisoLojas("Não consegui preparar a página: " + erro.message);
+  } finally {
+    botao.disabled = false;
+  }
+});
+
+el("camposGeradorLanding").addEventListener("submit", async evento => {
+  evento.preventDefault();
+  el("previaLanding").srcdoc = await gerarHtmlLanding();
+});
+
+el("baixarLanding").addEventListener("click", async () => {
+  const html = await gerarHtmlLanding();
+  const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "bem-vindo-" + unidadeGeradorLanding.slug + ".html";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+el("fecharLanding").addEventListener("click", () => el("geradorLanding").close());
+
 async function carregarLojas() {
   avisoLojas("");
 
@@ -7152,7 +7226,8 @@ async function carregarLojas() {
       `${esc(l.nome)}<br><code>${esc(l.slug)}</code>` +
       `<br><button type="button" class="btn-link" data-copiar="${esc(linkDaLoja(l.slug))}"
                    data-slug="${esc(l.slug)}"
-                   title="${esc(linkDaLoja(l.slug))}">copiar link da loja</button>`,
+                   title="${esc(linkDaLoja(l.slug))}">copiar link da loja</button>` +
+      (l.ativo ? `<br><button type="button" class="btn-link" data-gerar-landing="${esc(l.slug)}">Gerar página</button>` : ""),
 
       esc([l.cidade, l.uf].filter(Boolean).join("/")),
 
