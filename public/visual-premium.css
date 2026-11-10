@@ -911,3 +911,11 @@ body {
   outline: 2px solid var(--premium-roxo);
   outline-offset: 3px;
 }
+
+/* O topo do catálogo acompanha a rolagem dos produtos. */
+.vitrine-loja .header,
+.vitrine-loja .busca-container,
+.vitrine-loja .filtros-wrap {
+  position: relative;
+  top: auto;
+}
