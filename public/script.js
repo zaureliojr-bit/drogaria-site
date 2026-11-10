@@ -3122,6 +3122,7 @@ function mais(codigo) {
      saem por cima, e marcar ali diria que a visita chegou ao carrinho
      sem nada ter entrado nele. */
   marcarEtapa("carrinho");
+  window.registrarEventoGA4?.("adicao_carrinho");
 
   return true;
 }
@@ -4018,6 +4019,7 @@ function formatarTroco(input) {
 ========================= */
 function finalizar() {
   if (!carrinho.length) return toast("Carrinho vazio");
+  window.registrarEventoGA4?.("inicio_finalizacao");
 
   /* Trava de segurança, e não checagem de conveniência.
 
@@ -4254,6 +4256,7 @@ function finalizar() {
     }).catch(err => console.error("Erro ao gravar no histórico:", err));
   }
 
+  window.registrarEventoGA4?.("pedido_whatsapp");
   const { url, abriu } = abrirWhatsApp(msg);
 
   if (abriu) {
@@ -4760,6 +4763,7 @@ function enviarBuscaPendente() {
     if (buscasJaEnviadas.has(pendente.termo)) return;
 
     buscasJaEnviadas.add(pendente.termo);
+    window.registrarEventoGA4?.("busca_catalogo");
 
     const corpo = JSON.stringify({
         termo: pendente.termo,
