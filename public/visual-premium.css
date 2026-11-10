@@ -860,3 +860,54 @@ body {
     margin: 8px 0 0;
   }
 }
+
+#preferencias-analytics {
+  width: min(100% - 32px, 640px);
+  margin: 16px auto;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--premium-borda);
+  border-radius: 14px;
+  box-shadow: var(--premium-sombra);
+}
+
+#preferencias-analytics summary {
+  color: var(--premium-roxo-escuro);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#preferencias-analytics [data-analytics-status] {
+  margin: 8px 0 12px;
+  font-size: .875rem;
+  line-height: 1.5;
+}
+
+#preferencias-analytics [data-analytics-buttons] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#preferencias-analytics button {
+  flex: 1 1 150px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--premium-roxo);
+  border-radius: 10px;
+  background: var(--premium-lilas);
+  color: var(--premium-roxo-escuro);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#preferencias-analytics button:hover {
+  background: var(--premium-roxo);
+  color: #fff;
+}
+
+#preferencias-analytics :focus-visible {
+  outline: 2px solid var(--premium-roxo);
+  outline-offset: 3px;
+}
