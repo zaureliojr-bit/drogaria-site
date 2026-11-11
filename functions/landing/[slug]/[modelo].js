@@ -1,7 +1,7 @@
 import { porteiro } from "../../_paginaProduto.js";
 import { renderLanding, renderLandingPromo } from "../../../public/gerador-landing.js";
 
-const MAX_BYTES = 9 * 1024 * 1024;
+const MAX_BYTES = 12 * 1024 * 1024;
 const TEXTOS = {
     titulo: 100, selo: 60, promessa: 250, entrega: 120,
     validoAte: 20, tagAds: 30, conversaoWhatsapp: 120
@@ -76,7 +76,7 @@ export async function onRequest({ request, env, params }) {
             responsavel: loja.farmaceutico, crf: loja.crf, cnpj: loja.cnpj
         };
         for (const [campo, limite] of Object.entries(TEXTOS)) dados[campo] = texto(entrada[campo], limite);
-        for (const i of [1, 2, 3]) {
+        for (const i of [1, 2, 3, 4]) {
             dados["ofertaNome" + i] = texto(entrada["ofertaNome" + i], 100);
             dados["ofertaTag" + i] = texto(entrada["ofertaTag" + i], 35);
             dados["ofertaTexto" + i] = texto(entrada["ofertaTexto" + i], 150);
