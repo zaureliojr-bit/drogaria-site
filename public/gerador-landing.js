@@ -134,6 +134,7 @@ h1{font-family:var(--titulo);font-weight:800;font-size:clamp(2.6rem,9vw,5.4rem);
 .lista{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));background:var(--branco);padding:22px;border-radius:0 18px 18px 18px;box-shadow:0 18px 40px -26px rgba(19,19,92,.5)}
 .oferta{position:relative;border:2px solid var(--indigo);border-radius:16px;padding:20px 20px 18px;display:flex;flex-direction:column;gap:8px}
 .etiqueta{align-self:flex-start;background:var(--vermelho);color:var(--branco);font-family:var(--titulo);font-weight:800;font-size:1.25rem;padding:6px 14px 6px 22px;clip-path:polygon(12px 0,100% 0,100% 100%,12px 100%,0 50%)}
+.oferta img{display:block;width:100%;height:180px;object-fit:contain;border-radius:10px;background:var(--gelo)}
 .oferta h3{font-family:var(--titulo);font-weight:800;font-size:1.2rem}
 .oferta p{color:var(--suave);font-size:.95rem;flex:1}
 .oferta a{margin-top:6px;font-weight:700;color:var(--indigo);text-decoration:none;border-bottom:2px solid var(--sol);align-self:flex-start}
@@ -178,10 +179,13 @@ export function renderLandingPromo(t, previa = false) {
   const ofertas = [1, 2, 3].map(i => ({
     nome: t['ofertaNome' + i]?.trim(),
     tag: t['ofertaTag' + i]?.trim(),
-    texto: t['ofertaTexto' + i]?.trim()
+    texto: t['ofertaTexto' + i]?.trim(),
+    imagem: t['ofertaImagem' + i]
   })).filter(oferta => oferta.nome);
   const cards = ofertas.map(o => '<article class="oferta">' +
     (o.tag ? '<span class="etiqueta">' + esc(o.tag) + '</span>' : '') +
+    (/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(o.imagem || '')
+      ? '<img src="' + esc(o.imagem) + '" alt="" loading="lazy" decoding="async">' : '') +
     '<h3>' + esc(o.nome) + '</h3>' +
     (o.texto ? '<p>' + esc(o.texto) + '</p>' : '') +
     (telefone ? '<a data-whatsapp href="' + esc(zap('Olá! Quero saber mais sobre ' + o.nome + '.')) + '">Pedir pelo WhatsApp</a>' : '') +
