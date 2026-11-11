@@ -154,7 +154,10 @@ h1{font-family:var(--titulo);font-weight:800;font-size:clamp(2.6rem,9vw,5.4rem);
 .horarios li{display:flex;justify-content:space-between;gap:12px;padding:9px 12px;border-radius:10px}
 .horarios li span:last-child{font-weight:700}
 .horarios li.hoje{background:var(--indigo);color:var(--branco)}
-.fone{font-family:var(--titulo);font-weight:800;font-size:1.5rem;text-decoration:none;color:var(--indigo)}
+.btn.fone{width:100%;padding:10px 12px;gap:10px;background:var(--indigo);color:var(--branco);font-size:1rem;text-align:left}
+.btn.fone:hover{background:var(--noite)}
+.fone-icone{font-size:1.25rem;flex:none}
+.fone-numero{display:block;font-size:.88rem;font-weight:500}
 footer{text-align:center;color:var(--suave);font-size:.88rem;padding:36px 20px 20px}
 
 /* BARRA FIXA NO CELULAR */
@@ -172,6 +175,7 @@ export function renderLandingPromo(t, previa = false) {
   const titulo = t.titulo || 'Ofertas da semana na Mais Barato';
   const numero = String(t.whatsapp || '').replace(/\D/g, '');
   const telefone = /^55\d{10,11}$/.test(numero) ? numero : /^\d{10,11}$/.test(numero) ? '55' + numero : '';
+  const telefoneFormatado = telefone.replace(/^55(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
   const rota = t.endereco ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(t.endereco) : '';
   const logo = esc(new URL('/logo.png', t.catalogo).href);
   const zap = msg => 'https://wa.me/' + telefone + '?text=' + encodeURIComponent(msg);
@@ -218,7 +222,9 @@ export function renderLandingPromo(t, previa = false) {
     '<section class="info" aria-label="Informações da unidade">' +
     (t.horario ? '<div class="cartao"><h2>Horários</h2><ul class="horarios">' + t.horario.split(' · ').map(h => '<li>' + esc(h) + '</li>').join('') + '</ul></div>' : '') +
     (t.endereco ? '<div class="cartao"><h2>Endereço</h2><p>' + esc(t.endereco) + '</p></div>' : '') +
-    (telefone ? '<div class="cartao"><h2>Telefone da unidade</h2><a class="fone" href="tel:+' + telefone + '">+' + telefone + '</a></div>' : '') +
+    (telefone ? '<div class="cartao"><h2>Telefone da unidade</h2><a class="btn fone" href="tel:+' + telefone + '">' +
+      '<span class="fone-icone" aria-hidden="true">☎</span><span>Ligar para a unidade<span class="fone-numero">' +
+      telefoneFormatado + '</span></span></a></div>' : '') +
     '</section></main><footer>Drogaria Mais Barato · ' + esc(nome) + '</footer>' +
     (contato || comoChegar ? '<div class="barra">' + contato + comoChegar + '</div>' : '') + '</body></html>';
 }
