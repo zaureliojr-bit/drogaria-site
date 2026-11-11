@@ -164,6 +164,7 @@ footer{text-align:center;color:var(--suave);font-size:.88rem;padding:36px 20px 2
 @media (min-width:821px){.barra{display:none}body{padding-bottom:0}}
 
 .lista,.info{grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))}
+@media(min-width:1000px){.lista{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}}
 `;
 
 export function renderLandingPromo(t, previa = false) {
@@ -176,7 +177,7 @@ export function renderLandingPromo(t, previa = false) {
   const zap = msg => 'https://wa.me/' + telefone + '?text=' + encodeURIComponent(msg);
   const contato = telefone ? '<a class="btn zap" data-whatsapp href="' + esc(zap('Olá! Gostaria de falar com a unidade ' + nome + '.')) + '">Fale pelo WhatsApp</a>' : '';
   const comoChegar = rota ? '<a class="btn rota" href="' + esc(rota) + '">Como chegar</a>' : '';
-  const ofertas = [1, 2, 3].map(i => ({
+  const ofertas = [1, 2, 3, 4].map(i => ({
     nome: t['ofertaNome' + i]?.trim(),
     tag: t['ofertaTag' + i]?.trim(),
     texto: t['ofertaTexto' + i]?.trim(),
