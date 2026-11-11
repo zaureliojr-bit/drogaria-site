@@ -179,7 +179,7 @@ export function renderLandingPromo(t, previa = false) {
   const rota = t.endereco ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(t.endereco) : '';
   const logo = esc(new URL('/logo.png', t.catalogo).href);
   const zap = msg => 'https://wa.me/' + telefone + '?text=' + encodeURIComponent(msg);
-  const contato = telefone ? '<a class="btn zap" data-whatsapp href="' + esc(zap('Olá! Gostaria de falar com a unidade ' + nome + '.')) + '">Fale pelo WhatsApp</a>' : '';
+  const contato = telefone ? '<a class="btn zap" data-whatsapp href="' + esc(zap('Olá! Vim pelo anúncio do Google e gostaria de fazer um pedido na unidade ' + nome + '.')) + '">Fale pelo WhatsApp</a>' : '';
   const comoChegar = rota ? '<a class="btn rota" href="' + esc(rota) + '">Como chegar</a>' : '';
   const ofertas = [1, 2, 3, 4].map(i => ({
     nome: t['ofertaNome' + i]?.trim(),
@@ -193,7 +193,7 @@ export function renderLandingPromo(t, previa = false) {
       ? '<img src="' + esc(o.imagem) + '" alt="" loading="lazy" decoding="async">' : '') +
     '<h3>' + esc(o.nome) + '</h3>' +
     (o.texto ? '<p>' + esc(o.texto) + '</p>' : '') +
-    (telefone ? '<a data-whatsapp href="' + esc(zap('Olá! Quero saber mais sobre ' + o.nome + '.')) + '">Pedir pelo WhatsApp</a>' : '') +
+    (telefone ? '<a data-whatsapp href="' + esc(zap('Olá! Vim pelo anúncio do Google e quero saber mais sobre a oferta de ' + o.nome + '.')) + '">Pedir pelo WhatsApp</a>' : '') +
     '</article>').join('');
   const id = String(t.tagAds || '').trim();
   const conversao = String(t.conversaoWhatsapp || '').trim();
