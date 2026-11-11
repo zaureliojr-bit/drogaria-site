@@ -877,17 +877,21 @@
         <label>Nome<input name="ofertaNome1" maxlength="100"></label>
         <label>Preço ou selo<input name="ofertaTag1" maxlength="35"></label>
         <label>Descrição<input name="ofertaTexto1" maxlength="150"></label>
+        <label>Imagem da oferta<input type="file" name="ofertaImagem1" accept="image/jpeg,image/png,image/webp"></label>
       </fieldset>
       <fieldset><legend>Oferta 2</legend>
         <label>Nome<input name="ofertaNome2" maxlength="100"></label>
         <label>Preço ou selo<input name="ofertaTag2" maxlength="35"></label>
         <label>Descrição<input name="ofertaTexto2" maxlength="150"></label>
+        <label>Imagem da oferta<input type="file" name="ofertaImagem2" accept="image/jpeg,image/png,image/webp"></label>
       </fieldset>
       <fieldset><legend>Oferta 3</legend>
         <label>Nome<input name="ofertaNome3" maxlength="100"></label>
         <label>Preço ou selo<input name="ofertaTag3" maxlength="35"></label>
         <label>Descrição<input name="ofertaTexto3" maxlength="150"></label>
+        <label>Imagem da oferta<input type="file" name="ofertaImagem3" accept="image/jpeg,image/png,image/webp"></label>
       </fieldset>
+      <p>Imagens opcionais em JPG, PNG ou WebP, com até 2 MB por oferta.</p>
       <label>Tag do Google Ads (opcional)<input name="tagAds" placeholder="AW-123456789" maxlength="30"></label>
       <label>Conversão do WhatsApp (opcional)<input name="conversaoWhatsapp" placeholder="AW-123456789/rótulo" maxlength="120"></label>
     </fieldset>
@@ -7169,7 +7173,24 @@ const layoutLanding = formLanding.elements.namedItem("layout");
 async function gerarHtmlLanding(previa = false) {
   const { renderLanding, renderLandingPromo } = await import("/gerador-landing.js");
   const dados = { ...unidadeGeradorLanding, ...Object.fromEntries(new FormData(formLanding)) };
-  return dados.layout === "promo" ? renderLandingPromo(dados, previa) : renderLanding(dados);
+  if (dados.layout !== "promo") return renderLanding(dados);
+
+  await Promise.all([1, 2, 3].map(async i => {
+    const campo = "ofertaImagem" + i;
+    const arquivo = dados[campo];
+    dados[campo] = "";
+    if (!dados["ofertaNome" + i]?.trim() || !arquivo?.name) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(arquivo.type) || arquivo.size > 2 * 1024 * 1024) {
+      throw new Error("Escolha uma imagem JPG, PNG ou WebP de até 2 MB para a oferta " + i + ".");
+    }
+    dados[campo] = await new Promise((resolve, reject) => {
+      const leitor = new FileReader();
+      leitor.onload = () => resolve(leitor.result);
+      leitor.onerror = () => reject(new Error("Não consegui abrir a imagem da oferta " + i + "."));
+      leitor.readAsDataURL(arquivo);
+    });
+  }));
+  return renderLandingPromo(dados, previa);
 }
 
 function mostrarErroLanding(mensagem = "") {
