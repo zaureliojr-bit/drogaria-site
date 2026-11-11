@@ -92,3 +92,128 @@ ${produtos.map(p => `<div class="prod"><div class="e" aria-hidden="true">${esc(p
 </body></html>`;
 }
 
+
+const CSS_PROMO = `
+:root{
+  --indigo:#242490; --noite:#13135c; --sol:#ffc933; --sol-claro:#ffe08a; --gelo:#f2f3fb; --branco:#fff;
+  --tinta:#17174a; --suave:#5b5d86; --verde:#17a05d; --vermelho:#d6453d;
+  --titulo:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --texto:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box;margin:0}
+body{font-family:var(--texto);color:var(--tinta);background:var(--gelo);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:84px}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--indigo);outline-offset:3px;border-radius:6px}
+.wrap{max-width:980px;margin:0 auto}
+
+/* HERO PROMO */
+.hero{background:var(--sol);padding:0 20px 72px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-90px;bottom:-110px;width:360px;height:360px;border-radius:50%;background:var(--sol-claro)}
+.hero .wrap{position:relative;z-index:1}
+.topo{display:flex;align-items:center;gap:12px;padding:20px 0 34px}
+.topo img{width:42px;height:42px;border-radius:12px;background:var(--branco);object-fit:contain;padding:4px}
+.marca{font-family:var(--titulo);font-weight:800;line-height:1.1}
+.marca small{display:block;font-family:var(--texto);font-weight:500;font-size:.8rem;opacity:.75;margin-top:2px}
+.status{display:inline-flex;align-items:center;gap:10px;background:var(--indigo);color:var(--branco);padding:8px 16px 8px 14px;border-radius:999px;font-weight:700;font-size:.92rem}
+.status i{width:10px;height:10px;border-radius:50%;background:#9aa0d8}
+.status.aberta i{background:#4be08f}
+.status.fechada i{background:#ff7b72}
+h1{font-family:var(--titulo);font-weight:800;font-size:clamp(2.6rem,9vw,5.4rem);line-height:.98;letter-spacing:-.025em;margin:22px 0 16px;max-width:12ch;color:var(--noite)}
+.sub{font-size:1.15rem;max-width:42ch;font-weight:500}
+.validade{display:inline-block;margin-top:18px;font-weight:700;border:2px dashed var(--noite);border-radius:10px;padding:6px 12px}
+.acoes{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:56px;padding:0 28px;border-radius:14px;font-weight:700;font-size:1.05rem;text-decoration:none;transition:transform .15s}
+.btn:active{transform:scale(.97)}
+.btn.zap{background:var(--indigo);color:var(--branco)}
+.btn.rota{background:transparent;color:var(--noite);border:2px solid var(--noite)}
+
+/* OFERTAS */
+.ofertas{padding:0 20px;margin-top:-40px;position:relative;z-index:2}
+.ofertas h2,.info h2{font-family:var(--titulo);font-weight:800;font-size:1.5rem}
+.ofertas .wrap>h2{color:var(--branco);background:var(--indigo);display:inline-block;padding:10px 20px;border-radius:14px 14px 0 0}
+.lista{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));background:var(--branco);padding:22px;border-radius:0 18px 18px 18px;box-shadow:0 18px 40px -26px rgba(19,19,92,.5)}
+.oferta{position:relative;border:2px solid var(--indigo);border-radius:16px;padding:20px 20px 18px;display:flex;flex-direction:column;gap:8px}
+.etiqueta{align-self:flex-start;background:var(--vermelho);color:var(--branco);font-family:var(--titulo);font-weight:800;font-size:1.25rem;padding:6px 14px 6px 22px;clip-path:polygon(12px 0,100% 0,100% 100%,12px 100%,0 50%)}
+.oferta h3{font-family:var(--titulo);font-weight:800;font-size:1.2rem}
+.oferta p{color:var(--suave);font-size:.95rem;flex:1}
+.oferta a{margin-top:6px;font-weight:700;color:var(--indigo);text-decoration:none;border-bottom:2px solid var(--sol);align-self:flex-start}
+.aviso{max-width:980px;margin:14px auto 0;color:var(--suave);font-size:.82rem}
+
+/* COMO COMPRAR */
+.passos{max-width:980px;margin:44px auto 0;padding:0 20px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.passo{background:var(--branco);border-radius:16px;padding:18px 20px;font-weight:500}
+.passo b{display:block;font-family:var(--titulo);font-size:1.1rem;margin-bottom:2px}
+
+/* INFO */
+.info{max-width:980px;margin:44px auto 0;padding:0 20px;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.cartao{background:var(--branco);border-radius:18px;padding:24px}
+.cartao h2{margin-bottom:12px;font-size:1.2rem}
+.cartao .cep{color:var(--suave);font-size:.92rem;margin-top:4px}
+.horarios{list-style:none;padding:0}
+.horarios li{display:flex;justify-content:space-between;gap:12px;padding:9px 12px;border-radius:10px}
+.horarios li span:last-child{font-weight:700}
+.horarios li.hoje{background:var(--indigo);color:var(--branco)}
+.fone{font-family:var(--titulo);font-weight:800;font-size:1.5rem;text-decoration:none;color:var(--indigo)}
+footer{text-align:center;color:var(--suave);font-size:.88rem;padding:36px 20px 20px}
+
+/* BARRA FIXA NO CELULAR */
+.barra{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--branco);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 24px -12px rgba(19,19,92,.4);display:flex;gap:10px}
+.barra .btn{flex:1;min-height:52px;padding:0 12px}
+.barra .btn.rota{border-color:var(--indigo);color:var(--indigo)}
+@media (min-width:821px){.barra{display:none}body{padding-bottom:0}}
+
+.lista,.info{grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))}
+`;
+
+export function renderLandingPromo(t, previa = false) {
+  const nome = t.nome || 'Sua unidade';
+  const titulo = t.titulo || 'Ofertas da semana na Mais Barato';
+  const numero = String(t.whatsapp || '').replace(/\D/g, '');
+  const telefone = /^55\d{10,11}$/.test(numero) ? numero : /^\d{10,11}$/.test(numero) ? '55' + numero : '';
+  const rota = t.endereco ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(t.endereco) : '';
+  const logo = esc(new URL('/logo.png', t.catalogo).href);
+  const zap = msg => 'https://wa.me/' + telefone + '?text=' + encodeURIComponent(msg);
+  const contato = telefone ? '<a class="btn zap" data-whatsapp href="' + esc(zap('Olá! Gostaria de falar com a unidade ' + nome + '.')) + '">Fale pelo WhatsApp</a>' : '';
+  const comoChegar = rota ? '<a class="btn rota" href="' + esc(rota) + '">Como chegar</a>' : '';
+  const ofertas = [1, 2, 3].map(i => ({
+    nome: t['ofertaNome' + i]?.trim(),
+    tag: t['ofertaTag' + i]?.trim(),
+    texto: t['ofertaTexto' + i]?.trim()
+  })).filter(oferta => oferta.nome);
+  const cards = ofertas.map(o => '<article class="oferta">' +
+    (o.tag ? '<span class="etiqueta">' + esc(o.tag) + '</span>' : '') +
+    '<h3>' + esc(o.nome) + '</h3>' +
+    (o.texto ? '<p>' + esc(o.texto) + '</p>' : '') +
+    (telefone ? '<a data-whatsapp href="' + esc(zap('Olá! Quero saber mais sobre ' + o.nome + '.')) + '">Pedir pelo WhatsApp</a>' : '') +
+    '</article>').join('');
+  const id = String(t.tagAds || '').trim();
+  const conversao = String(t.conversaoWhatsapp || '').trim();
+  const tagValida = /^AW-\d+$/.test(id);
+  if (id && !tagValida) throw new Error('Informe a tag no formato AW-123456789.');
+  if (conversao && (!tagValida || !/^AW-\d+\/[\w-]+$/.test(conversao) || !conversao.startsWith(id + '/'))) {
+    throw new Error('Use o send_to completo da conversão, com o mesmo ID da tag.');
+  }
+  const rastreamento = !previa && tagValida ? '<script async src="https://www.googletagmanager.com/gtag/js?id=' + id + '"></script>' +
+    '<script>window.dataLayer=window.dataLayer||[];function gtag(){window.dataLayer.push(arguments);}gtag("js",new Date());gtag("config",' + JSON.stringify(id) + ');' +
+    (conversao ? 'document.addEventListener("click",function(e){if(e.target.closest("[data-whatsapp]"))gtag("event","conversion",{send_to:' + JSON.stringify(conversao) + '});});' : '') +
+    '</script>' : '';
+  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<meta name="theme-color" content="#ffc933"><title>' + esc(titulo) + ' | ' + esc(nome) + '</title>' +
+    '<meta name="description" content="' + esc(t.promessa || 'Confira as ofertas e os contatos da unidade.') + '">' +
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Figtree:wght@400;500;700&display=swap">' +
+    rastreamento + '<style>' + CSS_PROMO + '</style></head><body>' +
+    '<header class="hero"><div class="wrap"><div class="topo"><img src="' + logo + '" alt="" width="42" height="42">' +
+    '<div class="marca">Drogaria Mais Barato<small>' + esc(nome) + '</small></div></div>' +
+    (t.selo ? '<div class="status">' + esc(t.selo) + '</div>' : '') + '<h1>' + esc(titulo) + '</h1>' +
+    (t.promessa ? '<p class="sub">' + esc(t.promessa) + '</p>' : '') +
+    (t.validoAte && cards ? '<span class="validade">Válido até ' + esc(t.validoAte) + '</span>' : '') +
+    '<div class="acoes">' + contato + comoChegar + '</div></div></header><main>' +
+    (cards ? '<section class="ofertas"><div class="wrap"><h2>Ofertas em destaque</h2><div class="lista">' + cards + '</div></div><p class="aviso">Ofertas válidas enquanto durarem os estoques da unidade.</p></section>' : '') +
+    (telefone ? '<section class="passos" aria-label="Como comprar"><div class="passo"><b>1. Chame no WhatsApp</b>Diga o que você precisa.</div><div class="passo"><b>2. Confirme o pedido</b>A equipe informa a disponibilidade e o valor.</div><div class="passo"><b>3. Combine a retirada ou a entrega</b>' + esc(t.entrega || 'Consulte as opções com a unidade.') + '</div></section>' : '') +
+    '<section class="info" aria-label="Informações da unidade">' +
+    (t.horario ? '<div class="cartao"><h2>Horários</h2><ul class="horarios">' + t.horario.split(' · ').map(h => '<li>' + esc(h) + '</li>').join('') + '</ul></div>' : '') +
+    (t.endereco ? '<div class="cartao"><h2>Endereço</h2><p>' + esc(t.endereco) + '</p></div>' : '') +
+    (telefone ? '<div class="cartao"><h2>Telefone da unidade</h2><a class="fone" href="tel:+' + telefone + '">+' + telefone + '</a></div>' : '') +
+    '</section></main><footer>Drogaria Mais Barato · ' + esc(nome) + '</footer>' +
+    (contato || comoChegar ? '<div class="barra">' + contato + comoChegar + '</div>' : '') + '</body></html>';
+}
