@@ -891,6 +891,12 @@
         <label>Descrição<input name="ofertaTexto3" maxlength="150"></label>
         <label>Imagem da oferta<input type="file" name="ofertaImagem3" accept="image/jpeg,image/png,image/webp"></label>
       </fieldset>
+      <fieldset><legend>Oferta 4</legend>
+        <label>Nome<input name="ofertaNome4" maxlength="100"></label>
+        <label>Preço ou selo<input name="ofertaTag4" maxlength="35"></label>
+        <label>Descrição<input name="ofertaTexto4" maxlength="150"></label>
+        <label>Imagem da oferta<input type="file" name="ofertaImagem4" accept="image/jpeg,image/png,image/webp"></label>
+      </fieldset>
       <p>Imagens opcionais em JPG, PNG ou WebP, com até 2 MB por oferta.</p>
       <label>Tag do Google Ads (opcional)<input name="tagAds" placeholder="AW-123456789" maxlength="30"></label>
       <label>Conversão do WhatsApp (opcional)<input name="conversaoWhatsapp" placeholder="AW-123456789/rótulo" maxlength="120"></label>
@@ -7176,7 +7182,7 @@ async function lerCamposLanding() {
   const dados = Object.fromEntries(new FormData(formLanding));
   if (dados.layout !== "promo") return dados;
 
-  await Promise.all([1, 2, 3].map(async i => {
+  await Promise.all([1, 2, 3, 4].map(async i => {
     const campo = "ofertaImagem" + i;
     const arquivo = dados[campo];
     dados[campo] = "";
