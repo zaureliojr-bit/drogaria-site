@@ -865,10 +865,33 @@
 <dialog id="geradorLanding" aria-labelledby="tituloGeradorLanding">
   <h2 id="tituloGeradorLanding">Gerar landing page</h2>
   <form id="camposGeradorLanding" class="form-banner">
+    <label>Layout<select name="layout"><option value="padrao">Padrão</option><option value="promo">Promocional</option></select></label>
     <label>Título<input name="titulo" maxlength="100"></label>
     <label>Selo<input name="selo" maxlength="60"></label>
     <label>Texto de apresentação<textarea name="promessa" maxlength="250"></textarea></label>
     <label>Informações de entrega<input name="entrega" maxlength="120"></label>
+    <fieldset id="camposLandingPromo" hidden disabled>
+      <legend>Ofertas e rastreamento</legend>
+      <label>Validade das ofertas<input name="validoAte" placeholder="30/11" maxlength="20"></label>
+      <fieldset><legend>Oferta 1</legend>
+        <label>Nome<input name="ofertaNome1" maxlength="100"></label>
+        <label>Preço ou selo<input name="ofertaTag1" maxlength="35"></label>
+        <label>Descrição<input name="ofertaTexto1" maxlength="150"></label>
+      </fieldset>
+      <fieldset><legend>Oferta 2</legend>
+        <label>Nome<input name="ofertaNome2" maxlength="100"></label>
+        <label>Preço ou selo<input name="ofertaTag2" maxlength="35"></label>
+        <label>Descrição<input name="ofertaTexto2" maxlength="150"></label>
+      </fieldset>
+      <fieldset><legend>Oferta 3</legend>
+        <label>Nome<input name="ofertaNome3" maxlength="100"></label>
+        <label>Preço ou selo<input name="ofertaTag3" maxlength="35"></label>
+        <label>Descrição<input name="ofertaTexto3" maxlength="150"></label>
+      </fieldset>
+      <label>Tag do Google Ads (opcional)<input name="tagAds" placeholder="AW-123456789" maxlength="30"></label>
+      <label>Conversão do WhatsApp (opcional)<input name="conversaoWhatsapp" placeholder="AW-123456789/rótulo" maxlength="120"></label>
+    </fieldset>
+    <p id="erroGeradorLanding" role="alert" hidden></p>
     <div>
       <button type="submit" class="principal">Atualizar prévia</button>
       <button type="button" id="baixarLanding">Baixar HTML</button>
@@ -7140,11 +7163,48 @@ async function carregarSessao() {
 
 let unidadeGeradorLanding;
 
-async function gerarHtmlLanding() {
-  const { renderLanding } = await import("/gerador-landing.js");
-  const dados = Object.fromEntries(new FormData(el("camposGeradorLanding")));
-  return renderLanding({ ...unidadeGeradorLanding, ...dados });
+const formLanding = el("camposGeradorLanding");
+const layoutLanding = formLanding.elements.namedItem("layout");
+
+async function gerarHtmlLanding(previa = false) {
+  const { renderLanding, renderLandingPromo } = await import("/gerador-landing.js");
+  const dados = { ...unidadeGeradorLanding, ...Object.fromEntries(new FormData(formLanding)) };
+  return dados.layout === "promo" ? renderLandingPromo(dados, previa) : renderLanding(dados);
 }
+
+function mostrarErroLanding(mensagem = "") {
+  const aviso = el("erroGeradorLanding");
+  aviso.textContent = mensagem;
+  aviso.hidden = !mensagem;
+}
+
+async function atualizarPreviaLanding() {
+  mostrarErroLanding();
+  try {
+    el("previaLanding").srcdoc = await gerarHtmlLanding(true);
+  } catch (erro) {
+    mostrarErroLanding(erro.message);
+  }
+}
+
+layoutLanding.addEventListener("change", () => {
+  const promo = layoutLanding.value === "promo";
+  const campos = el("camposLandingPromo");
+  campos.hidden = campos.disabled = !promo;
+  const titulo = formLanding.elements.namedItem("titulo");
+  const selo = formLanding.elements.namedItem("selo");
+  const promessa = formLanding.elements.namedItem("promessa");
+  if (["Sua farmácia, a um toque", "Ofertas da semana na Mais Barato"].includes(titulo.value)) {
+    titulo.value = promo ? "Ofertas da semana na Mais Barato" : "Sua farmácia, a um toque";
+  }
+  if (["Atendimento da unidade", "Ofertas da semana"].includes(selo.value)) {
+    selo.value = promo ? "Ofertas da semana" : "Atendimento da unidade";
+  }
+  if (["Consulte o catálogo e confira as opções de entrega ou retirada da unidade.", "Confira as ofertas da unidade e fale com nossa equipe."].includes(promessa.value)) {
+    promessa.value = promo ? "Confira as ofertas da unidade e fale com nossa equipe." : "Consulte o catálogo e confira as opções de entrega ou retirada da unidade.";
+  }
+  atualizarPreviaLanding();
+});
 
 el("listaLojas").addEventListener("click", async evento => {
   const botao = evento.target.closest("[data-gerar-landing]");
@@ -7163,10 +7223,13 @@ el("listaLojas").addEventListener("click", async evento => {
     };
     const form = el("camposGeradorLanding");
     form.reset();
+    el("camposLandingPromo").hidden = el("camposLandingPromo").disabled = true;
+    if (slug === "mais-barato") form.elements.namedItem("tagAds").value = "AW-18544964073";
+    mostrarErroLanding();
     form.elements.namedItem("titulo").value = "Sua farmácia, a um toque";
     form.elements.namedItem("selo").value = "Atendimento da unidade";
     form.elements.namedItem("promessa").value = "Consulte o catálogo e confira as opções de entrega ou retirada da unidade.";
-    el("previaLanding").srcdoc = await gerarHtmlLanding();
+    el("previaLanding").srcdoc = await gerarHtmlLanding(true);
     el("geradorLanding").showModal();
   } catch (erro) {
     avisoLojas("Não consegui preparar a página: " + erro.message);
@@ -7177,15 +7240,22 @@ el("listaLojas").addEventListener("click", async evento => {
 
 el("camposGeradorLanding").addEventListener("submit", async evento => {
   evento.preventDefault();
-  el("previaLanding").srcdoc = await gerarHtmlLanding();
+  await atualizarPreviaLanding();
 });
 
 el("baixarLanding").addEventListener("click", async () => {
-  const html = await gerarHtmlLanding();
+  mostrarErroLanding();
+  let html;
+  try {
+    html = await gerarHtmlLanding();
+  } catch (erro) {
+    mostrarErroLanding(erro.message);
+    return;
+  }
   const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = "bem-vindo-" + unidadeGeradorLanding.slug + ".html";
+  link.download = "bem-vindo-" + unidadeGeradorLanding.slug + (layoutLanding.value === "promo" ? "-promo" : "") + ".html";
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
