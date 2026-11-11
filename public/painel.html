@@ -898,10 +898,12 @@
     <p id="erroGeradorLanding" role="alert" hidden></p>
     <div>
       <button type="submit" class="principal">Atualizar prévia</button>
+      <button type="button" id="publicarLanding">Publicar página</button>
       <button type="button" id="baixarLanding">Baixar HTML</button>
       <button type="button" id="fecharLanding">Fechar</button>
     </div>
   </form>
+  <p id="resultadoPublicacaoLanding" role="status" hidden><a id="linkPublicacaoLanding" target="_blank" rel="noopener">Abrir página publicada</a> <button type="button" id="copiarPublicacaoLanding">Copiar link</button></p>
   <iframe id="previaLanding" title="Prévia da landing page" sandbox></iframe>
 </dialog>
 <div class="painel-topo">
@@ -7170,10 +7172,9 @@ let unidadeGeradorLanding;
 const formLanding = el("camposGeradorLanding");
 const layoutLanding = formLanding.elements.namedItem("layout");
 
-async function gerarHtmlLanding(previa = false) {
-  const { renderLanding, renderLandingPromo } = await import("/gerador-landing.js");
-  const dados = { ...unidadeGeradorLanding, ...Object.fromEntries(new FormData(formLanding)) };
-  if (dados.layout !== "promo") return renderLanding(dados);
+async function lerCamposLanding() {
+  const dados = Object.fromEntries(new FormData(formLanding));
+  if (dados.layout !== "promo") return dados;
 
   await Promise.all([1, 2, 3].map(async i => {
     const campo = "ofertaImagem" + i;
@@ -7190,7 +7191,13 @@ async function gerarHtmlLanding(previa = false) {
       leitor.readAsDataURL(arquivo);
     });
   }));
-  return renderLandingPromo(dados, previa);
+  return dados;
+}
+
+async function gerarHtmlLanding(previa = false) {
+  const { renderLanding, renderLandingPromo } = await import("/gerador-landing.js");
+  const dados = { ...unidadeGeradorLanding, ...await lerCamposLanding() };
+  return dados.layout === "promo" ? renderLandingPromo(dados, previa) : renderLanding(dados);
 }
 
 function mostrarErroLanding(mensagem = "") {
@@ -7209,6 +7216,7 @@ async function atualizarPreviaLanding() {
 }
 
 layoutLanding.addEventListener("change", () => {
+  el("resultadoPublicacaoLanding").hidden = true;
   const promo = layoutLanding.value === "promo";
   const campos = el("camposLandingPromo");
   campos.hidden = campos.disabled = !promo;
@@ -7244,6 +7252,7 @@ el("listaLojas").addEventListener("click", async evento => {
     };
     const form = el("camposGeradorLanding");
     form.reset();
+    el("resultadoPublicacaoLanding").hidden = true;
     el("camposLandingPromo").hidden = el("camposLandingPromo").disabled = true;
     if (slug === "mais-barato") form.elements.namedItem("tagAds").value = "AW-18544964073";
     mostrarErroLanding();
@@ -7279,6 +7288,51 @@ el("baixarLanding").addEventListener("click", async () => {
   link.download = "bem-vindo-" + unidadeGeradorLanding.slug + (layoutLanding.value === "promo" ? "-promo" : "") + ".html";
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+el("publicarLanding").addEventListener("click", async () => {
+  const botao = el("publicarLanding");
+  const resultado = el("resultadoPublicacaoLanding");
+  const link = el("linkPublicacaoLanding");
+  const { slug } = unidadeGeradorLanding;
+  botao.disabled = true;
+  botao.textContent = "Publicando…";
+  resultado.hidden = true;
+  mostrarErroLanding();
+  try {
+    const campos = await lerCamposLanding();
+    campos.dominioProprio = subdominiosNoAr.has(slug);
+    const resposta = await fetch("/landing/" + encodeURIComponent(slug) + "/" + campos.layout, {
+      method: "POST",
+      headers: cabecalhos({ "Content-Type": "application/json", "X-Painel-Loja": slug }),
+      body: JSON.stringify(campos)
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) throw new Error(dados.erro || "Não consegui publicar a página.");
+    for (const url of new Set([dados.url, dados.alternativa])) {
+      const teste = await fetch(url, { method: "HEAD", cache: "no-store", signal: AbortSignal.timeout(5000) }).catch(() => null);
+      if (teste?.ok && teste.headers.get("X-Landing-Version") === dados.versao) {
+        link.href = url;
+        resultado.hidden = false;
+        return;
+      }
+    }
+    mostrarErroLanding("Página salva, mas ainda não consegui confirmar o link público.");
+  } catch (erro) {
+    mostrarErroLanding(erro.message);
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Publicar página";
+  }
+});
+
+el("copiarPublicacaoLanding").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(el("linkPublicacaoLanding").href);
+    mostrarErroLanding("Link copiado.");
+  } catch {
+    mostrarErroLanding("Abra a página publicada e copie o endereço na barra do navegador.");
+  }
 });
 
 el("fecharLanding").addEventListener("click", () => el("geradorLanding").close());
