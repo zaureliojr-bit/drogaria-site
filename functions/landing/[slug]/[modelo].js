@@ -31,7 +31,7 @@ export async function onRequest({ request, env, params }) {
                 "Content-Type": "text/html; charset=utf-8",
                 "Cache-Control": "no-store",
                 "X-Content-Type-Options": "nosniff",
-                "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.drogalink.com.br https://drogaria-site.pages.dev https://www.google.com https://www.googleadservices.com https://*.doubleclick.net; script-src 'unsafe-inline' https://www.googletagmanager.com https://www.googleadservices.com https://www.google.com; connect-src https://*.google.com https://*.googleadservices.com https://*.doubleclick.net https://www.googletagmanager.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+                "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://www.googletagmanager.com https://*.drogalink.com.br https://drogaria-site.pages.dev https://www.google.com https://www.googleadservices.com https://*.doubleclick.net; script-src 'unsafe-inline' https://googleads.g.doubleclick.net https://www.googletagmanager.com https://www.googleadservices.com https://www.google.com; connect-src https://*.google.com https://*.googleadservices.com https://*.doubleclick.net https://www.googletagmanager.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Expose-Headers": "X-Landing-Version",
                 "X-Landing-Version": pagina.etag
