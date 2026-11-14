@@ -2869,7 +2869,7 @@ function botaoDePerguntarNoWhats() {
   return `
     <a class="aviso-vazio-whats" href="${esc(url)}" target="_blank" rel="noopener">
       ${icone("whats", 17)}
-      <span>Perguntar no WhatsApp da loja</span>
+      <span>Consultar disponibilidade no WhatsApp</span>
     </a>`;
 }
 
@@ -3656,6 +3656,7 @@ async function buscarCEP() {
 
       // o ViaCEP devolve a string "true", não o booleano
       if (data.erro) {
+        window.registrarDiagnosticoGA4?.("cep_nao_encontrado");
 
         /* Segunda chance antes de desistir: o CEP da raiz, com os três
            últimos dígitos zerados. Ele é o CEP geral daquele pedaço da
@@ -3709,6 +3710,7 @@ async function buscarCEP() {
 
     } catch (e) {
       console.error("Erro buscar CEP", e);
+      window.registrarDiagnosticoGA4?.("cep_erro");
       liberarEnderecoManual();
       mostrarResultadoFrete(
         "Não conseguimos consultar o CEP agora. Preencha o endereço à mão que a gente calcula a entrega do mesmo jeito.",
@@ -3921,6 +3923,7 @@ async function calcularFrete({ automatico = false } = {}) {
      caminho de tentar de novo depois de um erro de rede. */
   const chave = chaveDoEndereco({ numero, endereco, bairro, cidade, cepLimpo });
   const minhaVez = ++sequenciaFrete;
+  window.registrarDiagnosticoGA4?.("frete_consultado");
   const fuiAtropelado = () => minhaVez !== sequenciaFrete;
 
   const btn = el("btnCalcularFrete");
@@ -3935,6 +3938,7 @@ async function calcularFrete({ automatico = false } = {}) {
     if (fuiAtropelado()) return;
 
     if (!coords) {
+      window.registrarDiagnosticoGA4?.("frete_erro");
       freteCalculado = null;
       mostrarResultadoFrete("Não localizamos esse endereço automaticamente. Fale com a gente pelo WhatsApp para confirmar a entrega.", "erro");
       return;
@@ -3943,12 +3947,14 @@ async function calcularFrete({ automatico = false } = {}) {
     const dist = calcularDistanciaKm(LOJA_LAT, LOJA_LNG, coords.lat, coords.lng);
 
     if (dist > RAIO_MAX_KM) {
+      window.registrarDiagnosticoGA4?.("frete_fora_area");
       freteCalculado = null;
       chaveFreteCalculada = chave;
       mostrarResultadoFrete(`Endereço fora da área de entrega (${dist.toFixed(1)} km). Finalize como retirada e solicite a entrega por aplicativo.`, "erro");
       return;
     }
 
+    window.registrarDiagnosticoGA4?.("frete_calculado");
     const valor = calcularValorFrete(dist);
     freteCalculado = { dist, valor, aproximado: coords.aproximado };
     chaveFreteCalculada = chave;
@@ -3974,6 +3980,7 @@ async function calcularFrete({ automatico = false } = {}) {
   } catch (e) {
     console.error("Erro calcular frete", e);
     if (fuiAtropelado()) return;
+    window.registrarDiagnosticoGA4?.("frete_erro");
     /* Sem gravar a chave de propósito: foi falha de rede, não resposta
        sobre este endereço. Deixar gravada faria a tentativa seguinte,
        com o MESMO endereço, ser descartada como repetida. */
@@ -4260,12 +4267,14 @@ function finalizar() {
   const { url, abriu } = abrirWhatsApp(msg);
 
   if (abriu) {
+    window.registrarDiagnosticoGA4?.("checkout_whatsapp_aberto");
     toast(`Pedido ${ref} enviado!`);
     limparCarrinho();
     mostrarPedidoEnviado(ref, itensControleEspecial.length > 0);
   } else {
     // pop-up bloqueado (comum no iOS): antes o carrinho era limpo aqui
     // e o cliente ficava sem pedido E sem carrinho.
+    window.registrarDiagnosticoGA4?.("checkout_whatsapp_bloqueado");
     mostrarLinkPedido(url, ref);
   }
 }
@@ -4305,7 +4314,11 @@ function mostrarPedidoEnviado(ref, temReceita) {
 
 function mostrarLinkPedido(url, ref) {
   const acoes = document.querySelector(".carrinho-acoes");
-  if (!acoes) { window.location.href = url; return; }
+  if (!acoes) {
+    window.registrarDiagnosticoGA4?.("checkout_whatsapp_link");
+    window.location.href = url;
+    return;
+  }
 
   let caixa = el("linkPedido");
   if (!caixa) {
@@ -4319,6 +4332,9 @@ function mostrarLinkPedido(url, ref) {
     <p>Seu navegador bloqueou a janela do WhatsApp. O carrinho está guardado — toque abaixo para enviar o pedido ${esc(ref)}.</p>
     <a class="btn-finalizar" href="${esc(url)}" target="_blank" rel="noopener">Abrir o WhatsApp</a>
   `;
+  caixa.querySelector("a").addEventListener("click", () => {
+    window.registrarDiagnosticoGA4?.("checkout_whatsapp_link");
+  });
   caixa.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
@@ -4709,8 +4725,7 @@ function marcarEtapa(etapa) {
      - o que procuram muito (e precisa estar sempre em estoque)
      - o que procuram e NÃO acham (o que falta no catálogo)
 
-   A segunda é a que vale dinheiro: é uma venda que não aconteceu e que
-   não aparece em lugar nenhum hoje.
+   A segunda ajuda a identificar lacunas no catálogo ou na busca.
 
    NÃO acompanha pessoa. Vai o termo e o número de resultados, nada mais
    — sem telefone, sem identificador de sessão. É estatística de loja, e
@@ -4757,6 +4772,8 @@ function enviarBuscaPendente() {
     buscaPendente = null;
 
     if (!pendente) return;
+
+    if (pendente.resultados === 0) window.registrarDiagnosticoGA4?.("busca_sem_resultado");
 
     // mesma busca repetida na mesma visita conta uma vez: quem filtra e
     // volta atrás não deve pesar mais que quem buscou uma vez só
@@ -4806,6 +4823,12 @@ document.addEventListener("DOMContentLoaded", () => {
     marcarEtapa("visita");
 
     // O botão "Buscar" já chama buscar(), que fecha a busca por lá.
+    el("produtos")?.addEventListener("click", (e) => {
+        if (e.target.closest(".aviso-vazio-whats") && termoBusca) {
+            enviarBuscaPendente();
+            window.registrarDiagnosticoGA4?.("busca_whatsapp_clique");
+        }
+    });
     el("busca")?.addEventListener("keydown", (e) => {
         if (e.key === "Enter") enviarBuscaPendente();
     });

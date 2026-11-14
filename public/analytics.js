@@ -7,6 +7,24 @@
   let active = false;
   let recordEvent;
 
+  const diagnosticosRegistrados = new Set();
+  window.registrarDiagnosticoGA4 = (evento) => {
+    if (!window.registrarEventoGA4) return;
+
+    const chave = `diagnostico:${LojaAtual.slug() || "principal"}:${evento}`;
+    if (diagnosticosRegistrados.has(chave)) return;
+
+    try {
+      if (sessionStorage.getItem(chave)) return;
+      sessionStorage.setItem(chave, "1");
+    } catch {
+      // Em navegadores com armazenamento bloqueado, deduplica nesta página.
+    }
+
+    diagnosticosRegistrados.add(chave);
+    window.registrarEventoGA4(evento);
+  };
+
   function loadAnalytics() {
     if (active) return;
     active = true;
