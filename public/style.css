@@ -3863,11 +3863,10 @@ body.com-folha { overflow: hidden; }
 /* 🔎 ENSINAR A BUSCA        */
 /* ========================= */
 
-/* Uma linha por palavra que a loja ensinou: o que o cliente digita à
-   esquerda, o que o catálogo usa à direita. */
+/* Campos para acrescentar uma regra de busca. */
 .sin-linha {
   display: grid;
-  grid-template-columns: 1fr 1.6fr auto;
+  grid-template-columns: 1fr 1.6fr;
   gap: 10px;
   align-items: center;
   padding: 8px 0;
@@ -3891,20 +3890,6 @@ body.com-folha { overflow: hidden; }
   box-shadow: 0 0 0 3px var(--marca-clara);
 }
 
-.sin-tirar {
-  border: 0;
-  background: none;
-  color: var(--tinta-suave);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  min-width: 44px;
-  min-height: 44px;
-}
-
-.sin-tirar:hover { color: var(--corte); }
-
 @media (max-width: 639px) {
-  .sin-linha { grid-template-columns: 1fr auto; }
-  .sin-linha input:first-child { grid-column: 1 / -1; }
+  .sin-linha { grid-template-columns: 1fr; }
 }
