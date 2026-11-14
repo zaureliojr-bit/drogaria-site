@@ -1,23 +1,5 @@
-/* O aviso de entrada, e as quatro travas que o impedem de virar praga.
-
-   A loja viu um pop-up de campanha no aplicativo do 99 e pediu um
-   igual. O recurso é fácil; o que é difícil é não piorar com ele o
-   número que a loja está tentando melhorar.
-
-   O funil desta farmácia diz: 251 visitas, 84 buscas. As outras 167
-   entram e saem sem procurar nada — e é exatamente nelas que um pop-up
-   na chegada bate primeiro. O Google chama isso de interstitial
-   intrusivo e penaliza no celular quando cobre a página de quem veio
-   da busca.
-
-   Então o aviso existe com quatro travas, e cada uma corresponde a um
-   jeito conhecido de o recurso dar errado. Este arquivo é o que
-   impede que alguém tire uma delas sem perceber:
-
-     1. só na home, nunca na página de um produto;
-     2. só da segunda visita em diante;
-     3. uma vez por pessoa, por campanha;
-     4. fecha fácil — X grande, Esc e clique fora.
+/* O aviso de entrada aparece na primeira visita à home e uma vez por
+   campanha. Links de busca e produto mantêm o acesso direto.
 
    Uso:
      npx wrangler pages dev public --port 8821
@@ -88,47 +70,44 @@ async function visitar(contexto, caminho = "/") {
 
 const apareceu = (pagina) => pagina.locator("#avisoEntrada").count().then(n => n > 0);
 
-/* ---- 1. a primeira visita fica limpa -------------------------------- */
-console.log("\n1. na primeira visita, a pessoa vê a farmácia");
+/* ---- 1. a primeira visita mostra o aviso e o carrossel --------------- */
+console.log("\n1. na primeira visita, a pessoa vê o aviso");
 {
     const contexto = await novaPessoa();
     const pagina = await visitar(contexto);
 
-    conferir("o aviso NÃO aparece", !(await apareceu(pagina)));
+    conferir("o aviso aparece na primeira visita", await apareceu(pagina));
 
     /* E a faixa de banners continua lá: o aviso é um extra, não uma
        troca. A loja publicou um banner e ele tem de aparecer na
        página desde a primeira visita. */
     const naFaixa = await pagina.locator("#promos .promo-item").count();
-    conferir("mas o banner aparece na faixa, como sempre", naFaixa > 0, String(naFaixa));
+    conferir("e o banner aparece na faixa", naFaixa > 0, String(naFaixa));
 
     await pagina.close();
     await contexto.close();
 }
 
-/* ---- 2. na segunda, aparece ------------------------------------------ */
-console.log("\n2. na segunda visita, a campanha aparece");
+/* ---- 2. controles do aviso ------------------------------------------ */
+console.log("\n2. controles do aviso");
 {
     const contexto = await novaPessoa();
 
-    const primeira = await visitar(contexto);
-    await primeira.close();
+    const pagina = await visitar(contexto);
 
-    const segunda = await visitar(contexto);
+    conferir("o aviso aparece", await apareceu(pagina));
 
-    conferir("o aviso aparece", await apareceu(segunda));
-
-    const alvo = await segunda.locator(".aviso-entrada-x").boundingBox();
+    const alvo = await pagina.locator(".aviso-entrada-x").boundingBox();
     conferir(`o X tem alvo de dedo — ${alvo && Math.round(alvo.width)}px`,
         alvo && alvo.width >= 40 && alvo.height >= 40, JSON.stringify(alvo));
 
     /* Link de campanha é publicidade: sem o rel, a loja empresta
        reputação de busca para o parceiro sem querer. */
-    const rel = await segunda.getAttribute(".aviso-entrada-card a", "rel");
+    const rel = await pagina.getAttribute(".aviso-entrada-card a", "rel");
     conferir("o link vai marcado como publicidade",
         (rel || "").includes("sponsored") && (rel || "").includes("nofollow"), rel);
 
-    await segunda.close();
+    await pagina.close();
     await contexto.close();
 }
 
@@ -137,9 +116,8 @@ console.log("\n3. a mesma campanha não persegue a pessoa");
 {
     const contexto = await novaPessoa();
 
-    await (await visitar(contexto)).close();
     const segunda = await visitar(contexto);
-    conferir("apareceu na segunda", await apareceu(segunda));
+    conferir("apareceu na primeira", await apareceu(segunda));
     await segunda.close();
 
     const terceira = await visitar(contexto);
@@ -153,7 +131,6 @@ console.log("\n3. a mesma campanha não persegue a pessoa");
     /* A mesma "pessoa" não dá para simular entre contextos; o que este
        trecho prova é que a decisão é POR ID, e não "já mostrei alguma
        vez". A lista de vistos guarda ids. */
-    await (await visitar(outra)).close();
     const voltou = await visitar(outra);
     conferir("campanha com id novo volta a aparecer", await apareceu(voltou));
     await voltou.close();
@@ -166,7 +143,6 @@ console.log("\n3. a mesma campanha não persegue a pessoa");
 console.log("\n4. quem veio atrás de um produto não é interrompido");
 {
     const contexto = await novaPessoa();
-    await (await visitar(contexto)).close();
 
     /* O link que a loja manda no WhatsApp traz ?busca=<ean>. Quem
        chega assim veio buscar aquilo — tapar a tela é perder a venda
@@ -187,8 +163,7 @@ console.log("\n5. fechar é fácil");
         ["clicando fora",   async (p) => p.click(".aviso-entrada-fundo", { position: { x: 5, y: 5 } })]
     ]) {
         const contexto = await novaPessoa();
-        await (await visitar(contexto)).close();
-        const pagina = await visitar(contexto);
+            const pagina = await visitar(contexto);
 
         if (!(await apareceu(pagina))) {
             conferir(`fecha ${nome}`, false, "o aviso nem apareceu");
@@ -216,7 +191,6 @@ console.log("\n6. banner comum continua sendo banner comum");
         banners: [{ id: 9, imagem: IMAGEM, alt: "Faixa normal", link: "" }]
     });
 
-    await (await visitar(contexto)).close();
     const segunda = await visitar(contexto);
 
     conferir("sem `entrada`, nenhum aviso aparece", !(await apareceu(segunda)));
@@ -250,7 +224,6 @@ console.log("\n7. a arte em pé, quando existe");
           entrada_imagem: EM_PE }
     ] });
 
-    await (await visitar(comArte)).close();
     const pagina = await visitar(comArte);
 
     const usada = await pagina.getAttribute(".aviso-entrada-card img", "src");
