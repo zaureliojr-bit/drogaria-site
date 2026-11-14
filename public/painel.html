@@ -355,16 +355,38 @@
     border: 1.5px solid var(--linha); border-radius: var(--raio-botao);
     font-size: 13px; font-family: var(--fonte-corpo);
   }
+  :is(#semImagem, #buscaImagemResultado) table { table-layout: fixed; }
+  :is(#semImagem, #buscaImagemResultado) th:nth-child(1) { width: 78px; }
+  :is(#semImagem, #buscaImagemResultado) th:nth-child(3) { width: 20%; }
+  :is(#semImagem, #buscaImagemResultado) th:nth-child(4) { width: 34%; }
+  :is(#semImagem, #buscaImagemResultado) th:nth-child(5) { width: 90px; }
+  :is(#semImagem, #buscaImagemResultado) td {
+    min-width: 0; white-space: normal; overflow-wrap: anywhere;
+  }
+  @media (max-width: 640px) {
+    :is(#semImagem, #buscaImagemResultado) thead { display: none; }
+    :is(#semImagem, #buscaImagemResultado) tr {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto;
+      padding: 10px; gap: 6px 10px; border-bottom: 1px solid var(--linha);
+    }
+    :is(#semImagem, #buscaImagemResultado) td { padding: 0; border: 0; }
+    :is(#semImagem, #buscaImagemResultado) td:nth-child(2) {
+      grid-column: 1 / -1; grid-row: 1; font-weight: 700;
+    }
+    :is(#semImagem, #buscaImagemResultado) td:nth-child(3) { text-align: right; }
+    :is(#semImagem, #buscaImagemResultado) td:nth-child(4) { grid-column: 1 / -1; }
+    :is(#semImagem, #buscaImagemResultado) td:nth-child(5) { grid-column: 2; }
+  }
   .editor-imagem { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .editor-imagem img {
     width: 34px; height: 34px; object-fit: contain; flex-shrink: 0;
     background: var(--papel); border-radius: var(--raio-sm); padding: 2px;
   }
   .editor-imagem input[type="url"] {
-    flex: 1; min-width: 180px; padding: 6px 10px;
+    flex: 1 1 130px; min-width: 0; max-width: 100%; padding: 6px 10px;
     border: 1.5px solid var(--linha); border-radius: var(--raio-botao); font-size: 12px;
   }
-  .editor-imagem-status { font-size: 11.5px; color: var(--tinta-suave); white-space: nowrap; }
+  .editor-imagem-status { font-size: 11.5px; color: var(--tinta-suave); white-space: normal; overflow-wrap: anywhere; }
   .editor-imagem-status[data-ok="1"] { color: var(--ok); }
   .editor-imagem-status[data-erro="1"] { color: var(--erro); }
   .btn-apagar-produto {
@@ -2562,9 +2584,10 @@ const LINHAS_POR_PAGINA = 5;
 
 const _tabelas = new Map();
 
-function tabelaPaginada(id, colunas, linhas, vazio, porPagina = LINHAS_POR_PAGINA) {
+function tabelaPaginada(id, colunas, linhas, vazio, porPagina = LINHAS_POR_PAGINA, pagina = 0) {
 
-  _tabelas.set(id, { colunas, linhas, vazio, porPagina, pagina: 0 });
+  pagina = Math.min(pagina, Math.max(0, Math.ceil(linhas.length / porPagina) - 1));
+  _tabelas.set(id, { colunas, linhas, vazio, porPagina, pagina });
 
   desenharTabela(id);
 
@@ -6045,9 +6068,9 @@ function linhaEditorImagem(p) {
   const editor = p.ean
     ? `<div class="editor-imagem">
         ${miniatura}
-        <input type="url" placeholder="Link da imagem (Cosmos, Google, etc.)" data-url-imagem="${esc(p.ean)}">
+        <input type="url" placeholder="Link HTTPS da imagem" aria-label="Link da imagem de ${esc(p.nome)}" data-url-imagem="${esc(p.ean)}">
         <button type="button" class="btn-testar-som" data-salvar-imagem="${esc(p.ean)}">Salvar</button>
-        <span class="editor-imagem-status" data-status-imagem="${esc(p.ean)}"></span>
+        <span class="editor-imagem-status" role="status" data-status-imagem="${esc(p.ean)}"></span>
       </div>`
     : `<span class="editor-imagem-status" data-erro="1">Sem EAN na planilha - não dá pra salvar aqui.</span>`;
 
@@ -6096,6 +6119,9 @@ async function salvarImagemDoEditor(botao) {
 
     const { salvarImagemManual } = await import(URL_IMPORTADOR);
     const resultado = await salvarImagemManual(ean, url);
+    await enviarPublicacao("/catalogo/editar-rede", {
+      edicao: { ean, imagem: resultado.url }
+    }, lojaAtual);
 
     // Atualiza o catálogo em memória - sem isso a mesma imagem some de
     // novo da lista "sem imagem" só depois de recarregar o painel.
@@ -6106,7 +6132,7 @@ async function salvarImagemDoEditor(botao) {
     status.textContent = "Salvo!";
     status.dataset.ok = "1";
 
-    await renderizarSemImagem();
+    await renderizarSemImagem({ manterPagina: true });
     filtrarBuscaImagem();
 
   } catch (erro) {
@@ -6143,7 +6169,7 @@ async function apagarProdutoClicado(botao) {
 
     catalogo.delete(codigo);
 
-    await renderizarSemImagem();
+    await renderizarSemImagem({ manterPagina: true });
     filtrarBuscaImagem();
 
   } catch (erro) {
@@ -6220,7 +6246,7 @@ function classeDeTarja(p) {
 
 // "Sem imagem" é o mesmo catálogo publicado que a fila/promoções já
 // usam (carregarCatalogo), então não custa uma busca extra.
-async function renderizarSemImagem() {
+async function renderizarSemImagem({ manterPagina = false } = {}) {
 
   const cat = await carregarCatalogo();
   await carregarTarjas();
@@ -6249,18 +6275,15 @@ async function renderizarSemImagem() {
     ? ""
     : `${semImagem.length} de ${todosSemImagem.length}. ${EXPLICA[filtro]}`;
 
-  const LIMITE = 300;
-
-  el("semImagem").innerHTML = tabela(
-    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }, { titulo: "" }],
-    semImagem.slice(0, LIMITE).map(linhaEditorImagem),
-    filtro === "todos" ? "Nenhum produto sem imagem 🎉" : "Nenhum produto sem imagem neste filtro."
+  const pagina = manterPagina ? (_tabelas.get("semImagem")?.pagina ?? 0) : 0;
+  tabelaPaginada(
+    "semImagem",
+    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }, { titulo: "Ações" }],
+    semImagem.map(linhaEditorImagem),
+    filtro === "todos" ? "Nenhum produto sem imagem 🎉" : "Nenhum produto sem imagem neste filtro.",
+    20,
+    pagina
   );
-
-  if (semImagem.length > LIMITE) {
-    el("semImagem").innerHTML += `<div class="vazio">Mostrando os primeiros ${LIMITE} de ${semImagem.length}.</div>`;
-  }
-
 }
 
 el("filtroTarjaFoto").addEventListener("change", () => { renderizarSemImagem().catch(() => {}); });
@@ -6284,7 +6307,7 @@ async function filtrarBuscaImagem() {
     .slice(0, LIMITE);
 
   el("buscaImagemResultado").innerHTML = tabela(
-    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }, { titulo: "" }],
+    [{ titulo: "Código" }, { titulo: "Produto", larga: true }, { titulo: "Marca" }, { titulo: "Imagem", larga: true }, { titulo: "Ações" }],
     achados.map(linhaEditorImagem),
     "Nenhum produto encontrado."
   );
