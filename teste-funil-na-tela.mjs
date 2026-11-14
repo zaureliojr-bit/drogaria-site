@@ -290,7 +290,7 @@ async function abrirRelatorios(resumo) {
 console.log("\n4. o funil do painel");
 {
     /* O caso da farmácia: 400 entram, 160 buscam, 48 põem no carrinho,
-       12 pedem. A perda grande está entre busca e carrinho. */
+       12 pedidos são registrados. */
     const { pagina, contexto } = await abrirRelatorios(resumoComFunil({
         visita: 400, busca: 160, carrinho: 48, pedido: 12
     }));
@@ -313,26 +313,14 @@ console.log("\n4. o funil do painel");
     conferir("o número de cada etapa aparece",
         /400/.test(texto) && /160/.test(texto) && /48/.test(texto) && /12/.test(texto), texto);
 
-    /* O percentual relativo à etapa anterior é a frase que o dono leva
-       para a reunião: 30% de quem buscou chegou ao carrinho. */
-    conferir("e o percentual de quem veio da etapa anterior",
-        /40% de quem entrou/.test(texto) && /30% de quem buscou/.test(texto), texto);
+    conferir("a linha final identifica pedidos registrados pelo site",
+        /Pedidos registrados pelo site/.test(texto), texto);
+    conferir("totais independentes não são apresentados como abandono",
+        await pagina.locator("#funil .funil-queda").count() === 0);
 
-    /* A queda escrita, que é o ponto do gráfico: onde a conta cai. A
-       maior é entre busca e carrinho — 112 visitas. */
-    const quedas = await pagina.locator("#funil .funil-queda").allTextContents();
-    const limpas = quedas.map(q => q.replace(/\s+/g, " ").trim());
-
-    conferir(`uma queda entre cada par de etapas — ${limpas.length}`,
-        limpas.length === 3, JSON.stringify(limpas));
-    conferir("a maior perda é entre buscar e o carrinho",
-        /70%/.test(limpas[1]) && /112/.test(limpas[1]), JSON.stringify(limpas));
-
-    const rodape = (await pagina.textContent("#funilRodape") || "").replace(/\s+/g, " ");
-
-    /* 12 de 400 = 3%. É a taxa que a loja compara com o mês passado. */
-    conferir("o rodapé dá a taxa do funil inteiro", /de cada 100 visitas, 3 pedem/.test(rodape), rodape);
-    conferir("e quantas saíram sem pedir", /388/.test(rodape), rodape);
+    const rodape = await pagina.textContent("#funilRodape");
+    conferir("o rodapé explica a contagem por aba e a confirmação",
+        /uma vez por aba/.test(rodape) && /equipe confirma/.test(rodape), rodape);
 
     await contexto.close();
 }
@@ -354,17 +342,6 @@ console.log("\n5. etapa vazia continua na tela");
     const zeradas = await pagina.locator("#funil .funil-barra-zero").count();
     conferir(`as duas etapas vazias aparecem como zero — ${zeradas}`, zeradas === 2,
         String(zeradas));
-
-    const quedas = await pagina.locator("#funil .funil-queda").allTextContents();
-    const limpas = quedas.map(q => q.replace(/\s+/g, " ").trim());
-
-    /* A queda de 20 para 0 é 100% e é informação. A de 0 para 0 não é
-       conta nenhuma — e "perdeu 100%" ali diria algo que o número não
-       sustenta. */
-    conferir("a queda para zero é escrita",
-        limpas.some(q => /100%/.test(q)), JSON.stringify(limpas));
-    conferir("e não há queda entre duas etapas zeradas", limpas.length === 2,
-        JSON.stringify(limpas));
 
     await contexto.close();
 }

@@ -269,15 +269,6 @@
      sequência termina sem precisar ler os rótulos. */
   .funil-etapa-fim .funil-barra { background: var(--ok); }
 
-  /* A queda de uma etapa para a próxima. Entre as barras e recuada,
-     para ser lida como "o que se perdeu no caminho" e não como mais
-     uma etapa do funil. */
-  .funil-queda {
-    font-size: 11px; color: var(--tinta-suave);
-    padding-left: 14px;
-  }
-  .funil-queda b { color: var(--erro); font-variant-numeric: tabular-nums; }
-
   /* Os cartões de "o que anunciar".
 
      Lista e não grade: cada sugestão tem um texto para copiar, e texto
@@ -1747,7 +1738,7 @@
     </div>
 
     <div class="bloco">
-      <h2>Do visitante ao pedido <small id="funilRotulo">quantos chegam ao fim, e onde a conta cai</small></h2>
+      <h2>Do visitante ao pedido <small id="funilRotulo">totais por etapa no período</small></h2>
       <div class="tabela-wrap grafico-wrap">
         <div class="funil" id="funil"></div>
         <div class="barras-rodape" id="funilRodape"></div>
@@ -1767,7 +1758,8 @@
     </div>
 
     <div class="bloco">
-      <h2>Procuraram e não acharam <small>cada linha é uma venda que não aconteceu — da mais recente para a mais antiga</small></h2>
+      <h2>Procuraram e não acharam <small>termos que não retornaram produtos, do mais recente ao mais antigo</small></h2>
+      <p id="diagnosticoBusca" class="lojas-explica" aria-live="polite" hidden></p>
       <div class="tabela-wrap" id="naoEncontrados"></div>
 
       <h3 style="margin-top:18px">Ensine a busca <small id="contagemSinonimos"></small></h3>
@@ -3375,31 +3367,12 @@ function desenharFaturamentoPorDia(resumo) {
 
 }
 
-/* ---------------------------------------------------------------------
-   O funil: do visitante ao pedido
-   ---------------------------------------------------------------------
-   Quatro etapas, contadas uma vez por visita cada (é o site que garante
-   isso — ver o comentário do marcarEtapa no script.js). O que a tela
-   faz com elas é uma coisa só: mostrar ONDE A CONTA CAI.
-
-   Por isso a queda entre duas etapas aparece escrita, e não só
-   desenhada. "12 no carrinho e 3 pedidos" é uma conta que o dono faz de
-   cabeça errado; "perdeu 75% entre o carrinho e o pedido" é a frase que
-   ele leva para a reunião.
-
-   Etapa vazia não é escondida. Um funil com buraco no meio ainda diz
-   onde a conta cai — e esconder a linha faria o buraco parecer que
-   nunca existiu. */
-/* `nome` é o título da barra (plural, como a loja fala da sua
-   clientela) e `quem` é o mesmo fato em singular, para caber na frase
-   da queda: "perdeu 60% de quem entrou no site". Sem o segundo campo
-   sairia "de quem entraram no site", que é o tipo de frase torta que
-   faz o dono desconfiar do número. */
+/* O resumo traz totais agregados, sem cruzamento entre etapas. */
 const ETAPAS_DO_FUNIL = [
-  { chave: "visita",   nome: "Entraram no site",    quem: "entrou no site",    ajuda: "visitas" },
-  { chave: "busca",    nome: "Buscaram algo",       quem: "buscou",            ajuda: "de quem entrou" },
-  { chave: "carrinho", nome: "Puseram no carrinho", quem: "pôs no carrinho",   ajuda: "de quem buscou" },
-  { chave: "pedido",   nome: "Fecharam o pedido",   quem: "fechou o pedido",   ajuda: "de quem pôs no carrinho" }
+  { chave: "visita", nome: "Entraram no site", unidade: "visitas" },
+  { chave: "busca", nome: "Buscaram algo", unidade: "visitas" },
+  { chave: "carrinho", nome: "Puseram no carrinho", unidade: "visitas" },
+  { chave: "pedido", nome: "Pedidos registrados pelo site", unidade: "pedidos" }
 ];
 
 function porcento(parte, todo) {
@@ -3414,7 +3387,6 @@ function desenharFunil(resumo) {
 
   const dados = resumo.funil || {};
   const valores = ETAPAS_DO_FUNIL.map(e => dados[e.chave] || 0);
-  const base = valores[0];
 
   /* A régua das barras é a maior etapa, que num funil normal é a
      primeira. Só não é quando a contagem começou no meio do período —
@@ -3426,7 +3398,7 @@ function desenharFunil(resumo) {
      qual: a loja não teve acesso nenhum, ou o schema-funil.sql ainda
      não foi colado no banco dela. Na segunda, "nenhuma visita" seria
      mentira — e mentira tranquilizadora, a pior espécie. */
-  if (!base && !valores.some(v => v)) {
+  if (!regua) {
     caixa.innerHTML = `<div class="vazio">
       Sem contagem de visitas no período.<br>
       <small>Se a loja teve acesso e isto segue vazio, falta rodar o
@@ -3439,58 +3411,27 @@ function desenharFunil(resumo) {
   caixa.innerHTML = ETAPAS_DO_FUNIL.map((etapa, i) => {
 
     const valor = valores[i];
-    const anterior = i > 0 ? valores[i - 1] : 0;
-
-    /* A largura sai sempre da PRIMEIRA etapa, não da anterior: é o que
-       faz as quatro barras serem comparáveis entre si. */
     const largura = porcento(valor, regua);
-
     const classes = ["funil-etapa"];
     if (i === ETAPAS_DO_FUNIL.length - 1) classes.push("funil-etapa-fim");
 
-    /* A queda só existe entre duas etapas que aconteceram. Com a
-       anterior zerada não há percentual nenhum para calcular, e
-       "perdeu 100%" diria algo que o número não sustenta. */
-    const queda = i > 0 && anterior > 0 && valor < anterior
-      ? `<div class="funil-queda">perdeu <b>${porcento(anterior - valor, anterior)}%</b>
-           de quem ${esc(ETAPAS_DO_FUNIL[i - 1].quem)}
-           (${anterior - valor} ${anterior - valor === 1 ? "visita" : "visitas"})</div>`
-      : "";
-
-    const relativo = i === 0
-      ? etapa.ajuda
-      : `${porcento(valor, anterior)}% ${etapa.ajuda}`;
-
     return `
-      ${queda}
       <div class="${classes.join(" ")}">
         <div class="funil-topo">
           <span class="funil-nome">${esc(etapa.nome)}</span>
-          <span class="funil-conta"><b>${valor}</b> · ${esc(relativo)}</span>
+          <span class="funil-conta"><b>${valor}</b> · ${esc(etapa.unidade)}</span>
         </div>
         <div class="funil-trilha">
           <div class="funil-barra${valor ? "" : " funil-barra-zero"}"
                style="width:${largura}%"
-               title="${valor} de ${base || regua} visitas"></div>
+               title="${valor} ${esc(etapa.unidade)}"></div>
         </div>
       </div>`;
 
   }).join("");
 
-  /* O número que resume o funil inteiro é um só: de cada 100 que
-     entram, quantos pedem. É a taxa que a farmácia compara com o mês
-     passado e com a loja da esquina. */
-  const taxa = porcento(valores[3], base);
-  const perdidas = Math.max(base - valores[3], 0);
-
-  /* Sem visita contada não há taxa: "0 de cada 100" seria lido como
-     "ninguém compra", quando o que houve foi contagem começando no
-     meio do caminho. */
-  el("funilRodape").innerHTML = base
-    ? `<span>de cada 100 visitas, <b>${taxa}</b> ${taxa === 1 ? "pede" : "pedem"}</span>
-       <span><b>${perdidas}</b> ${perdidas === 1 ? "visita saiu" : "visitas saíram"} sem pedir</span>
-       <span>cada etapa conta uma vez por visita</span>`
-    : `<span>a contagem de visitas começou depois do início do período</span>`;
+  el("funilRodape").textContent =
+    "O site conta buscas e carrinhos uma vez por aba. A equipe confirma os pedidos pelo atendimento.";
 
 }
 
@@ -4042,10 +3983,17 @@ async function carregar() {
 
   // Vem antes dos pedidos de propósito: é o único relatório que mostra
   // o que FALTA, e não o que já foi vendido.
+  const diagnostico = resumo.diagnosticoBusca;
+  const indicador = el("diagnosticoBusca");
+  indicador.hidden = !diagnostico;
+  indicador.textContent = diagnostico
+    ? `${diagnostico.vazias} com busca sem resultado · ${diagnostico.semCarrinho} sem adição ao carrinho · contagem por aba desde a ativação`
+    : "";
+
   tabelaPaginada("naoEncontrados",
     [{ titulo: "O cliente procurou por", larga: true }, { titulo: "Vezes", num: true }, { titulo: "Última vez" }],
     (resumo.naoEncontrados || []).map(b => [esc(b.termo), b.buscas, dataHora(b.ultima)]),
-    "Ninguém buscou algo que o site não tivesse. Bom sinal."
+    "Nenhuma busca sem resultado registrada no período."
   );
 
   /* A data entra aqui também, mas a ORDEM continua por quantidade —
