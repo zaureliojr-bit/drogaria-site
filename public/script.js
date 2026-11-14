@@ -953,61 +953,10 @@ async function carregarBanners() {
 🪧 O AVISO DE ENTRADA
 =========================
 
-   O pop-up de campanha que os aplicativos grandes mostram ao abrir. A
-   loja pediu depois de ver um no 99, e a pergunta certa não é "dá para
-   fazer" — é "como fazer sem piorar o número que a gente está tentando
-   melhorar".
+   Mostra o aviso na primeira abertura elegível da home, uma vez
+   por campanha. Links de busca e produto preservam o destino. */
 
-   O funil diz que 251 pessoas entram e 84 buscam alguma coisa. As
-   outras 167 saem sem procurar nada, e é justamente nelas que um
-   pop-up na chegada bate primeiro. O Google também chama isso de
-   interstitial intrusivo e penaliza no celular quando cobre a página de
-   quem veio da busca.
-
-   Então são quatro travas, e cada uma corresponde a um jeito conhecido
-   de o recurso dar errado:
-
-     1. SÓ NA HOME. Quem abriu o link de um produto no WhatsApp veio
-        buscar aquele produto; tapar a tela é perder a venda que já
-        estava feita.
-
-     2. SÓ DA SEGUNDA VISITA EM DIANTE. Na primeira, a pessoa vê a
-        farmácia. Quem volta já sabe onde está e aí recebe a campanha.
-
-     3. UMA VEZ POR PESSOA, POR CAMPANHA. Guardado pelo id do banner:
-        trocou o banner, aparece de novo; o mesmo, não.
-
-     4. FECHA FÁCIL — X grande, Esc e clique fora. O pop-up que a loja
-        mostrou de referência tem o X pequeno e longe do card; é o que
-        transforma campanha em irritação.
-
-   Quem pediu menos animação no sistema não recebe nada disso: a mesma
-   preferência que já desliga o giro do carrossel. */
-
-const VISITAS_DA_LOJA = "visitas-loja";
-const AVISOS_VISTOS   = "avisos-de-entrada";
-
-/* Quantas vezes esta pessoa já abriu o site desta farmácia.
-
-   Conta uma vez por ABA (sessionStorage de controle) e guarda o total
-   no aparelho (localStorage). Sem o controle por aba, trocar de
-   categoria e voltar contaria visitas novas e o aviso apareceria no
-   primeiro minuto da primeira visita — exatamente o que ele não deve
-   fazer. */
-function contarVisita() {
-    const chave = `${VISITAS_DA_LOJA}:${LojaAtual.slug() || "casa"}`;
-    try {
-        if (sessionStorage.getItem(chave)) return Number(localStorage.getItem(chave)) || 1;
-        const total = (Number(localStorage.getItem(chave)) || 0) + 1;
-        localStorage.setItem(chave, String(total));
-        sessionStorage.setItem(chave, "1");
-        return total;
-    } catch (e) {
-        /* Aba privada ou armazenamento bloqueado: trata como primeira
-           visita, que é o lado seguro — não mostra nada. */
-        return 1;
-    }
-}
+const AVISOS_VISTOS = "avisos-de-entrada";
 
 function avisoJaVisto(id) {
     try {
@@ -1057,7 +1006,6 @@ function avisoDeEntrada(banners) {
 
     const id = String(alvo.id || alvo.imagem);
     if (avisoJaVisto(id)) return;
-    if (contarVisita() < 2) return;
 
     const caixa = document.createElement("div");
     caixa.id = "avisoEntrada";
