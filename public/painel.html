@@ -1759,6 +1759,7 @@
 
     <div class="bloco">
       <h2>Procuraram e não acharam <small>termos que não retornaram produtos, do mais recente ao mais antigo</small></h2>
+      <p id="diagnosticoBusca" class="lojas-explica" aria-live="polite" hidden></p>
       <div class="tabela-wrap" id="naoEncontrados"></div>
 
       <h3 style="margin-top:18px">Ensine a busca <small id="contagemSinonimos"></small></h3>
@@ -3982,6 +3983,13 @@ async function carregar() {
 
   // Vem antes dos pedidos de propósito: é o único relatório que mostra
   // o que FALTA, e não o que já foi vendido.
+  const diagnostico = resumo.diagnosticoBusca;
+  const indicador = el("diagnosticoBusca");
+  indicador.hidden = !diagnostico;
+  indicador.textContent = diagnostico
+    ? `${diagnostico.vazias} com busca sem resultado · ${diagnostico.semCarrinho} sem adição ao carrinho · contagem por aba desde a ativação`
+    : "";
+
   tabelaPaginada("naoEncontrados",
     [{ titulo: "O cliente procurou por", larga: true }, { titulo: "Vezes", num: true }, { titulo: "Última vez" }],
     (resumo.naoEncontrados || []).map(b => [esc(b.termo), b.buscas, dataHora(b.ultima)]),

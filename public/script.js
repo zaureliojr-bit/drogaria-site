@@ -3122,6 +3122,7 @@ function mais(codigo) {
      saem por cima, e marcar ali diria que a visita chegou ao carrinho
      sem nada ter entrado nele. */
   marcarEtapa("carrinho");
+  registrarDiagnosticoBusca("carrinho");
   window.registrarEventoGA4?.("adicao_carrinho");
 
   return true;
@@ -4693,7 +4694,11 @@ function marcarEtapa(etapa) {
         return;
     }
 
-    const corpo = JSON.stringify({ etapa });
+    enviarEtapaFunil({ etapa });
+}
+
+function enviarEtapaFunil(dados) {
+    const corpo = JSON.stringify(dados);
 
     try {
 
@@ -4714,6 +4719,35 @@ function marcarEtapa(etapa) {
         /* idem: contagem não pode atrapalhar quem está comprando */
     }
 
+}
+
+/* Uma observação por aba e loja. Só as etapas e o dia saem do navegador. */
+function registrarDiagnosticoBusca(acao) {
+    const loja = LojaAtual.slug() || "principal";
+    const chave = `diagnostico-busca:${loja}`;
+    const hoje = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    let estado;
+    let registrarVazia = false;
+    let registrarCarrinho = false;
+
+    try {
+        estado = JSON.parse(sessionStorage.getItem(chave) || "{}");
+        if (acao === "carrinho") estado.carrinho = true;
+        if (acao === "busca_vazia" && !estado.dia) {
+            estado.dia = hoje;
+            registrarVazia = true;
+        }
+        if (estado.dia && estado.carrinho && !estado.cruzado) {
+            estado.cruzado = true;
+            registrarCarrinho = true;
+        }
+        sessionStorage.setItem(chave, JSON.stringify(estado));
+    } catch {
+        return;
+    }
+
+    if (registrarVazia) enviarEtapaFunil({ etapa: "busca_vazia", dia: estado.dia });
+    if (registrarCarrinho) enviarEtapaFunil({ etapa: "vazia_com_carrinho", dia: estado.dia });
 }
 
 /* =========================
@@ -4773,7 +4807,10 @@ function enviarBuscaPendente() {
 
     if (!pendente) return;
 
-    if (pendente.resultados === 0) window.registrarDiagnosticoGA4?.("busca_sem_resultado");
+    if (pendente.resultados === 0) {
+        registrarDiagnosticoBusca("busca_vazia");
+        window.registrarDiagnosticoGA4?.("busca_sem_resultado");
+    }
 
     // mesma busca repetida na mesma visita conta uma vez: quem filtra e
     // volta atrás não deve pesar mais que quem buscou uma vez só
