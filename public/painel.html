@@ -1855,6 +1855,20 @@
           <input type="text" id="marketingPrazo" maxlength="40"
                  placeholder="Ex.: até 2 horas">
         </label>
+        <label class="campo">
+          <span>Produtos para anunciar</span>
+          <select id="marketingFiltro">
+            <option value="sugestoes">Sugestões da semana</option>
+            <option value="promocoes">Promoções do sistema</option>
+          </select>
+        </label>
+        <div id="marketingSelecao" hidden>
+          <div class="sugestao-acoes">
+            <span id="marketingContagem" role="status"></span>
+            <button type="button" class="btn-testar-som" id="gerarCampanhaProdutos" disabled>Gerar campanha com selecionados</button>
+            <button type="button" id="alterarSelecaoCampanha" hidden>Alterar seleção</button>
+          </div>
+        </div>
         <div id="anunciarAviso" class="barras-rodape"></div>
         <div id="anunciarLista"></div>
       </div>
@@ -3779,11 +3793,46 @@ async function carregarCampanhas() {
 
 }
 
+const produtosDaCampanha = new Set();
+let filialDaSelecao;
+let campanhaDosProdutos = "";
+
+function modoPromocoes() {
+  return el("marketingFiltro").value === "promocoes";
+}
+
+function atualizarContagemCampanha() {
+  const quantidade = produtosDaCampanha.size;
+  el("marketingContagem").textContent = quantidade + (quantidade === 1 ? " produto selecionado" : " produtos selecionados");
+  el("gerarCampanhaProdutos").disabled = quantidade === 0;
+}
+
+el("marketingFiltro").addEventListener("change", carregarSugestoes);
+el("alterarSelecaoCampanha").addEventListener("click", () => {
+  campanhaDosProdutos = "";
+  carregarSugestoes();
+});
+
+el("gerarCampanhaProdutos").addEventListener("click", () => {
+  el("formCampanha").scrollIntoView({ block: "start" });
+  el("campanhaNome").focus({ preventScroll: true });
+});
+
 async function carregarSugestoes() {
 
   const alvo = el("anunciarLista");
   if (!alvo) return;
 
+  const filial = lojaAtual;
+  if (filial !== filialDaSelecao) {
+    filialDaSelecao = filial;
+    produtosDaCampanha.clear();
+    campanhaDosProdutos = "";
+  }
+  const soPromocoes = modoPromocoes();
+  el("marketingSelecao").hidden = !soPromocoes;
+  el("gerarCampanhaProdutos").disabled = true;
+  el("alterarSelecaoCampanha").hidden = true;
   alvo.innerHTML = `<div class="vazio">Lendo buscas, estoque e catálogo…</div>`;
 
   try {
@@ -3811,7 +3860,10 @@ async function carregarSugestoes() {
       confirmarReceita: p.confirmarReceita
     }));
 
-    const ativa = campanhasCarregadas.filter((c) => c.ativa)[0];
+    if (filial !== lojaAtual || soPromocoes !== modoPromocoes()) return;
+    const ativa = soPromocoes
+      ? campanhasCarregadas.find(c => c.ativa && c.id === campanhaDosProdutos)
+      : campanhasCarregadas.find(c => c.ativa);
 
     const { sugestoes, faltando } = Anunciar.sugerir({
       produtos,
@@ -3822,10 +3874,20 @@ async function carregarSugestoes() {
       vaoRomper: (estoque && estoque.vaoRomper) || [],
       loja: { nome: lojaNome, entrega: prazoDeEntrega(), site: baseDoSite() },
       campanha: ativa ? ativa.id : "",
-      limite: 6
+      soPromocoes,
+      limite: soPromocoes ? produtos.length : 6
     });
 
-    desenharSugestoes(sugestoes, ativa, !estoque);
+    if (soPromocoes) {
+      const disponiveis = new Set(sugestoes.map(s => String(s.codigo || s.ean)));
+      for (const codigo of produtosDaCampanha) {
+        if (!disponiveis.has(codigo)) produtosDaCampanha.delete(codigo);
+      }
+      atualizarContagemCampanha();
+      el("alterarSelecaoCampanha").hidden = !ativa;
+    }
+    desenharSugestoes(soPromocoes && ativa ? sugestoes.filter(s => produtosDaCampanha.has(String(s.codigo || s.ean))) : sugestoes,
+      ativa, !estoque, soPromocoes);
 
     tabelaPaginada("anunciarFaltando",
       [{ titulo: "O cliente procurou por", larga: true }, { titulo: "Vezes", num: true }],
@@ -3845,7 +3907,7 @@ const ROTULO_DO_MOTIVO = {
   parado: "dinheiro parado"
 };
 
-function desenharSugestoes(sugestoes, campanhaAtiva, semEstoque) {
+function desenharSugestoes(sugestoes, campanhaAtiva, semEstoque, soPromocoes = false) {
 
   const avisos = [];
 
@@ -3871,7 +3933,7 @@ function desenharSugestoes(sugestoes, campanhaAtiva, semEstoque) {
   el("anunciarAviso").innerHTML = avisos.join("");
 
   if (!sugestoes.length) {
-    el("anunciarLista").innerHTML = `<div class="vazio">
+    el("anunciarLista").innerHTML = soPromocoes ? `<div class="vazio">Nenhuma promoção elegível para anunciar.</div>` : `<div class="vazio">
       Nenhuma sugestão esta semana.<br>
       <small>Faltam buscas no site, estoque ou promoção ativa — e sugestão fraca
       gasta o mesmo dinheiro que uma boa.</small></div>`;
@@ -3883,7 +3945,9 @@ function desenharSugestoes(sugestoes, campanhaAtiva, semEstoque) {
       ${s.imagem ? `<img src="${esc(s.imagem)}" alt="" loading="lazy">` : `<div class="sugestao-sem-foto"></div>`}
       <div class="sugestao-corpo">
         <div class="sugestao-topo">
-          <strong>${esc(s.nome)}</strong>
+          ${soPromocoes && !campanhaAtiva ? `<label><input type="checkbox" data-produto-campanha="${esc(s.codigo || s.ean)}"
+            ${produtosDaCampanha.has(String(s.codigo || s.ean)) ? "checked" : ""}> ${esc(s.nome)}</label>`
+            : `<strong>${esc(s.nome)}</strong>`}
           <span class="pill pill-novo">${esc(ROTULO_DO_MOTIVO[s.tipo] || s.tipo)}</span>
         </div>
         <p class="sugestao-motivo">${esc(s.motivo)}</p>
@@ -3919,6 +3983,15 @@ async function copiarTexto(texto, botao) {
     alert("Não consegui copiar sozinho. O texto está selecionado — use Ctrl+C.");
   }
 }
+
+el("anunciarLista").addEventListener("change", ev => {
+  const campo = ev.target.closest("[data-produto-campanha]");
+  if (!campo) return;
+  const codigo = campo.dataset.produtoCampanha;
+  if (campo.checked) produtosDaCampanha.add(codigo);
+  else produtosDaCampanha.delete(codigo);
+  atualizarContagemCampanha();
+});
 
 el("anunciarLista")?.addEventListener("click", (ev) => {
   const botao = ev.target.closest("[data-copiar-sugestao]");
@@ -3970,6 +4043,15 @@ el("formCampanha")?.addEventListener("submit", async (ev) => {
 
   ev.preventDefault();
 
+  const porProdutos = modoPromocoes();
+  if (porProdutos && (el("gerarCampanhaProdutos").disabled || !produtosDaCampanha.size || filialDaSelecao !== lojaAtual)) {
+    alert("Selecione pelo menos um produto em promoção.");
+    return;
+  }
+
+  const filial = lojaAtual;
+  const botao = ev.currentTarget.querySelector('button[type="submit"]');
+  botao.disabled = true;
   const corpo = {
     nome: el("campanhaNome").value,
     canal: el("campanhaCanal").value,
@@ -3987,11 +4069,14 @@ el("formCampanha")?.addEventListener("submit", async (ev) => {
     const dados = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
 
+    if (porProdutos && filial === lojaAtual) campanhaDosProdutos = dados.id;
     el("campanhaNome").value = "";
     await carregarMarketing();
 
   } catch (erro) {
     alert("Não consegui criar a campanha: " + erro.message);
+  } finally {
+    botao.disabled = false;
   }
 
 });
