@@ -1862,6 +1862,12 @@
             <option value="promocoes">Promoções do sistema</option>
           </select>
         </label>
+        <div id="marketingCampoClasse" hidden>
+          <label class="campo">
+            <span>Classe do produto</span>
+            <select id="marketingClasse"><option value="">Todas as classes</option></select>
+          </label>
+        </div>
         <div id="marketingSelecao" hidden>
           <div class="sugestao-acoes">
             <span id="marketingContagem" role="status"></span>
@@ -1869,8 +1875,19 @@
             <button type="button" id="alterarSelecaoCampanha" hidden>Alterar seleção</button>
           </div>
         </div>
+        <div id="marketingLinkCampanha" hidden>
+          <label class="campo">
+            <span>Link com todos os produtos da campanha</span>
+            <input type="url" id="marketingUrlCampanha" readonly>
+          </label>
+          <div class="sugestao-acoes">
+            <button type="button" class="btn-testar-som" id="copiarLinkProdutos">Copiar link da campanha</button>
+            <a id="abrirLinkProdutos" target="_blank" rel="noopener">Abrir ofertas no site</a>
+          </div>
+        </div>
         <div id="anunciarAviso" class="barras-rodape"></div>
         <div id="anunciarLista"></div>
+        <nav id="marketingPaginas" class="paginacao" aria-label="Páginas das promoções" style="display:none"></nav>
       </div>
 
       <div class="bloco">
@@ -3796,6 +3813,56 @@ async function carregarCampanhas() {
 const produtosDaCampanha = new Set();
 let filialDaSelecao;
 let campanhaDosProdutos = "";
+let listaPromocoesMarketing = [];
+let paginaPromocoesMarketing = 0;
+let campanhaPromocoesMarketing = null;
+let semEstoqueMarketing = false;
+let cargaSugestoesMarketing = 0;
+const PROMOCOES_MARKETING_POR_PAGINA = 10;
+
+function mostrarPaginaPromocoesMarketing() {
+  const classe = el("marketingClasse").value;
+  const campanha = campanhaPromocoesMarketing;
+  const filtradas = listaPromocoesMarketing.filter(s => campanha
+    ? produtosDaCampanha.has(String(s.codigo || s.ean))
+    : !classe || s.classe.id === classe);
+  const tamanho = PROMOCOES_MARKETING_POR_PAGINA;
+  const totalPaginas = Math.ceil(filtradas.length / tamanho);
+  const pagina = Math.min(paginaPromocoesMarketing, Math.max(0, totalPaginas - 1));
+  paginaPromocoesMarketing = pagina;
+  const inicio = pagina * tamanho;
+  const fim = Math.min(inicio + tamanho, filtradas.length);
+  desenharSugestoes(filtradas.slice(inicio, fim), campanha, semEstoqueMarketing, true);
+  const nav = el("marketingPaginas");
+  nav.style.display = totalPaginas > 1 ? "" : "none";
+  nav.innerHTML = totalPaginas > 1 ? `
+    <span class="paginacao-conta">${inicio + 1}–${fim} de ${filtradas.length}</span>
+    <span class="paginacao-botoes">
+      <button type="button" data-marketing-pagina="-1" ${pagina === 0 ? "disabled" : ""} aria-label="Página anterior">‹</button>
+      <span class="paginacao-pagina">${pagina + 1} de ${totalPaginas}</span>
+      <button type="button" data-marketing-pagina="1" ${pagina + 1 === totalPaginas ? "disabled" : ""} aria-label="Próxima página">›</button>
+    </span>` : "";
+}
+
+el("copiarLinkProdutos").addEventListener("click", () => {
+  const campo = el("marketingUrlCampanha");
+  campo.select();
+  copiarTexto(campo.value, el("copiarLinkProdutos"));
+});
+
+el("marketingClasse").addEventListener("change", () => {
+  paginaPromocoesMarketing = 0;
+  mostrarPaginaPromocoesMarketing();
+});
+
+el("marketingPaginas").addEventListener("click", ev => {
+  const botao = ev.target.closest("[data-marketing-pagina]");
+  if (!botao || botao.disabled) return;
+  paginaPromocoesMarketing += Number(botao.dataset.marketingPagina);
+  mostrarPaginaPromocoesMarketing();
+  el("marketingPaginas").querySelector("button:not(:disabled)")?.focus({ preventScroll: true });
+  el("anunciarLista").scrollIntoView({ block: "start" });
+});
 
 function modoPromocoes() {
   return el("marketingFiltro").value === "promocoes";
@@ -3810,6 +3877,7 @@ function atualizarContagemCampanha() {
 el("marketingFiltro").addEventListener("change", carregarSugestoes);
 el("alterarSelecaoCampanha").addEventListener("click", () => {
   campanhaDosProdutos = "";
+  paginaPromocoesMarketing = 0;
   carregarSugestoes();
 });
 
@@ -3823,14 +3891,20 @@ async function carregarSugestoes() {
   const alvo = el("anunciarLista");
   if (!alvo) return;
 
+  const carga = ++cargaSugestoesMarketing;
   const filial = lojaAtual;
   if (filial !== filialDaSelecao) {
     filialDaSelecao = filial;
     produtosDaCampanha.clear();
     campanhaDosProdutos = "";
+    paginaPromocoesMarketing = 0;
+    el("marketingClasse").value = "";
   }
   const soPromocoes = modoPromocoes();
   el("marketingSelecao").hidden = !soPromocoes;
+  el("marketingCampoClasse").hidden = true;
+  el("marketingLinkCampanha").hidden = true;
+  el("marketingPaginas").style.display = "none";
   el("gerarCampanhaProdutos").disabled = true;
   el("alterarSelecaoCampanha").hidden = true;
   alvo.innerHTML = `<div class="vazio">Lendo buscas, estoque e catálogo…</div>`;
@@ -3860,7 +3934,7 @@ async function carregarSugestoes() {
       confirmarReceita: p.confirmarReceita
     }));
 
-    if (filial !== lojaAtual || soPromocoes !== modoPromocoes()) return;
+    if (carga !== cargaSugestoesMarketing || filial !== lojaAtual || soPromocoes !== modoPromocoes()) return;
     const ativa = soPromocoes
       ? campanhasCarregadas.find(c => c.ativa && c.id === campanhaDosProdutos)
       : campanhasCarregadas.find(c => c.ativa);
@@ -3885,9 +3959,34 @@ async function carregarSugestoes() {
       }
       atualizarContagemCampanha();
       el("alterarSelecaoCampanha").hidden = !ativa;
+      const classesPorProduto = new Map(produtos.map(p => [String(p.codigo || p.ean), familiaDe(p.categoria)]));
+      listaPromocoesMarketing = sugestoes.map(s => ({
+        ...s, classe: classesPorProduto.get(String(s.codigo || s.ean)) || FAMILIA_OUTROS
+      }));
+      campanhaPromocoesMarketing = ativa;
+      semEstoqueMarketing = !estoque;
+      const classes = new Map(listaPromocoesMarketing.map(s => [s.classe.id, s.classe.nome]));
+      const seletor = el("marketingClasse");
+      const anterior = seletor.value;
+      seletor.replaceChildren(new Option("Todas as classes", ""));
+      [...classes].sort((a, b) => a[1].localeCompare(b[1], "pt-BR")).forEach(([id, nome]) => {
+        seletor.add(new Option(nome, id));
+      });
+      seletor.value = classes.has(anterior) ? anterior : "";
+      el("marketingCampoClasse").hidden = !!ativa || !classes.size;
+      mostrarPaginaPromocoesMarketing();
+      const base = baseDoSite();
+      if (ativa && base && produtosDaCampanha.size) {
+        const url = new URL(base + "/");
+        url.searchParams.set("c", ativa.id);
+        for (const codigo of produtosDaCampanha) url.searchParams.append("oferta", codigo);
+        el("marketingUrlCampanha").value = url.href;
+        el("abrirLinkProdutos").href = url.href;
+        el("marketingLinkCampanha").hidden = false;
+      }
+    } else {
+      desenharSugestoes(sugestoes, ativa, !estoque);
     }
-    desenharSugestoes(soPromocoes && ativa ? sugestoes.filter(s => produtosDaCampanha.has(String(s.codigo || s.ean))) : sugestoes,
-      ativa, !estoque, soPromocoes);
 
     tabelaPaginada("anunciarFaltando",
       [{ titulo: "O cliente procurou por", larga: true }, { titulo: "Vezes", num: true }],
@@ -3896,6 +3995,7 @@ async function carregarSugestoes() {
     );
 
   } catch (erro) {
+    if (carga !== cargaSugestoesMarketing) return;
     alvo.innerHTML = `<div class="vazio">Não consegui montar as sugestões: ${esc(erro.message)}</div>`;
   }
 
@@ -4069,7 +4169,10 @@ el("formCampanha")?.addEventListener("submit", async (ev) => {
     const dados = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
 
-    if (porProdutos && filial === lojaAtual) campanhaDosProdutos = dados.id;
+    if (porProdutos && filial === lojaAtual) {
+      campanhaDosProdutos = dados.id;
+      paginaPromocoesMarketing = 0;
+    }
     el("campanhaNome").value = "";
     await carregarMarketing();
 

@@ -383,6 +383,7 @@ let categoriaAtual = "todas";
 let subcategoriaAtual = "todas";
 let termoBusca = "";
 let modoOfertas = false;
+let produtosDaOferta = null;
 let ordenacao = "relevancia";
 let pagina = 0;
 let carregando = false;
@@ -517,6 +518,7 @@ document.addEventListener("DOMContentLoaded", () => {
     timeoutBusca = setTimeout(() => {
       termoBusca = normalizar(valor);
       modoOfertas = false;
+      produtosDaOferta = null;
       aplicarFiltro();
       /* Junto com o filtro, e não só no botão Buscar: quem digita e
          para de digitar já está vendo o resultado — o endereço tem de
@@ -579,6 +581,11 @@ document.addEventListener("produtosProntos", (ev) => {
   if (!ev.detail || !ev.detail.ok) return;
 
   const parametros = new URLSearchParams(location.search);
+  const ofertas = parametros.getAll("oferta").filter(codigo => codigo && codigo.length <= 80);
+  if (ofertas.length) {
+    verOfertas(new Set(ofertas));
+    return;
+  }
 
   /* ?busca=dipirona — é o endereço que o próprio Google usa quando
      oferece a caixa de busca do site no resultado (o SearchAction
@@ -637,6 +644,7 @@ function enderecoDaBusca() {
 
     const url = new URL(location.href);
     url.searchParams.delete("familia");
+    if (!produtosDaOferta) url.searchParams.delete("oferta");
 
     if (termo) url.searchParams.set("busca", termo);
     else url.searchParams.delete("busca");
@@ -997,7 +1005,8 @@ function avisoDeEntrada(banners) {
     /* A busca na barra de endereço é alguém chegando atrás de um
        produto específico — de um link compartilhado, quase sempre. */
     try {
-        if (new URL(location.href).searchParams.get("busca")) return;
+        const parametros = new URL(location.href).searchParams;
+        if (parametros.get("busca") || parametros.has("oferta")) return;
     } catch (e) { /* URL estranha: segue */ }
 
     const menosMovimento = window.matchMedia
@@ -1926,6 +1935,7 @@ function filtrarCategoria(familiaId) {
   // não existe, e nenhum produto batia o filtro escondido.
   subcategoriaAtual = "todas";
   modoOfertas = false;
+  produtosDaOferta = null;
   termoBusca = "";
   const campoBusca = el("busca");
   if (campoBusca) campoBusca.value = "";
@@ -2183,6 +2193,7 @@ function rolarParaResultados() {
 function voltarParaVitrine() {
   categoriaAtual = "todas";
   modoOfertas = false;
+  produtosDaOferta = null;
   termoBusca = "";
 
   const campoBusca = el("busca");
@@ -2196,8 +2207,9 @@ function voltarParaVitrine() {
 }
 
 /* mostra só os produtos em oferta no grid principal */
-function verOfertas() {
+function verOfertas(selecao = null) {
   modoOfertas = true;
+  produtosDaOferta = selecao;
   categoriaAtual = "todas";
   termoBusca = "";
 
@@ -2267,6 +2279,7 @@ function buscar() {
   fecharSugestoes();
   clearTimeout(timeoutBusca);
   modoOfertas = false;
+  produtosDaOferta = null;
   termoBusca = normalizar(el("busca")?.value || "");
   aplicarFiltro();
   sincronizarEndereco();
@@ -2447,6 +2460,7 @@ function aplicarFiltro() {
 
   produtosFiltrados = ordenar(produtos.filter(p => {
     if (modoOfertas && !p.emOferta) return false;
+    if (produtosDaOferta && !produtosDaOferta.has(String(p.codigo || p.ean))) return false;
     if (!modoOfertas && categoriaAtual !== "todas" && p.familia !== categoriaAtual) return false;
     /* Pela chave NORMALIZADA, igual à que monta os chips. O chip
        carrega a chave normalizada; comparar com o texto cru deixaria
@@ -2525,7 +2539,7 @@ function aplicarFiltro() {
     } else {
       barra.style.display = "flex";
       const rotulo = modoOfertas
-        ? "Ofertas"
+        ? (produtosDaOferta ? "Ofertas da campanha" : "Ofertas")
         : termoBusca
           ? `Resultados para "${(el("busca")?.value || "").trim()}"`
           : nomeFamilia(categoriaAtual);
