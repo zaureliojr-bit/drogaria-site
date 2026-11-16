@@ -412,6 +412,25 @@
   }
   .abas .contador:empty, .abas .contador[data-zero="1"] { display: none; }
 
+  @media (max-width: 639px) {
+    #conteudo { padding-bottom: calc(54px + env(safe-area-inset-bottom, 0px)); }
+    #abas {
+      box-sizing: border-box;
+      gap: 0;
+      padding: 0 6px env(safe-area-inset-bottom, 0px);
+      overflow-x: auto;
+      overflow-y: hidden;
+      overscroll-behavior-x: contain;
+      scrollbar-width: thin;
+    }
+    #abas button {
+      flex: 0 0 auto;
+      min-height: 48px;
+      padding: 8px 10px;
+      white-space: nowrap;
+    }
+  }
+
   /* ========== FILA DE PEDIDOS ========== */
   .fila-topo {
     display: flex; align-items: center; justify-content: space-between;
@@ -8299,6 +8318,15 @@ el("abas").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-aba]");
   if (!btn) return;
   document.querySelectorAll("#abas button").forEach(b => b.classList.toggle("ativo", b === btn));
+  const barra = ev.currentTarget;
+  if (barra.scrollWidth > barra.clientWidth) {
+    const abaVisivel = btn.getBoundingClientRect();
+    const areaVisivel = barra.getBoundingClientRect();
+    barra.scrollBy({
+      left: abaVisivel.left + abaVisivel.width / 2 - areaVisivel.left - areaVisivel.width / 2,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth"
+    });
+  }
   const aba = btn.dataset.aba;
   el("abaFila").hidden = aba !== "fila";
   el("abaPromocoes").hidden = aba !== "promocoes";
