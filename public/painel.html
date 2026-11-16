@@ -2877,11 +2877,11 @@ function reaCarregar(linhas, origem) {
     + (descartadosNaoPerturbe ? ` ${descartadosNaoPerturbe} do "não perturbe" ficaram de fora.` : "")
   );
 
-  reaDesenhar();
+  reaDesenhar(0);
 
 }
 
-function reaDesenhar() {
+function reaDesenhar(pagina = _tabelas.get("reaLista")?.pagina ?? 0) {
 
   const tem = reaRegistros.length > 0;
   el("reaBlocoMensagem").hidden = !tem;
@@ -2909,7 +2909,7 @@ function reaDesenhar() {
     .filter(r => !procurado || reaSemAcento(r.nome).includes(procurado))
     .sort((a, b) => b.dias - a.dias);
 
-  el("reaLista").innerHTML = tabela(
+  tabelaPaginada("reaLista",
     [{ titulo: "Cliente", larga: true }, { titulo: "Dias", num: true },
      { titulo: "Telefone" }, { titulo: "WhatsApp" }, { titulo: "Contato" }, { titulo: "" }],
     visiveis.map(r => {
@@ -2948,7 +2948,7 @@ function reaDesenhar() {
       ];
 
     }),
-    "Nenhum cliente com esse filtro."
+    "Nenhum cliente com esse filtro.", 20, pagina
   );
 
 }
@@ -2992,7 +2992,7 @@ function reaIniciar() {
   });
 
   el("reaModelo").addEventListener("input", () => { reaGuardarLista(); reaDesenhar(); });
-  el("reaBusca").addEventListener("input", reaDesenhar);
+  el("reaBusca").addEventListener("input", () => reaDesenhar(0));
   el("reaDDD").addEventListener("input", (e) => {
     e.target.value = Reativacao.soDigitos(e.target.value).slice(0, 2);
   });
@@ -3005,7 +3005,7 @@ function reaIniciar() {
       document.querySelectorAll("[data-rea-filtro]").forEach(b => b.classList.remove("ativo"));
       botao.classList.add("ativo");
       reaFiltro = botao.dataset.reaFiltro;
-      reaDesenhar();
+      reaDesenhar(0);
     });
   });
 
