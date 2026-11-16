@@ -3732,6 +3732,36 @@ function baseDoSite() {
   }
 }
 
+function chaveSelecaoDaCampanha(id) {
+  return "marketing-ofertas:" + JSON.stringify([baseDoSite(), lojaAtual, id]);
+}
+
+const selecoesDasCampanhas = new Map();
+
+function guardarSelecaoDaCampanha(id, codigos) {
+  const chave = chaveSelecaoDaCampanha(id);
+  selecoesDasCampanhas.set(chave, codigos);
+  try {
+    localStorage.setItem(chave, JSON.stringify(codigos));
+  } catch { /* A seleção continua disponível nesta página. */ }
+}
+
+function linkDaCampanha(id, codigos) {
+  const url = new URL(baseDoSite() + "/", location.origin);
+  url.searchParams.set("c", id);
+  const chave = chaveSelecaoDaCampanha(id);
+  let selecao = codigos ?? selecoesDasCampanhas.get(chave);
+  if (!selecao) {
+    try {
+      selecao = JSON.parse(localStorage.getItem(chave));
+    } catch { /* Campanha sem seleção salva neste navegador. */ }
+  }
+  if (Array.isArray(selecao)) {
+    for (const codigo of selecao) url.searchParams.append("oferta", codigo);
+  }
+  return url.href;
+}
+
 function prazoDeEntrega() {
   try { return localStorage.getItem(PRAZO_GUARDADO) || ""; } catch { return ""; }
 }
@@ -3977,11 +4007,9 @@ async function carregarSugestoes() {
       mostrarPaginaPromocoesMarketing();
       const base = baseDoSite();
       if (ativa && base && produtosDaCampanha.size) {
-        const url = new URL(base + "/");
-        url.searchParams.set("c", ativa.id);
-        for (const codigo of produtosDaCampanha) url.searchParams.append("oferta", codigo);
-        el("marketingUrlCampanha").value = url.href;
-        el("abrirLinkProdutos").href = url.href;
+        const link = linkDaCampanha(ativa.id, [...produtosDaCampanha]);
+        el("marketingUrlCampanha").value = link;
+        el("abrirLinkProdutos").href = link;
         el("marketingLinkCampanha").hidden = false;
       }
     } else {
@@ -4108,8 +4136,7 @@ el("listaCampanhas")?.addEventListener("click", async (ev) => {
 
   if (copiar) {
     const id = copiar.dataset.copiarCampanha;
-    const base = baseDoSite();
-    copiarTexto(`${base}/?c=${encodeURIComponent(id)}`, copiar);
+    copiarTexto(linkDaCampanha(id), copiar);
     return;
   }
 
@@ -4150,6 +4177,7 @@ el("formCampanha")?.addEventListener("submit", async (ev) => {
   }
 
   const filial = lojaAtual;
+  const codigos = porProdutos ? [...produtosDaCampanha] : [];
   const botao = ev.currentTarget.querySelector('button[type="submit"]');
   botao.disabled = true;
   const corpo = {
@@ -4169,6 +4197,7 @@ el("formCampanha")?.addEventListener("submit", async (ev) => {
     const dados = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(dados.erro || `HTTP ${r.status}`);
 
+    if (dados.id && filial === lojaAtual) guardarSelecaoDaCampanha(dados.id, codigos);
     if (porProdutos && filial === lojaAtual) {
       campanhaDosProdutos = dados.id;
       paginaPromocoesMarketing = 0;
