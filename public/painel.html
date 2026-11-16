@@ -2051,9 +2051,10 @@
           <div class="rea-col rea-col-estreita">
             <label class="rea-rotulo" for="reaDDD">DDD da região</label>
             <input type="text" id="reaDDD" maxlength="2" inputmode="numeric" placeholder="19">
+            <div class="rea-botoes"><button type="button" id="reaAplicarDDD">Aplicar DDD a todos</button></div>
+            <p id="reaDDDStatus" class="rea-legenda" role="status"></p>
             <p class="lojas-explica">
-              Usado só quando você clica em <b>Usar DDD</b> numa linha — nunca
-              sozinho, porque chutar o DDD manda a mensagem para outra pessoa.
+              Use na linha de um cliente ou aplique de uma vez aos contatos sem DDD da região.
             </p>
           </div>
         </div>
@@ -3007,6 +3008,38 @@ function reaIniciar() {
       reaFiltro = botao.dataset.reaFiltro;
       reaDesenhar(0);
     });
+  });
+
+  el("reaAplicarDDD").addEventListener("click", () => {
+    const status = el("reaDDDStatus");
+    const ddd = el("reaDDD").value;
+    const pendentes = reaRegistros.filter(r => r.telefone.situacao === "semDDD");
+    if (!pendentes.length) {
+      status.textContent = "Nenhum contato sem DDD.";
+      return;
+    }
+
+    const telefones = pendentes.map(r => Reativacao.comDDD(r.telefone, ddd));
+    if (telefones.some(t => t.situacao !== "ok")) {
+      status.textContent = "Informe um DDD válido.";
+      el("reaDDD").focus();
+      return;
+    }
+    if (!confirm(`Aplicar o DDD ${ddd} aos ${pendentes.length} contatos sem DDD de toda a lista?`)) return;
+
+    const usados = new Set(reaRegistros.map(r => r.telefone.e164).filter(Boolean));
+    const bloqueados = new Set(reaNaoPerturbe);
+    let aplicados = 0;
+    pendentes.forEach((r, i) => {
+      const telefone = telefones[i];
+      if (usados.has(telefone.e164) || bloqueados.has(telefone.e164)) return;
+      r.telefone = telefone;
+      usados.add(telefone.e164);
+      aplicados++;
+    });
+    reaGuardarLista();
+    reaDesenhar();
+    status.textContent = `DDD aplicado a ${aplicados} de ${pendentes.length} contatos. Números repetidos ou bloqueados foram ignorados.`;
   });
 
   el("reaLista").addEventListener("click", (ev) => {
