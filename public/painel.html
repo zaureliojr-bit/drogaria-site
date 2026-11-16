@@ -3823,7 +3823,9 @@ async function carregarCampanhas() {
           + (c.ativa
             ? ` <button type="button" class="btn-apagar-produto"
                         data-desligar-campanha="${esc(c.id)}">Desligar</button>`
-            : "")
+            : ""
+          + ` <button type="button" class="btn-apagar-produto"
+                       data-apagar-campanha="${esc(c.id)}">Excluir</button>`)
       ]),
       "Nenhuma campanha ainda. Crie uma acima e cole o link no anúncio."
     );
@@ -4140,28 +4142,41 @@ el("listaCampanhas")?.addEventListener("click", async (ev) => {
     return;
   }
 
-  const desligar = ev.target.closest("[data-desligar-campanha]");
-  if (!desligar) return;
+  const botao = ev.target.closest("[data-desligar-campanha], [data-apagar-campanha]");
+  if (!botao) return;
 
-  const id = desligar.dataset.desligarCampanha;
+  const apagar = botao.hasAttribute("data-apagar-campanha");
+  const id = apagar ? botao.dataset.apagarCampanha : botao.dataset.desligarCampanha;
+  const nome = campanhasCarregadas.find(c => c.id === id)?.nome || id;
+  const acao = apagar ? "excluir" : "desligar";
+  const mensagem = apagar
+    ? `Excluir a campanha "${nome}" e o histórico de visitas e atribuições? Os pedidos permanecem no sistema.`
+    : `Desligar a campanha "${nome}"? O histórico permanece no painel.`;
+  if (!confirm(mensagem)) return;
 
-  /* Desligar não apaga: o que ela vendeu continua no relatório, que é
-     o que a loja vai olhar no mês que vem para decidir se repete. */
-  if (!confirm(`Desligar a campanha ${id}? O histórico dela continua aqui.`)) return;
-
-  desligar.disabled = true;
+  const rota = apagar ? "apagar" : "excluir";
+  botao.disabled = true;
 
   try {
-    const r = await fetch(`${API.replace(/\/+$/, "")}/campanhas/excluir`, {
+    const r = await fetch(API.replace(/\/+$/, "") + "/campanhas/" + rota, {
       method: "POST",
       headers: cabecalhos({ "Content-Type": "application/json" }),
       body: JSON.stringify({ id })
     });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    if (!r.ok) {
+      const dados = await r.json().catch(() => ({}));
+      throw new Error(dados.erro || `HTTP ${r.status}`);
+    }
+    if (apagar) {
+      const chave = chaveSelecaoDaCampanha(id);
+      selecoesDasCampanhas.delete(chave);
+      try { localStorage.removeItem(chave); } catch { /* Armazenamento indisponível. */ }
+      if (campanhaDosProdutos === id) campanhaDosProdutos = "";
+    }
     await carregarMarketing();
   } catch (erro) {
-    desligar.disabled = false;
-    alert("Não consegui desligar: " + erro.message);
+    botao.disabled = false;
+    alert(`Não consegui ${acao} a campanha: ${erro.message}`);
   }
 
 });
