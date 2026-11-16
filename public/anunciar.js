@@ -245,6 +245,7 @@
         var limite = d.limite || 6;
         var loja = d.loja || {};
         var campanha = d.campanha || "";
+        var soPromocoes = d.soPromocoes === true;
 
         /* Quem está acabando sai da lista ANTES de qualquer conta. É a
            regra mais importante deste arquivo: anunciar o que vai
@@ -292,7 +293,7 @@
         /* 1. O que já procuram aqui dentro.
            É a demanda mais barata que existe: não precisa criar
            vontade, só lembrar que a loja tem. */
-        maisProcurados.forEach(function (b) {
+        (soPromocoes ? [] : maisProcurados).forEach(function (b) {
 
             if (!b || numero(b.buscas) < BUSCAS_MINIMAS) return;
 
@@ -311,10 +312,12 @@
         podeAnunciar.forEach(function (p) {
 
             var desconto = descontoDe(p);
-            if (desconto < DESCONTO_MINIMO) return;
+            var precoPromocional = numero(p.promo || p.promoPlanilha);
+            if (soPromocoes ? !(precoPromocional > 0 && precoPromocional < numero(p.preco))
+                : desconto < DESCONTO_MINIMO) return;
 
             juntar(p, "oferta",
-                "está " + desconto + "% abaixo do preço normal",
+                desconto ? "está " + desconto + "% abaixo do preço normal" : "preço promocional do sistema",
                 500 + desconto);
 
         });
@@ -322,7 +325,7 @@
         /* 3. O dinheiro parado na prateleira.
            Anunciar o encalhado é a única forma de transformá-lo em
            caixa sem queimar preço no balcão. */
-        parado.forEach(function (item) {
+        (soPromocoes ? [] : parado).forEach(function (item) {
 
             if (!item) return;
 
