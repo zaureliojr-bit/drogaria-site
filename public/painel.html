@@ -1222,8 +1222,8 @@
         <div class="campo-duplo">
           <label class="campo">
             <span>WhatsApp da loja</span>
-            <input type="text" id="novaWhats" maxlength="24" placeholder="(11) 90000-0000">
-            <small>É para onde vão os pedidos dessa filial.</small>
+            <input type="tel" id="novaWhats" maxlength="24" placeholder="+55 (11) 90000-0000">
+            <small>É para onde vão os pedidos dessa filial. Informe o DDD e o número. O painel acrescenta o +55 automaticamente.</small>
           </label>
           <label class="campo">
             <span>Fuso horário</span>
@@ -7434,6 +7434,15 @@ el("novaNome").addEventListener("input", () => {
 });
 el("novaSlug").addEventListener("input", () => { el("novaSlug").dataset.mexido = "1"; });
 
+function whatsappDaFilial() {
+  const valor = el("novaWhats").value.trim();
+  if (!valor) return "";
+  const digitos = valor.replace(/\D/g, "");
+  if (!valor.startsWith("+") && /^[1-9]\d{9,10}$/.test(digitos)) return "55" + digitos;
+  if (/^55[1-9]\d{9,10}$/.test(digitos)) return digitos;
+  throw new Error("Informe um WhatsApp brasileiro com DDD e 8 ou 9 dígitos. Ex.: (11) 90000-0000.");
+}
+
 async function criarFilial() {
   const slug = (el("novaSlug").value || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
   const nome = (el("novaNome").value || "").trim();
@@ -7461,7 +7470,7 @@ async function criarFilial() {
         cep: el("novaCep").value,
         latitude: el("novaLat").value,
         longitude: el("novaLng").value,
-        whatsapp: el("novaWhats").value,
+        whatsapp: whatsappDaFilial(),
         email: el("novaEmail").value,
         telefone: el("novaTelefone").value,
         farmaceutico: el("novaFarmaceutico").value,
@@ -7805,6 +7814,8 @@ async function salvarFilial() {
       const campo = el(id);
       if (campo) corpo[chave] = campo.value;
     });
+
+    corpo.whatsapp = whatsappDaFilial();
 
     const r = await fetch(`${API.replace(/\/+$/, "")}/lojas/${encodeURIComponent(slug)}`, {
       method: "POST",
