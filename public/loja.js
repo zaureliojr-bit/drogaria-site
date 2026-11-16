@@ -578,6 +578,8 @@ function adotar(dados) {
     }
 
     LOJA = { ...base, ...vinda };
+    const whatsapp = String(LOJA.whatsapp ?? "").replace(/\D/g, "");
+    LOJA.whatsapp = /^\d{10,11}$/.test(whatsapp) ? "55" + whatsapp : whatsapp;
     if (Array.isArray(dados.horario)) HORARIO_LOJA = dados.horario;
     VISUAL = dados.visual || null;
     aplicarNaPagina();
