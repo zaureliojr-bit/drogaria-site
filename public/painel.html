@@ -741,6 +741,29 @@
   #abaLojas .btn-link:hover { color: var(--marca); }
 
   /* ----- Reativação de clientes ----- */
+  #abaReativacao .rea-painel {
+    margin-bottom: 16px; padding: clamp(14px, 3vw, 24px);
+    background: var(--branco); border: 1px solid var(--linha);
+    border-radius: var(--raio-md); box-shadow: var(--sombra-sm);
+  }
+  #abaReativacao .rea-painel h2 { margin: 0 0 8px; font-size: 17px; }
+  #abaReativacao .rea-painel p { line-height: 1.5; overflow-wrap: anywhere; }
+  #abaReativacao .rea-legenda {
+    margin: 8px 0 0; color: var(--tinta-suave); font-size: 12px;
+  }
+  #abaReativacao .rea-botoes > button {
+    min-height: 40px; padding: 8px 14px; border: 1px solid var(--linha);
+    border-radius: var(--raio-botao); background: var(--branco); color: var(--marca-escura);
+    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  #abaReativacao .rea-botoes > button.principal {
+    background: var(--marca); border-color: var(--marca); color: #fff;
+  }
+  #abaReativacao .rea-botoes > button:not(:disabled):hover { border-color: var(--marca); }
+  #abaReativacao .rea-botoes > button:disabled { opacity: .55; cursor: wait; }
+  #abaReativacao :is(button, textarea, input):focus-visible {
+    outline: 2px solid var(--marca); outline-offset: 2px;
+  }
   #abaReativacao .rea-area {
     width: 100%; padding: 10px 12px; font-family: ui-monospace, Consolas, monospace;
     font-size: 12.5px; color: var(--tinta); background: var(--papel);
@@ -748,8 +771,8 @@
   }
   #abaReativacao .rea-botoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
   #abaReativacao .rea-linha { display: flex; flex-wrap: wrap; gap: 18px; }
-  #abaReativacao .rea-col { flex: 1; min-width: 260px; }
-  #abaReativacao .rea-col-estreita { flex: 0 0 180px; }
+  #abaReativacao .rea-col { flex: 1 1 240px; min-width: 0; }
+  #abaReativacao .rea-col-estreita { flex: 0 1 180px; }
   #abaReativacao .rea-rotulo {
     display: block; margin-bottom: 6px; font-size: 11px; letter-spacing: .4px;
     text-transform: uppercase; color: var(--tinta-suave);
@@ -1995,26 +2018,26 @@
          perde o canal que mais vende. -->
     <div id="abaReativacao" hidden>
 
-      <div class="bloco">
-        <h2>1. De onde vem a lista</h2>
+      <div class="bloco rea-painel">
+        <h2>Importar clientes</h2>
         <p class="lojas-explica">
           Cole as colunas <b>Nome</b>, <b>Telefone</b> e <b>Dias sem comprar</b> —
           copiando direto do Excel — ou escolha a planilha do relatório do PDV.
         </p>
+        <label class="rea-rotulo" for="reaColado">Lista de clientes</label>
         <textarea id="reaColado" class="rea-area" rows="5"
           placeholder="Maria Silva&#9;(19) 97517-2840&#9;183&#10;João Lima&#9;11 98902-4152&#9;182"></textarea>
         <div class="rea-botoes">
           <button type="button" id="reaProcessar" class="principal">Processar lista</button>
           <button type="button" id="reaImportar">Importar planilha</button>
           <input type="file" id="reaArquivo" accept=".xlsx,.xls,.csv" hidden>
-          <button type="button" id="reaExportar" hidden>Exportar CSV</button>
-          <button type="button" id="reaEnviarFila" hidden>Mandar para o agente</button>
         </div>
-        <div id="reaAviso"></div>
+        <p class="rea-legenda">Formatos aceitos: XLSX, XLS e CSV.</p>
+        <div id="reaAviso" role="status"></div>
       </div>
 
-      <div class="bloco" id="reaBlocoMensagem" hidden>
-        <h2>2. A mensagem</h2>
+      <div class="bloco rea-painel" id="reaBlocoMensagem" hidden>
+        <h2>Preparar mensagem</h2>
         <div class="rea-linha">
           <div class="rea-col">
             <label class="rea-rotulo" for="reaModelo">Texto</label>
@@ -2036,10 +2059,11 @@
         </div>
       </div>
 
-      <div class="bloco" id="reaBlocoLista" hidden>
+      <div class="bloco rea-painel" id="reaBlocoLista" hidden>
+        <h2>Revisar contatos</h2>
         <div class="numeros" id="reaNumeros"></div>
         <div class="rea-filtros">
-          <input type="search" id="reaBusca" placeholder="Buscar por nome…">
+          <input type="search" id="reaBusca" aria-label="Buscar contato por nome" placeholder="Buscar por nome…">
           <button type="button" class="rea-chip ativo" data-rea-filtro="todos">Todos</button>
           <button type="button" class="rea-chip" data-rea-filtro="ok">Prontos</button>
           <button type="button" class="rea-chip" data-rea-filtro="semDDD">Falta DDD</button>
@@ -2052,7 +2076,11 @@
           agente</b>. Sem isso, cada mensagem sai de um clique seu, no seu
           WhatsApp.
         </p>
-        <div id="reaFilaStatus"></div>
+        <div class="rea-botoes">
+          <button type="button" id="reaExportar" hidden>Exportar CSV</button>
+          <button type="button" id="reaEnviarFila" hidden>Mandar para o agente</button>
+        </div>
+        <div id="reaFilaStatus" role="status"></div>
       </div>
 
     </div><!-- /abaReativacao -->
