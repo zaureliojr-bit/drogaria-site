@@ -1890,6 +1890,7 @@
           </select>
         </label>
         <div id="marketingCampoClasse" hidden>
+          <label class="campo"><span>Buscar promoção</span><input type="search" id="marketingBusca" placeholder="Ex.: fraldas, Huggies, Babysec"></label>
           <label class="campo">
             <span>Classe do produto</span>
             <select id="marketingClasse"><option value="">Todas as classes</option></select>
@@ -3921,9 +3922,13 @@ const PROMOCOES_MARKETING_POR_PAGINA = 10;
 function mostrarPaginaPromocoesMarketing() {
   const classe = el("marketingClasse").value;
   const campanha = campanhaPromocoesMarketing;
+  const termos = semAcentoMinusculo(el("marketingBusca").value).trim().split(/\s+/).filter(Boolean);
   const filtradas = listaPromocoesMarketing.filter(s => campanha
     ? produtosDaCampanha.has(String(s.codigo || s.ean))
-    : !classe || s.classe.id === classe);
+    : (!classe || s.classe.id === classe) && termos.every(termo => {
+        const texto = semAcentoMinusculo([s.nome, s.marca, s.ean, s.codigo].join(" "));
+        return texto.includes(termo === "fraldas" ? "fralda" : termo);
+      }));
   const tamanho = PROMOCOES_MARKETING_POR_PAGINA;
   const totalPaginas = Math.ceil(filtradas.length / tamanho);
   const pagina = Math.min(paginaPromocoesMarketing, Math.max(0, totalPaginas - 1));
@@ -3946,6 +3951,11 @@ el("copiarLinkProdutos").addEventListener("click", () => {
   const campo = el("marketingUrlCampanha");
   campo.select();
   copiarTexto(campo.value, el("copiarLinkProdutos"));
+});
+
+el("marketingBusca").addEventListener("input", () => {
+  paginaPromocoesMarketing = 0;
+  mostrarPaginaPromocoesMarketing();
 });
 
 el("marketingClasse").addEventListener("change", () => {
@@ -3997,6 +4007,7 @@ async function carregarSugestoes() {
     campanhaDosProdutos = "";
     paginaPromocoesMarketing = 0;
     el("marketingClasse").value = "";
+    el("marketingBusca").value = "";
   }
   const soPromocoes = modoPromocoes();
   el("marketingSelecao").hidden = !soPromocoes;
@@ -4026,7 +4037,7 @@ async function carregarSugestoes() {
          que diz o que é medicamento e o que é controlado — o catálogo
          publicado quase nunca traz tarja, e sem ela um Bactrim seria
          sugerido para anúncio. */
-      categoria: p.categoria,
+      categoria: p.categoria, marca: p.marca,
       bloqueioPresencial: p.bloqueioPresencial,
       receitaRemota: p.receitaRemota,
       confirmarReceita: p.confirmarReceita
@@ -4057,9 +4068,9 @@ async function carregarSugestoes() {
       }
       atualizarContagemCampanha();
       el("alterarSelecaoCampanha").hidden = !ativa;
-      const classesPorProduto = new Map(produtos.map(p => [String(p.codigo || p.ean), familiaDe(p.categoria)]));
+      const classesPorProduto = new Map(produtos.map(p => [String(p.codigo || p.ean), { classe: familiaDe(p.categoria), marca: p.marca }]));
       listaPromocoesMarketing = sugestoes.map(s => ({
-        ...s, classe: classesPorProduto.get(String(s.codigo || s.ean)) || FAMILIA_OUTROS
+        ...s, ...(classesPorProduto.get(String(s.codigo || s.ean)) || { classe: FAMILIA_OUTROS })
       }));
       campanhaPromocoesMarketing = ativa;
       semEstoqueMarketing = !estoque;
