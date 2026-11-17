@@ -261,9 +261,9 @@
         var podeAnunciar = produtos.filter(function (p) {
             if (!p || !p.nome) return false;
             if (!podeSerAnunciado(p)) return false;
-            if (numero(p.estoque) < ESTOQUE_MINIMO) return false;
+            if (doCatalogo ? numero(p.estoque) <= 0 : numero(p.estoque) < ESTOQUE_MINIMO) return false;
             if (numero(p.preco) <= 0) return false;
-            if (acabando[String(p.ean)] || acabando[String(p.codigo)]) return false;
+            if (!doCatalogo && (acabando[String(p.ean)] || acabando[String(p.codigo)])) return false;
             return true;
         });
 
