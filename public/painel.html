@@ -694,6 +694,7 @@
   /* A prévia usa a mesma proporção da home. Ver aqui o corte que a
      imagem vai sofrer evita publicar banner com o texto cortado. */
   .banner-previa { border: 1px solid var(--linha); border-radius: var(--raio-md); overflow: hidden; line-height: 0; }
+  .banner-previa[data-faixa] img { aspect-ratio: auto; height: auto; object-fit: contain; }
   .banner-previa img { width: 100%; aspect-ratio: 3 / 1; object-fit: cover; display: block; }
 
   .banner-linha {
@@ -5691,6 +5692,8 @@ function bannerNoCabecalho() {
 
 function mostrarCampoDaArte() {
   const faixa = bannerNoCabecalho();
+  el("bannerPreviaCaixa").toggleAttribute("data-faixa", faixa);
+  el("entradaPreviaCaixa").toggleAttribute("data-faixa", faixa);
   el("bannerEntradaCampo").style.display = faixa ? "none" : "";
   el("campoEntradaArte").hidden = !faixa && !el("bannerEntrada").checked;
   el("entradaArteTitulo").textContent = faixa ? "Arte para celular" : "Arte do aviso de entrada";
