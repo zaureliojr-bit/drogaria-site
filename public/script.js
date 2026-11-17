@@ -914,10 +914,11 @@ function girarBanners(caixa) {
 
 function mostrarFaixaDoCabecalho(banner) {
   const header = document.querySelector("header.header");
-  if (!header || !banner?.link || !/^https:\/\//i.test(banner.link)) return;
+  if (!header || !banner?.imagem) return;
 
-  const faixa = document.createElement("a");
-  faixa.href = banner.link;
+  const clicavel = /^https:\/\//i.test(banner.link || "");
+  const faixa = document.createElement(clicavel ? "a" : "div");
+  if (clicavel) faixa.href = banner.link;
   faixa.style.cssText = "display:block;background:#000;text-align:center";
   const picture = document.createElement("picture");
   if (banner.faixa_mobile) {
