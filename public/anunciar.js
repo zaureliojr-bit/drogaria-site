@@ -246,6 +246,7 @@
         var loja = d.loja || {};
         var campanha = d.campanha || "";
         var soPromocoes = d.soPromocoes === true;
+        var doCatalogo = d.doCatalogo === true;
 
         /* Quem está acabando sai da lista ANTES de qualquer conta. É a
            regra mais importante deste arquivo: anunciar o que vai
@@ -311,6 +312,10 @@
            Desconto é o que faz o anúncio ter o que dizer. */
         podeAnunciar.forEach(function (p) {
 
+            if (doCatalogo) {
+                juntar(p, "catalogo", "Disponível para anunciar", 0);
+                return;
+            }
             var desconto = descontoDe(p);
             var precoPromocional = numero(p.promo || p.promoPlanilha);
             if (soPromocoes ? !(precoPromocional > 0 && precoPromocional < numero(p.preco))
