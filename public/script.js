@@ -912,6 +912,30 @@ function girarBanners(caixa) {
   ligar();
 }
 
+function mostrarFaixaDoCabecalho(banner) {
+  const header = document.querySelector("header.header");
+  if (!header || !banner?.link || !/^https:\/\//i.test(banner.link)) return;
+
+  const faixa = document.createElement("a");
+  faixa.href = banner.link;
+  faixa.style.cssText = "display:block;background:#000;text-align:center";
+  const picture = document.createElement("picture");
+  if (banner.faixa_mobile) {
+    const mobile = document.createElement("source");
+    mobile.media = "(max-width: 767px)";
+    mobile.srcset = banner.faixa_mobile;
+    picture.append(mobile);
+  }
+  const imagem = document.createElement("img");
+  imagem.src = banner.imagem;
+  imagem.alt = banner.alt || "Conferir ofertas";
+  imagem.style.cssText = "display:block;width:100%;height:auto;max-height:50px;object-fit:contain;margin:auto";
+  imagem.addEventListener("error", () => faixa.remove(), { once: true });
+  picture.append(imagem);
+  faixa.append(picture);
+  header.before(faixa);
+}
+
 async function carregarBanners() {
   const caixa = el("promos");
   if (!caixa) return;
@@ -929,6 +953,8 @@ async function carregarBanners() {
       validos = await buscarBannersDoArquivo();
     }
 
+    mostrarFaixaDoCabecalho(validos.find(b => b.faixa_mobile != null));
+    validos = validos.filter(b => b.faixa_mobile == null);
     if (!validos.length) return;   // segue oculto
 
     caixa.innerHTML = validos.map(bannerHTML).join("");
