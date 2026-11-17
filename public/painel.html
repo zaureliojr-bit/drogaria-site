@@ -1889,8 +1889,8 @@
             <option value="promocoes">Promoções do sistema</option>
           </select>
         </label>
+        <label class="campo"><span>Buscar produto nesta lista</span><input type="search" id="marketingBusca" placeholder="Ex.: fraldas, Huggies, Babysec"></label>
         <div id="marketingCampoClasse" hidden>
-          <label class="campo"><span>Buscar promoção</span><input type="search" id="marketingBusca" placeholder="Ex.: fraldas, Huggies, Babysec"></label>
           <label class="campo">
             <span>Classe do produto</span>
             <select id="marketingClasse"><option value="">Todas as classes</option></select>
@@ -3922,13 +3922,9 @@ const PROMOCOES_MARKETING_POR_PAGINA = 10;
 function mostrarPaginaPromocoesMarketing() {
   const classe = el("marketingClasse").value;
   const campanha = campanhaPromocoesMarketing;
-  const termos = semAcentoMinusculo(el("marketingBusca").value).trim().split(/\s+/).filter(Boolean);
   const filtradas = listaPromocoesMarketing.filter(s => campanha
     ? produtosDaCampanha.has(String(s.codigo || s.ean))
-    : (!classe || s.classe.id === classe) && termos.every(termo => {
-        const texto = semAcentoMinusculo([s.nome, s.marca, s.ean, s.codigo].join(" "));
-        return texto.includes(termo === "fraldas" ? "fralda" : termo);
-      }));
+    : (!classe || s.classe.id === classe) && correspondeBuscaMarketing(s));
   const tamanho = PROMOCOES_MARKETING_POR_PAGINA;
   const totalPaginas = Math.ceil(filtradas.length / tamanho);
   const pagina = Math.min(paginaPromocoesMarketing, Math.max(0, totalPaginas - 1));
@@ -3953,9 +3949,23 @@ el("copiarLinkProdutos").addEventListener("click", () => {
   copiarTexto(campo.value, el("copiarLinkProdutos"));
 });
 
+let renderizarSugestoesDaSemana = null;
+
+function correspondeBuscaMarketing(item) {
+  const termos = semAcentoMinusculo(el("marketingBusca").value).trim().split(/\s+/).filter(Boolean);
+  const texto = semAcentoMinusculo([item.nome, item.marca, item.ean, item.codigo].join(" "));
+  return termos.every(termo => texto.includes(termo === "fraldas" ? "fralda" : termo));
+}
+
 el("marketingBusca").addEventListener("input", () => {
-  paginaPromocoesMarketing = 0;
-  mostrarPaginaPromocoesMarketing();
+  if (modoPromocoes()) {
+    if (!el("marketingCampoClasse").hidden) {
+      paginaPromocoesMarketing = 0;
+      mostrarPaginaPromocoesMarketing();
+    }
+  } else {
+    renderizarSugestoesDaSemana?.();
+  }
 });
 
 el("marketingClasse").addEventListener("change", () => {
@@ -4000,6 +4010,7 @@ async function carregarSugestoes() {
   if (!alvo) return;
 
   const carga = ++cargaSugestoesMarketing;
+  renderizarSugestoesDaSemana = null;
   const filial = lojaAtual;
   if (filial !== filialDaSelecao) {
     filialDaSelecao = filial;
@@ -4092,7 +4103,12 @@ async function carregarSugestoes() {
         el("marketingLinkCampanha").hidden = false;
       }
     } else {
-      desenharSugestoes(sugestoes, ativa, !estoque);
+      const resultados = sugestoes.map(s => ({
+        ...s, marca: catalogo.get(String(s.codigo))?.marca
+      }));
+      renderizarSugestoesDaSemana = () =>
+        desenharSugestoes(resultados.filter(correspondeBuscaMarketing), ativa, !estoque);
+      renderizarSugestoesDaSemana();
     }
 
     tabelaPaginada("anunciarFaltando",
