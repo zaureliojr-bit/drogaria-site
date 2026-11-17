@@ -2486,7 +2486,7 @@ function aplicarFiltro() {
   palavrasBuscadas = termoBusca ? palavrasDaBusca(termoBusca) : [];
 
   produtosFiltrados = ordenar(produtos.filter(p => {
-    if (modoOfertas && !p.emOferta) return false;
+    if (modoOfertas && !produtosDaOferta && !p.emOferta) return false;
     if (produtosDaOferta && !produtosDaOferta.has(String(p.codigo || p.ean))) return false;
     if (!modoOfertas && categoriaAtual !== "todas" && p.familia !== categoriaAtual) return false;
     /* Pela chave NORMALIZADA, igual à que monta os chips. O chip
@@ -2566,7 +2566,7 @@ function aplicarFiltro() {
     } else {
       barra.style.display = "flex";
       const rotulo = modoOfertas
-        ? (produtosDaOferta ? "Ofertas da campanha" : "Ofertas")
+        ? (produtosDaOferta ? "Produtos da campanha" : "Ofertas")
         : termoBusca
           ? `Resultados para "${(el("busca")?.value || "").trim()}"`
           : nomeFamilia(categoriaAtual);
