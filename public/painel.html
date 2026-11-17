@@ -1541,7 +1541,11 @@
           </label>
         </div>
 
-        <div class="campo-duplo">
+        <label class="campo" id="bannerPosicaoCampo" hidden>
+          <span>Onde exibir</span>
+          <select id="bannerPosicao"><option value="carrossel">Carrossel</option><option value="faixa">Faixa do cabeçalho</option></select>
+        </label>
+        <div class="campo-duplo" id="bannerEntradaCampo">
           <label class="campo campo-linha">
             <input type="checkbox" id="bannerEntrada">
             <span>Mostrar também como aviso de entrada</span>
@@ -1562,11 +1566,10 @@
              serve para nada agora é campo que confunde. -->
         <div id="campoEntradaArte" hidden>
           <label class="campo">
-            <span>Arte do aviso de entrada</span>
+            <span id="entradaArteTitulo">Arte do aviso de entrada</span>
             <input type="file" id="entradaArquivo"
                    accept="image/png,image/jpeg,image/webp,image/gif,image/avif">
-            <small>Em pé, tipo 1080 × 1350. Sem ela, o aviso usa a imagem
-                   deitada da faixa — funciona, mas fica uma tira fina.</small>
+            <small id="entradaArteAjuda">Em pé, tipo 1080 × 1350.</small>
           </label>
 
           <label class="campo">
@@ -5615,7 +5618,7 @@ function pintarBanners() {
         <img src="${esc(b.imagem)}" alt="" onerror="this.style.visibility='hidden'">
         <div class="banner-linha-info">
           <strong>${esc(b.alt)}</strong>
-          <small>${esc(e.rotulo)} · ${esc(prazo)} · ordem ${b.ordem}${b.link ? " · com link" : ""}</small>
+          <small>${b.faixa_mobile == null ? "Carrossel" : "Faixa do cabeçalho"} · ${esc(e.rotulo)} · ${esc(prazo)} · ordem ${b.ordem}${b.link ? " · com link" : ""}</small>
         </div>
         <div class="banner-acoes">
           <button type="button" data-editar="${b.id}">Editar</button>
@@ -5629,6 +5632,8 @@ async function carregarBanners() {
   const dados = await api("/banners/todos");
   bannersDaLoja = dados.banners || [];
   podeEnviarArquivo = !!dados.podeEnviarArquivo;
+  el("bannerPosicaoCampo").style.display = dados.podeFaixa ? "" : "none";
+  el("bannerPosicaoCampo").hidden = !dados.podeFaixa;
 
   /* Sem o balde do R2 ligado, o seletor de arquivo some. Deixá-lo na
      tela para dar erro ao enviar é pior do que não oferecer: a pessoa
@@ -5651,11 +5656,12 @@ function abrirFormulario(b) {
   el("bannerInicio").value = b?.inicio || "";
   el("bannerFim").value = b?.fim || "";
   el("bannerAtivo").checked = b ? !!b.ativo : true;
+  el("bannerPosicao").value = b?.faixa_mobile == null ? "carrossel" : "faixa";
   el("bannerEntrada").checked = !!(b && b.entrada);
-  el("entradaImagem").value = (b && b.entrada_imagem) || "";
+  el("entradaImagem").value = b?.faixa_mobile ?? b?.entrada_imagem ?? "";
   el("entradaArquivo").value = "";
   mostrarCampoDaArte();
-  mostrarPreviaDaArte((b && b.entrada_imagem) || "");
+  mostrarPreviaDaArte(el("entradaImagem").value);
   el("bannerOrdem").value = b?.ordem ?? 0;
   el("bannerArquivo").value = "";
   mostrarPrevia(b?.imagem || "");
@@ -5679,9 +5685,25 @@ el("novoBanner").addEventListener("click", () => abrirFormulario(null));
 el("cancelarBanner").addEventListener("click", fecharFormulario);
 el("bannerImagem").addEventListener("input", e => mostrarPrevia(e.target.value.trim()));
 
-function mostrarCampoDaArte() {
-  el("campoEntradaArte").hidden = !el("bannerEntrada").checked;
+function bannerNoCabecalho() {
+  return el("bannerPosicao").value === "faixa";
 }
+
+function mostrarCampoDaArte() {
+  const faixa = bannerNoCabecalho();
+  el("bannerEntradaCampo").style.display = faixa ? "none" : "";
+  el("campoEntradaArte").hidden = !faixa && !el("bannerEntrada").checked;
+  el("entradaArteTitulo").textContent = faixa ? "Arte para celular" : "Arte do aviso de entrada";
+  el("entradaArteAjuda").textContent = faixa ? "768 × 50 px. Se ficar vazia, usa a arte de desktop." : "Em pé, tipo 1080 × 1350.";
+  el("bannerArquivoAjuda").textContent = faixa ? "Arte para desktop, 1920 × 50 px. Até 3 MB." : "Escolha a imagem do banner. Deitada, tipo 1200 × 400. Até 3 MB.";
+}
+
+el("bannerPosicao").addEventListener("change", () => {
+  el("entradaImagem").value = "";
+  el("entradaArquivo").value = "";
+  mostrarPreviaDaArte("");
+  mostrarCampoDaArte();
+});
 
 el("bannerEntrada").addEventListener("change", mostrarCampoDaArte);
 
@@ -5749,11 +5771,13 @@ el("formBanner").addEventListener("submit", async (ev) => {
         const imagem = await enviarArquivoDoBanner(imagemOriginal, slug);
         Object.assign(alvo, { imagem: imagem.url, r2Chave: imagem.chave });
       }
-      const arteOriginal = alvo.entrada && (arte || (republicando && await lerArtePublicada(corpo.entradaImagem)));
+      const faixa = bannerNoCabecalho();
+      const arteOriginal = (faixa || alvo.entrada) && (arte || (republicando && await lerArtePublicada(corpo.entradaImagem)));
       if (arteOriginal) {
         const imagem = await enviarArquivoDoBanner(arteOriginal, slug);
         Object.assign(alvo, { entradaImagem: imagem.url, entradaR2: imagem.chave });
       }
+      alvo.faixaMobile = faixa ? alvo.entradaImagem : null;
       return enviarPublicacao("/banners", alvo, slug);
     }, msg => avisoBanner(msg, "ok"), republicando ? "Uma nova cópia será criada em cada loja selecionada." : "");
     await carregarBanners();
@@ -5782,7 +5806,7 @@ el("formBanner").addEventListener("submit", async (ev) => {
     let entradaR2 = null;
 
     const arteDoAviso = el("entradaArquivo").files?.[0];
-    if (arteDoAviso && el("bannerEntrada").checked) {
+    if (arteDoAviso && (bannerNoCabecalho() || el("bannerEntrada").checked)) {
       botao.textContent = "Enviando a arte do aviso…";
       const enviada = await enviarArquivoDoBanner(arteDoAviso);
       entradaImagem = enviada.url;
@@ -5806,6 +5830,7 @@ el("formBanner").addEventListener("submit", async (ev) => {
         entrada: el("bannerEntrada").checked,
         entradaImagem,
         entradaR2,
+        faixaMobile: bannerNoCabecalho() ? entradaImagem : null,
         ordem: Number(el("bannerOrdem").value) || 0,
         r2Chave
       })
