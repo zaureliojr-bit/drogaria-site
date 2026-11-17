@@ -5752,7 +5752,8 @@ el("formBanner").addEventListener("submit", async (ev) => {
   ev.preventDefault();
 
   if (ev.submitter === el("publicarLoteBanner")) {
-    const republicando = !!el("bannerId").value;
+    const original = bannersDaLoja.find(b => String(b.id) === el("bannerId").value);
+    const republicando = !!original;
     const chave = el("bannerR2").value;
     const arquivo = el("bannerArquivo").files?.[0];
     const arte = el("entradaArquivo").files?.[0];
@@ -5766,6 +5767,22 @@ el("formBanner").addEventListener("submit", async (ev) => {
     if (!corpo.alt || (!arquivo && !corpo.imagem)) return avisoBanner("Preencha a imagem e a descrição.");
     await publicarLote(ev.submitter, async slug => {
       const alvo = { ...corpo };
+      if (original && slug === lojaAtual) {
+        alvo.id = original.id;
+      } else if (original) {
+        const resposta = await fetch(API.replace(/\/+$/, "") + "/banners/todos", {
+          headers: cabecalhos({ "X-Painel-Loja": slug })
+        });
+        const dados = await resposta.json().catch(() => ({}));
+        if (!resposta.ok) throw new Error(dados.erro || "Não consegui consultar os banners da filial.");
+        const nome = original.alt.trim().toLowerCase();
+        const faixaOriginal = original.faixa_mobile != null;
+        const encontrados = (dados.banners || []).filter(b =>
+          String(b.alt || "").trim().toLowerCase() === nome &&
+          (b.faixa_mobile != null) === faixaOriginal);
+        if (encontrados.length > 1) throw new Error("Há banners com a mesma descrição e posição. Resolva as cópias nesta filial antes de republicar.");
+        if (encontrados.length === 1) alvo.id = encontrados[0].id;
+      }
       const imagemOriginal = arquivo || (republicando && await lerArtePublicada(corpo.imagem, chave));
       if (imagemOriginal) {
         const imagem = await enviarArquivoDoBanner(imagemOriginal, slug);
@@ -5779,7 +5796,7 @@ el("formBanner").addEventListener("submit", async (ev) => {
       }
       alvo.faixaMobile = faixa ? alvo.entradaImagem : null;
       return enviarPublicacao("/banners", alvo, slug);
-    }, msg => avisoBanner(msg, "ok"), republicando ? "Uma nova cópia será criada em cada loja selecionada." : "");
+    }, msg => avisoBanner(msg, "ok"), republicando ? "O banner correspondente será atualizado nas lojas selecionadas. Onde ele ainda não existe, será criado." : "");
     await carregarBanners();
     return;
   }
