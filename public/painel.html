@@ -1887,6 +1887,7 @@
           <select id="marketingFiltro">
             <option value="sugestoes">Sugestões da semana</option>
             <option value="promocoes">Promoções do sistema</option>
+            <option value="catalogo">Catálogo</option>
           </select>
         </label>
         <label class="campo"><span>Buscar produto nesta lista</span><input type="search" id="marketingBusca" placeholder="Ex.: fraldas, Huggies, Babysec"></label>
@@ -3958,7 +3959,7 @@ function correspondeBuscaMarketing(item) {
 }
 
 el("marketingBusca").addEventListener("input", () => {
-  if (modoPromocoes()) {
+  if (modoSelecaoMarketing()) {
     if (!el("marketingCampoClasse").hidden) {
       paginaPromocoesMarketing = 0;
       mostrarPaginaPromocoesMarketing();
@@ -3982,8 +3983,8 @@ el("marketingPaginas").addEventListener("click", ev => {
   el("anunciarLista").scrollIntoView({ block: "start" });
 });
 
-function modoPromocoes() {
-  return el("marketingFiltro").value === "promocoes";
+function modoSelecaoMarketing() {
+  return ["promocoes", "catalogo"].includes(el("marketingFiltro").value);
 }
 
 function atualizarContagemCampanha() {
@@ -4020,7 +4021,8 @@ async function carregarSugestoes() {
     el("marketingClasse").value = "";
     el("marketingBusca").value = "";
   }
-  const soPromocoes = modoPromocoes();
+  const modo = el("marketingFiltro").value;
+  const soPromocoes = modoSelecaoMarketing();
   el("marketingSelecao").hidden = !soPromocoes;
   el("marketingCampoClasse").hidden = true;
   el("marketingLinkCampanha").hidden = true;
@@ -4054,7 +4056,7 @@ async function carregarSugestoes() {
       confirmarReceita: p.confirmarReceita
     }));
 
-    if (carga !== cargaSugestoesMarketing || filial !== lojaAtual || soPromocoes !== modoPromocoes()) return;
+    if (carga !== cargaSugestoesMarketing || filial !== lojaAtual || modo !== el("marketingFiltro").value) return;
     const ativa = soPromocoes
       ? campanhasCarregadas.find(c => c.ativa && c.id === campanhaDosProdutos)
       : campanhasCarregadas.find(c => c.ativa);
@@ -4069,6 +4071,7 @@ async function carregarSugestoes() {
       loja: { nome: lojaNome, entrega: prazoDeEntrega(), site: baseDoSite() },
       campanha: ativa ? ativa.id : "",
       soPromocoes,
+      doCatalogo: modo === "catalogo",
       limite: soPromocoes ? produtos.length : 6
     });
 
@@ -4125,6 +4128,7 @@ async function carregarSugestoes() {
 }
 
 const ROTULO_DO_MOTIVO = {
+  catalogo: "catálogo",
   procurado: "já procuram aqui",
   oferta: "está com desconto",
   parado: "dinheiro parado"
@@ -4156,7 +4160,7 @@ function desenharSugestoes(sugestoes, campanhaAtiva, semEstoque, soPromocoes = f
   el("anunciarAviso").innerHTML = avisos.join("");
 
   if (!sugestoes.length) {
-    el("anunciarLista").innerHTML = soPromocoes ? `<div class="vazio">Nenhuma promoção elegível para anunciar.</div>` : `<div class="vazio">
+    el("anunciarLista").innerHTML = soPromocoes ? `<div class="vazio">Nenhum produto encontrado nesta lista.</div>` : `<div class="vazio">
       Nenhuma sugestão esta semana.<br>
       <small>Faltam buscas no site, estoque ou promoção ativa — e sugestão fraca
       gasta o mesmo dinheiro que uma boa.</small></div>`;
@@ -4278,9 +4282,9 @@ el("formCampanha")?.addEventListener("submit", async (ev) => {
 
   ev.preventDefault();
 
-  const porProdutos = modoPromocoes();
+  const porProdutos = modoSelecaoMarketing();
   if (porProdutos && (el("gerarCampanhaProdutos").disabled || !produtosDaCampanha.size || filialDaSelecao !== lojaAtual)) {
-    alert("Selecione pelo menos um produto em promoção.");
+    alert("Selecione pelo menos um produto.");
     return;
   }
 
