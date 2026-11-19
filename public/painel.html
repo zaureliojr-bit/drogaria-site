@@ -1271,6 +1271,13 @@
           </label>
         </div>
 
+        <label class="campo">
+          <span>Chave Pix da filial (opcional)</span>
+          <input type="text" id="novaPix" maxlength="140" autocomplete="off" spellcheck="false"
+                 placeholder="CNPJ, e-mail, celular ou chave aleatória">
+          <small>Use uma chave vinculada à conta da própria farmácia. Ela será mostrada ao cliente ao finalizar um pedido Pix. Deixe vazio para não exibir chave.</small>
+        </label>
+
         <div class="campo-duplo">
           <label class="campo">
             <span>Responsável técnico</span>
@@ -8040,6 +8047,7 @@ async function criarFilial() {
         latitude: el("novaLat").value,
         longitude: el("novaLng").value,
         whatsapp: whatsappDaFilial(),
+        chavePix: el("novaPix").value.trim(),
         email: el("novaEmail").value,
         telefone: el("novaTelefone").value,
         farmaceutico: el("novaFarmaceutico").value,
@@ -8057,6 +8065,12 @@ async function criarFilial() {
     if (!r.ok) throw new Error(corpo.erro || `HTTP ${r.status}`);
 
     const avisos = await enviarMarcaDaFilial(slug);
+    if (el("novaPix").value.trim()) {
+      const leitura = await api("/lojas/" + encodeURIComponent(slug));
+      if (leitura.loja?.chave_pix !== el("novaPix").value.trim()) {
+        avisos.push("a chave Pix não foi confirmada (atualize o worker de pedidos)");
+      }
+    }
 
     await carregarLojas();
     avisoLojas(
@@ -8108,6 +8122,7 @@ const CAMPOS_FILIAL = [
   ["novaLat",           "latitude",          "latitude"],
   ["novaLng",           "longitude",         "longitude"],
   ["novaWhats",         "whatsapp",          "whatsapp"],
+  ["novaPix",           "chavePix",          "chave_pix"],
   ["novaEmail",         "email",             "email"],
   ["novaTelefone",      "telefone",          "telefone"],
   ["novaFarmaceutico",  "farmaceutico",      "farmaceutico"],
@@ -8309,6 +8324,9 @@ function limparFormularioDeFilial() {
 async function trocarModoDaFilial() {
 
   const slug = editandoFilial();
+  const botaoSalvar = el("btnCriarFilial");
+  botaoSalvar.disabled = !!slug;
+  el("novaPix").value = "";
 
   el("tituloFormFilial").textContent = slug
     ? "Editar filial" : "Cadastrar uma filial nova";
@@ -8343,6 +8361,7 @@ async function trocarModoDaFilial() {
   try {
 
     const { loja, horario } = await api("/lojas/" + encodeURIComponent(slug));
+    if (editandoFilial() !== slug) return;
 
     el("novaSlug").value = loja.slug;
 
@@ -8354,8 +8373,10 @@ async function trocarModoDaFilial() {
     });
 
     montarLinhasDeHorario(horario);
+    botaoSalvar.disabled = false;
 
   } catch (erro) {
+    if (editandoFilial() !== slug) return;
     avisoLojas("Não consegui ler a filial: " + erro.message);
     el("filialAlvo").value = "";
     trocarModoDaFilial();
@@ -8398,6 +8419,11 @@ async function salvarFilial() {
     /* A marca vai junto se alguém escolheu uma nova — é o mesmo campo
        do cadastro, e separá-la daria duas telas para a mesma edição. */
     const avisos = await enviarMarcaDaFilial(slug);
+    const leitura = await api("/lojas/" + encodeURIComponent(slug));
+    if (leitura.loja?.chave_pix !== corpo.chavePix.trim() &&
+        (corpo.chavePix.trim() || leitura.loja?.chave_pix !== undefined)) {
+      avisos.push("a chave Pix não foi confirmada (atualize o worker de pedidos)");
+    }
 
     await carregarLojas();
     el("filialAlvo").value = slug;

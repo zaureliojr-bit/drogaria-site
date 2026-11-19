@@ -4166,6 +4166,7 @@ function finalizar() {
     m += `\n${tipoEntrega === "Entrega" ? "🚚 Entrega" : "🏪 Retirada na loja"}`;
     if (enderecoTexto) m += `\n📍 ${enderecoTexto}`;
     m += `\n💳 ${pagamento}${trocoTexto}`;
+    if (pagamento === "Pix") m += "\nVou enviar o comprovante nesta conversa após conferir o valor e o destinatário.";
 
     if (itensControleEspecial.length) {
       m += `\n\n📋 *Item(ns) com receita neste pedido - envie a foto da receita aqui no WhatsApp antes da entrega:*`;
@@ -4206,8 +4207,9 @@ function finalizar() {
   // O mesmo pedido, com os itens em lista, para o histórico no D1. A
   // planilha continua recebendo o formato antigo: os dois convivem até o
   // painel ganhar confiança, e nenhum dos dois depende do outro.
+  let gravacaoD1 = Promise.resolve(null);
   if (API_PEDIDOS_D1) {
-    fetch(LojaAtual.api(API_PEDIDOS_D1, "/pedidos"), {
+    gravacaoD1 = fetch(LojaAtual.api(API_PEDIDOS_D1, "/pedidos"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -4250,7 +4252,10 @@ function finalizar() {
 
         })
       })
-    }).catch(err => console.error("Erro ao gravar no histórico:", err));
+    }).then(async resposta => {
+      if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+      return resposta.json();
+    }).catch(err => { console.error("Erro ao gravar no histórico:", err); return null; });
   }
 
   window.registrarEventoGA4?.("pedido_whatsapp");
@@ -4261,11 +4266,13 @@ function finalizar() {
     toast(`Pedido ${ref} enviado!`);
     limparCarrinho();
     mostrarPedidoEnviado(ref, itensControleEspecial.length > 0);
+    if (pagamento === "Pix") mostrarPixDoPedido(ref, gravacaoD1, totalGeral, tipoEntrega === "Entrega" && LOJA_SEM_COORDENADA, itensControleEspecial.length > 0, el("carrinhoConteudo")?.querySelector(".pedido-enviado"));
   } else {
     // pop-up bloqueado (comum no iOS): antes o carrinho era limpo aqui
     // e o cliente ficava sem pedido E sem carrinho.
     window.registrarDiagnosticoGA4?.("checkout_whatsapp_bloqueado");
     mostrarLinkPedido(url, ref);
+    if (pagamento === "Pix") mostrarPixDoPedido(ref, gravacaoD1, totalGeral, tipoEntrega === "Entrega" && LOJA_SEM_COORDENADA, itensControleEspecial.length > 0, el("linkPedido"));
   }
 }
 
@@ -4278,6 +4285,54 @@ function finalizar() {
    Aqui ele volta para uma página que confirma o número do pedido e diz o
    que acontece agora. O número importa: é a referência que casa a
    conversa do WhatsApp com a linha do painel da loja. */
+// Exibe os dados retornados pelo MESMO pedido aceito no D1. Nunca usa
+// chave em cache, nem a chave da loja principal como alternativa.
+async function mostrarPixDoPedido(ref, gravacaoD1, totalExibido, freteACombinar, temReceita, destino) {
+  if (!destino) return;
+  destino.querySelector(".pix-pedido")?.remove();
+  const caixa = document.createElement("section");
+  caixa.className = "pix-pedido";
+  caixa.setAttribute("aria-label", "Pagamento Pix");
+  caixa.innerHTML = '<h3>Pagamento via Pix</h3><p role="status">Consultando os dados de pagamento da sua farmácia...</p>';
+  destino.append(caixa);
+  const dados = await gravacaoD1;
+  if (!caixa.isConnected) return;
+  const pix = dados?.pix;
+  const slug = LojaAtual.slug();
+  if (!dados?.sucesso || dados.ref !== ref || !pix?.chave ||
+      (slug && pix.slug !== slug) || !/^55[1-9]\d{9,10}$/.test(pix.whatsapp || "")) {
+    caixa.querySelector("p").textContent = "Solicite a chave Pix e confirme o valor pelo WhatsApp da loja antes de pagar. Envie o comprovante na mesma conversa.";
+    return;
+  }
+  const total = Number(dados.total);
+  const conferido = Number.isFinite(total) && total > 0 && Math.abs(total - totalExibido) < 0.005 && !freteACombinar && !temReceita;
+  const link = "https://wa.me/" + pix.whatsapp + "?text=" + encodeURIComponent("Olá! Segue comprovante Pix do pedido " + ref + ".");
+  caixa.innerHTML = `
+    <h3>Pagamento via Pix</h3>
+    <p>Farmácia: <strong>${esc(pix.loja)}</strong></p>
+    <p>${conferido ? "Valor do pedido: <strong>" + esc(fmt(total)) + "</strong>." : "Confirme o valor final e a disponibilidade com a loja antes de pagar."}</p>
+    <label>Chave Pix da farmácia
+      <input type="text" readonly aria-label="Chave Pix" value="${esc(pix.chave)}">
+    </label>
+    <button type="button" class="btn-finalizar" data-copiar-pix>Copiar chave Pix</button>
+    <p role="status" data-pix-status>Envie o pedido no WhatsApp primeiro. Confira o nome do recebedor no seu banco e envie o comprovante depois de pagar. O pagamento não é confirmado automaticamente.</p>
+    <a class="btn-finalizar" href="${esc(link)}" target="_blank" rel="noopener">Enviar comprovante pelo WhatsApp</a>
+  `;
+  const campo = caixa.querySelector("input");
+  caixa.querySelector("[data-copiar-pix]").addEventListener("click", async () => {
+    const status = caixa.querySelector("[data-pix-status]");
+    try {
+      await navigator.clipboard.writeText(campo.value);
+      status.textContent = "Chave copiada! Confira o recebedor antes de pagar.";
+    } catch {
+      campo.focus();
+      campo.select();
+      campo.setSelectionRange(0, campo.value.length);
+      status.textContent = "Chave selecionada. Copie pelo menu do celular ou Ctrl+C.";
+    }
+  });
+}
+
 function mostrarPedidoEnviado(ref, temReceita) {
   const alvo = el("carrinhoConteudo");
   if (!alvo) return;

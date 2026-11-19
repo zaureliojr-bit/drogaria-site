@@ -3893,3 +3893,24 @@ body.com-folha { overflow: hidden; }
 @media (max-width: 639px) {
   .sin-linha { grid-template-columns: 1fr; }
 }
+
+
+/* Instruções Pix do pedido registrado. */
+.pix-pedido {
+  border: 1px solid #b7d8bf;
+  background: #f1fbf3;
+  color: #183b23;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+  text-align: left;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.pix-pedido h3 { margin: 0; font-size: 17px; }
+.pix-pedido p { margin: 0 !important; color: #183b23; }
+.pix-pedido label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.pix-pedido input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #a7c4ac; border-radius: 8px; background: #fff; color: #183b23; font-size: 14px; }
+.pix-pedido .btn-finalizar { width: 100%; box-sizing: border-box; text-decoration: none; margin: 0; }
