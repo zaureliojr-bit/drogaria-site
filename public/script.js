@@ -4166,7 +4166,7 @@ function finalizar() {
     m += `\n${tipoEntrega === "Entrega" ? "🚚 Entrega" : "🏪 Retirada na loja"}`;
     if (enderecoTexto) m += `\n📍 ${enderecoTexto}`;
     m += `\n💳 ${pagamento}${trocoTexto}`;
-    if (pagamento === "Pix") m += "\nVou enviar o comprovante nesta conversa após conferir o valor e o destinatário.";
+    if (pagamento === "Pix") m += "\nPagamento via Pix; comprovante a enviar nesta conversa."
 
     if (itensControleEspecial.length) {
       m += `\n\n📋 *Item(ns) com receita neste pedido - envie a foto da receita aqui no WhatsApp antes da entrega:*`;
@@ -4201,18 +4201,7 @@ function finalizar() {
     }).join(" | ")
   };
 
-  fetch(API_PEDIDOS, { method: "POST", body: JSON.stringify(pedido) })
-    .catch(err => console.error("Erro ao salvar pedido:", err));
-
-  // O mesmo pedido, com os itens em lista, para o histórico no D1. A
-  // planilha continua recebendo o formato antigo: os dois convivem até o
-  // painel ganhar confiança, e nenhum dos dois depende do outro.
-  let gravacaoD1 = Promise.resolve(null);
-  if (API_PEDIDOS_D1) {
-    gravacaoD1 = fetch(LojaAtual.api(API_PEDIDOS_D1, "/pedidos"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+  const dadosD1 = {
         ref,
         cliente: nome,
         telefone,
@@ -4251,29 +4240,43 @@ function finalizar() {
           };
 
         })
-      })
-    }).then(async resposta => {
-      if (!resposta.ok) throw new Error("HTTP " + resposta.status);
-      return resposta.json();
-    }).catch(err => { console.error("Erro ao gravar no histórico:", err); return null; });
-  }
+      };
+  let enviado = false;
+  const enviarPedido = (pagamentoDeclarado = false) => {
+    if (enviado) return;
+    enviado = true;
+    if (pagamentoDeclarado) {
+      msg += "\n\nCliente informa que realizou o Pix. Comprovante será anexado nesta conversa; aguardar conferência da loja.";
+    }
+    fetch(API_PEDIDOS, { method: "POST", body: JSON.stringify(pedido) })
+      .catch(err => console.error("Erro ao salvar pedido:", err));
+    let gravacaoD1 = Promise.resolve(null);
+    if (API_PEDIDOS_D1) {
+      gravacaoD1 = fetch(LojaAtual.api(API_PEDIDOS_D1, "/pedidos"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dadosD1)
+      }).then(async resposta => {
+        if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+        return resposta.json();
+      }).catch(err => { console.error("Erro ao gravar no histórico:", err); return null; });
+    }
+    window.registrarEventoGA4?.("pedido_whatsapp");
+    const { url, abriu } = abrirWhatsApp(msg);
+    if (abriu) {
+      window.registrarDiagnosticoGA4?.("checkout_whatsapp_aberto");
+      toast(`Pedido ${ref} enviado!`);
+      limparCarrinho();
+      mostrarPedidoEnviado(ref, itensControleEspecial.length > 0);
+    } else {
+      window.registrarDiagnosticoGA4?.("checkout_whatsapp_bloqueado");
+      mostrarLinkPedido(url, ref);
+    }
+  };
+  if (pagamento !== "Pix") return enviarPedido();
+  if (document.getElementById("etapaPix")) return;
+  abrirEtapaPix(dadosD1, tipoEntrega === "Entrega" && LOJA_SEM_COORDENADA, enviarPedido);
 
-  window.registrarEventoGA4?.("pedido_whatsapp");
-  const { url, abriu } = abrirWhatsApp(msg);
-
-  if (abriu) {
-    window.registrarDiagnosticoGA4?.("checkout_whatsapp_aberto");
-    toast(`Pedido ${ref} enviado!`);
-    limparCarrinho();
-    mostrarPedidoEnviado(ref, itensControleEspecial.length > 0);
-    if (pagamento === "Pix") mostrarPixDoPedido(ref, gravacaoD1, totalGeral, tipoEntrega === "Entrega" && LOJA_SEM_COORDENADA, itensControleEspecial.length > 0, el("carrinhoConteudo")?.querySelector(".pedido-enviado"));
-  } else {
-    // pop-up bloqueado (comum no iOS): antes o carrinho era limpo aqui
-    // e o cliente ficava sem pedido E sem carrinho.
-    window.registrarDiagnosticoGA4?.("checkout_whatsapp_bloqueado");
-    mostrarLinkPedido(url, ref);
-    if (pagamento === "Pix") mostrarPixDoPedido(ref, gravacaoD1, totalGeral, tipoEntrega === "Entrega" && LOJA_SEM_COORDENADA, itensControleEspecial.length > 0, el("linkPedido"));
-  }
 }
 
 /* Tela de "deu certo", só na página do carrinho.
@@ -4285,52 +4288,71 @@ function finalizar() {
    Aqui ele volta para uma página que confirma o número do pedido e diz o
    que acontece agora. O número importa: é a referência que casa a
    conversa do WhatsApp com a linha do painel da loja. */
-// Exibe os dados retornados pelo MESMO pedido aceito no D1. Nunca usa
-// chave em cache, nem a chave da loja principal como alternativa.
-async function mostrarPixDoPedido(ref, gravacaoD1, totalExibido, freteACombinar, temReceita, destino) {
-  if (!destino) return;
-  destino.querySelector(".pix-pedido")?.remove();
-  const caixa = document.createElement("section");
-  caixa.className = "pix-pedido";
-  caixa.setAttribute("aria-label", "Pagamento Pix");
-  caixa.innerHTML = '<h3>Pagamento via Pix</h3><p role="status">Consultando os dados de pagamento da sua farmácia...</p>';
-  destino.append(caixa);
-  const dados = await gravacaoD1;
-  if (!caixa.isConnected) return;
-  const pix = dados?.pix;
-  const slug = LojaAtual.slug();
-  if (!dados?.sucesso || dados.ref !== ref || !pix?.chave ||
-      (slug && pix.slug !== slug) || !/^55[1-9]\d{9,10}$/.test(pix.whatsapp || "")) {
-    caixa.querySelector("p").textContent = "Solicite a chave Pix e confirme o valor pelo WhatsApp da loja antes de pagar. Envie o comprovante na mesma conversa.";
-    return;
-  }
-  const total = Number(dados.total);
-  const conferido = Number.isFinite(total) && total > 0 && Math.abs(total - totalExibido) < 0.005 && !freteACombinar && !temReceita;
-  const link = "https://wa.me/" + pix.whatsapp + "?text=" + encodeURIComponent("Olá! Segue comprovante Pix do pedido " + ref + ".");
-  caixa.innerHTML = `
-    <h3>Pagamento via Pix</h3>
-    <p>Farmácia: <strong>${esc(pix.loja)}</strong></p>
-    <p>${conferido ? "Valor do pedido: <strong>" + esc(fmt(total)) + "</strong>." : "Confirme o valor final e a disponibilidade com a loja antes de pagar."}</p>
-    <label>Chave Pix da farmácia
-      <input type="text" readonly aria-label="Chave Pix" value="${esc(pix.chave)}">
-    </label>
-    <button type="button" class="btn-finalizar" data-copiar-pix>Copiar chave Pix</button>
-    <p role="status" data-pix-status>Envie o pedido no WhatsApp primeiro. Confira o nome do recebedor no seu banco e envie o comprovante depois de pagar. O pagamento não é confirmado automaticamente.</p>
-    <a class="btn-finalizar" href="${esc(link)}" target="_blank" rel="noopener">Enviar comprovante pelo WhatsApp</a>
-  `;
-  const campo = caixa.querySelector("input");
-  caixa.querySelector("[data-copiar-pix]").addEventListener("click", async () => {
-    const status = caixa.querySelector("[data-pix-status]");
+// O pedido só é gravado e o WhatsApp só abre no botão da terceira etapa.
+async function abrirEtapaPix(pedido, freteACombinar, enviarPedido) {
+  const dialog = document.createElement("dialog");
+  dialog.id = "etapaPix";
+  dialog.setAttribute("aria-label", "Pagamento via Pix");
+  dialog.style.cssText = "width:min(520px,92vw);max-height:90vh;border:0;border-radius:16px;padding:16px;box-sizing:border-box;overflow:auto";
+  dialog.innerHTML = '<section class="pix-pedido" style="margin:0"><p>Etapa 2 de 3 · Pagamento</p><h3>Pagamento via Pix</h3><p role="status">Consultando a farmácia...</p><button type="button" data-voltar>Voltar ao carrinho</button></section>';
+  document.body.append(dialog);
+  const fechar = () => { dialog.close(); dialog.remove(); };
+  const voltar = () => {
+    if (dialog.dataset.chaveExibida && !window.confirm("Se você já pagou, não volte: envie o pedido e o comprovante à loja. Voltar mesmo assim?")) return;
+    fechar();
+  };
+  dialog.addEventListener("cancel", e => { e.preventDefault(); voltar(); });
+  dialog.querySelector("[data-voltar]").onclick = voltar;
+  dialog.showModal();
+  const caixa = dialog.querySelector("section");
+  let resposta = null;
+  if (API_PEDIDOS_D1 && !freteACombinar && !pedido.temReceita) {
     try {
-      await navigator.clipboard.writeText(campo.value);
-      status.textContent = "Chave copiada! Confira o recebedor antes de pagar.";
-    } catch {
-      campo.focus();
-      campo.select();
-      campo.setSelectionRange(0, campo.value.length);
-      status.textContent = "Chave selecionada. Copie pelo menu do celular ou Ctrl+C.";
-    }
-  });
+      const r = await fetch(LojaAtual.api(API_PEDIDOS_D1, "/pedidos/pix"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pedido),
+        cache: "no-store"
+      });
+      if (r.ok) resposta = await r.json();
+    } catch (erro) { console.error("Prévia Pix:", erro); }
+  }
+  if (!dialog.isConnected) return;
+  const pix = resposta?.pix;
+  const total = Number(resposta?.total);
+  const slug = LojaAtual.slug();
+  const valido = resposta?.sucesso && resposta.ref === pedido.ref &&
+    !!slug && pix?.slug === slug && pix.chave && pix.whatsapp === String(WHATS_LOJA).replace(/\D/g, "") &&
+    /^55[1-9]\d{9,10}$/.test(pix.whatsapp || "") &&
+    Number.isFinite(total) && total > 0 && Math.abs(total - pedido.total) < 0.005;
+  if (valido) {
+    dialog.dataset.chaveExibida = "1";
+    caixa.innerHTML = `
+      <p>Etapa 2 de 3 · Pagamento</p>
+      <h3>Pagamento via Pix</h3>
+      <p>Farmácia: <strong>${esc(pix.loja)}</strong></p>
+      <p>Valor do pedido: <strong>${esc(fmt(total))}</strong></p>
+      <label>Chave Pix da farmácia<input type="text" readonly value="${esc(pix.chave)}"></label>
+      <button type="button" class="btn-finalizar" data-copiar>Copiar chave Pix</button>
+      <p role="status" data-status>Confira o recebedor e o valor no banco. A loja ainda precisa confirmar o estoque e o pagamento; o Pix não é confirmado automaticamente.</p>
+      ${pedido.cupom ? '<p>Cupons podem expirar. Em caso de diferença de valor, solicite a regularização à loja.</p>' : ''}
+      <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-confirma style="width:auto"> Já realizei o Pix e vou enviar o comprovante.</label>
+      <button type="button" class="btn-finalizar" data-enviar disabled>3 · Enviar pedido pelo WhatsApp</button>
+      <button type="button" data-voltar>Voltar ao carrinho</button>`;
+    const campo = caixa.querySelector("input[readonly]");
+    caixa.querySelector("[data-copiar]").onclick = async () => {
+      try { await navigator.clipboard.writeText(campo.value); caixa.querySelector("[data-status]").textContent = "Chave copiada. Confira o recebedor antes de pagar."; }
+      catch { campo.focus(); campo.select(); campo.setSelectionRange(0, campo.value.length); }
+    };
+    const confirma = caixa.querySelector("[data-confirma]");
+    const botao = caixa.querySelector("[data-enviar]");
+    confirma.onchange = () => { botao.disabled = !confirma.checked; };
+    botao.onclick = () => { if (!confirma.checked) return; fechar(); enviarPedido(true); };
+  } else {
+    caixa.innerHTML = '<p>Etapa 2 de 3 · Pagamento</p><h3>Pix a confirmar</h3><p>Não foi possível confirmar os dados ou o valor do Pix agora. Não pague antes de falar com a farmácia.</p><button type="button" class="btn-finalizar" data-enviar>3 · Enviar pedido para confirmar o Pix</button><button type="button" data-voltar>Voltar ao carrinho</button>';
+    caixa.querySelector("[data-enviar]").onclick = () => { fechar(); enviarPedido(false); };
+  }
+  caixa.querySelector("[data-voltar]").onclick = voltar;
 }
 
 function mostrarPedidoEnviado(ref, temReceita) {
