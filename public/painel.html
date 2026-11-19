@@ -2180,6 +2180,13 @@
         <span class="pedido-quando" id="explicaFiltroFoto"></span>
       </div>
 
+      <div class="fila-topo">
+        <button type="button" id="buscarLoteCatalogo" class="btn-testar-som" disabled>Buscar imagens em lote</button>
+        <button type="button" id="pararLoteCatalogo" class="btn-apagar-produto" hidden>Parar</button>
+        <span class="pedido-quando" id="statusLoteCatalogo" role="status">Busca automática pela lista filtrada (exceto tarjados e itens sem EAN).</span>
+      </div>
+      <progress id="progressoLoteCatalogo" value="0" max="1" hidden style="width:100%"></progress>
+      <div id="avisoLoteCatalogo"></div>
       <div class="tabela-wrap" id="semImagem"></div>
 
     </div><!-- /abaCatalogo -->
@@ -6664,6 +6671,11 @@ async function renderizarSemImagem({ manterPagina = false } = {}) {
     ? ""
     : `${semImagem.length} de ${todosSemImagem.length}. ${EXPLICA[filtro]}`;
 
+  const elegiveis = produtosParaBuscaLote(semImagem);
+  el("buscarLoteCatalogo").disabled = loteCatalogoRodando || !elegiveis.length;
+  el("buscarLoteCatalogo").textContent = loteCatalogoRodando
+    ? "Buscando..." : `Buscar imagens em lote (${elegiveis.length})`;
+
   const pagina = manterPagina ? (_tabelas.get("semImagem")?.pagina ?? 0) : 0;
   tabelaPaginada(
     "semImagem",
@@ -6676,6 +6688,88 @@ async function renderizarSemImagem({ manterPagina = false } = {}) {
 }
 
 el("filtroTarjaFoto").addEventListener("change", () => { renderizarSemImagem().catch(() => {}); });
+
+let loteCatalogoRodando = false;
+let pararLoteCatalogoPedido = false;
+
+function produtosParaBuscaLote(produtos) {
+  const porEan = new Map();
+  const protegidos = new Set([...(catalogo?.values() || [])]
+    .filter(p => p.imagem || classeDeTarja(p) === "tarjado")
+    .map(p => String(p.ean || "").trim()));
+  for (const p of produtos) {
+    const ean = String(p.ean || "").trim();
+    if (protegidos.has(ean) || p.imagem || !/^\d{8,14}$/.test(ean) || classeDeTarja(p) === "tarjado") continue;
+    if (!porEan.has(ean)) porEan.set(ean, { ...p, ean });
+  }
+  return [...porEan.values()];
+}
+
+async function buscarLoteDoCatalogo() {
+  if (loteCatalogoRodando) return;
+  loteCatalogoRodando = true;
+  pararLoteCatalogoPedido = false;
+  const loja = lojaAtual;
+  const botao = el("buscarLoteCatalogo");
+  const filtro = el("filtroTarjaFoto");
+  const status = el("statusLoteCatalogo");
+  const barra = el("progressoLoteCatalogo");
+  const aviso = el("avisoLoteCatalogo");
+  botao.disabled = true;
+  filtro.disabled = true;
+  aviso.textContent = "";
+  try {
+    const cat = await carregarCatalogo();
+    await carregarTarjas();
+    const fila = produtosParaBuscaLote([...cat.values()].filter(
+      p => filtro.value === "todos" || classeDeTarja(p) === filtro.value
+    ));
+    if (!fila.length || loja !== lojaAtual) return;
+    if (!confirm(`Buscar e salvar automaticamente imagens para ${fila.length} produtos do filtro atual? Confira as fotos depois; são selecionadas automaticamente.\n\nAs fotos ficam no banco de imagens e aparecem no site na próxima atualização do catálogo.`)) return;
+    const { buscarImagensCatalogoEmLote } = await import(URL_IMPORTADOR);
+    if (typeof buscarImagensCatalogoEmLote !== "function") {
+      throw new Error("Atualize a versão publicada do padronizador para habilitar a busca em lote.");
+    }
+    if (loja !== lojaAtual) return;
+    el("pararLoteCatalogo").hidden = false;
+    barra.hidden = false;
+    botao.textContent = "Buscando...";
+    const relatorio = await buscarImagensCatalogoEmLote(fila, {
+      deveContinuar: () => !pararLoteCatalogoPedido && loja === lojaAtual,
+      onProgresso: ({ total, concluidos, sucesso, semResultado, falha }) => {
+        barra.max = total || 1;
+        barra.value = concluidos;
+        status.textContent = `${concluidos} de ${total} — ${sucesso} salvas, ${semResultado} sem resultado, ${falha} falharam.`;
+      },
+      onProdutoResolvido: ({ ean, imagem }) => {
+        for (const p of cat.values()) {
+          if (String(p.ean).trim() === ean && !p.imagem && classeDeTarja(p) !== "tarjado") p.imagem = imagem;
+        }
+      }
+    });
+    aviso.className = relatorio.falha ? "erro" : "aviso-ok";
+    aviso.textContent = `${relatorio.sucesso} fotos salvas no banco de imagens; ${relatorio.semResultado} sem resultado; ${relatorio.falha} falharam.` +
+      (relatorio.concluidos < relatorio.total ? " Busca interrompida; os itens restantes podem ser buscados novamente." : "") +
+      " As fotos aparecem no site na próxima atualização do catálogo." +
+      (relatorio.erros.length ? " Último erro: " + relatorio.erros.at(-1).erro : "");
+  } catch (erro) {
+    aviso.className = "erro";
+    aviso.textContent = erro.message || "Não foi possível buscar imagens.";
+  } finally {
+    loteCatalogoRodando = false;
+    filtro.disabled = false;
+    el("pararLoteCatalogo").hidden = true;
+    el("pararLoteCatalogo").disabled = false;
+    await renderizarSemImagem({ manterPagina: true });
+    filtrarBuscaImagem().catch(() => {});
+  }
+}
+
+el("buscarLoteCatalogo").addEventListener("click", () => buscarLoteDoCatalogo().catch(() => {}));
+el("pararLoteCatalogo").addEventListener("click", () => {
+  pararLoteCatalogoPedido = true;
+  el("pararLoteCatalogo").disabled = true;
+});
 
 // Busca geral (código, nome ou EAN) pra trocar a imagem de qualquer
 // produto já cadastrado, não só quem está sem foto nenhuma.
