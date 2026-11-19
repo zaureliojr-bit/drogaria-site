@@ -386,6 +386,13 @@
     flex: 1 1 130px; min-width: 0; max-width: 100%; padding: 6px 10px;
     border: 1.5px solid var(--linha); border-radius: var(--raio-botao); font-size: 12px;
   }
+  .busca-foto-catalogo { width: min(720px, 92vw); max-height: 85vh; overflow: auto; border: 1px solid var(--borda, #ddd); border-radius: 14px; padding: 20px; color: inherit; background: var(--papel, #fff); }
+  .busca-foto-catalogo::backdrop { background: #0008; }
+  .busca-foto-catalogo .galeria-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 12px 0; }
+  .busca-foto-catalogo .galeria-fotos button { border: 2px solid #ddd; border-radius: 10px; background: white; padding: 5px; cursor: pointer; }
+  .busca-foto-catalogo .galeria-fotos button[aria-pressed="true"] { border-color: #2449c1; outline: 2px solid #2449c1; }
+  .busca-foto-catalogo .galeria-fotos img { width: 100%; height: 110px; object-fit: contain; }
+  .busca-foto-catalogo input { width: 100%; margin: 8px 0; }
   .editor-imagem-status { font-size: 11.5px; color: var(--tinta-suave); white-space: normal; overflow-wrap: anywhere; }
   .editor-imagem-status[data-ok="1"] { color: var(--ok); }
   .editor-imagem-status[data-erro="1"] { color: var(--erro); }
@@ -6349,7 +6356,7 @@ async function conferirSubdominios(lojas) {
         botao.title = link;
     });
 }
-const URL_IMPORTADOR = PADRONIZADOR_URL + "/importador-automatico.js";
+const URL_IMPORTADOR = PADRONIZADOR_URL + "/importador-automatico.js?v=20261119-2";
 
 /* O padronizador roda no quadro ao lado e precisa escrever no catálogo
    (salvar imagem, publicar). Ele não carrega mais chave de worker
@@ -6464,6 +6471,7 @@ function linhaEditorImagem(p) {
   const editor = p.ean
     ? `<div class="editor-imagem">
         ${miniatura}
+        <button type="button" class="btn-testar-som" data-buscar-foto="${esc(p.codigo)}">🔍 Buscar</button>
         <input type="url" placeholder="Link HTTPS da imagem" aria-label="Link da imagem de ${esc(p.nome)}" data-url-imagem="${esc(p.ean)}">
         <button type="button" class="btn-testar-som" data-salvar-imagem="${esc(p.ean)}">Salvar</button>
         <span class="editor-imagem-status" role="status" data-status-imagem="${esc(p.ean)}"></span>
@@ -6478,7 +6486,7 @@ function linhaEditorImagem(p) {
   // tinham como ser apagados.
   const apagar = `<button type="button" class="btn-apagar-produto"
         data-apagar-produto="${esc(p.ean || "")}" data-codigo-produto="${esc(p.codigo)}" data-nome-produto="${esc(p.nome)}"
-      >Apagar</button>`;
+      >Excluir produto</button>`;
 
   return [esc(p.codigo), esc(p.nome), esc(p.marca), editor, apagar];
 
@@ -6572,14 +6580,111 @@ async function apagarProdutoClicado(botao) {
 
     alert("Não consegui apagar: " + erro.message);
     botao.disabled = false;
-    botao.textContent = "Apagar";
+    botao.textContent = "Excluir produto";
 
   }
 
 }
 
+// Busca individual com revisão humana e alternativa manual, mesmo quando
+// o bundle do padronizador ainda não exporta a função nova.
+async function buscarFotoIndividual(botao) {
+  const loja = lojaAtual;
+  const cat = await carregarCatalogo();
+  const produto = cat.get(botao.dataset.buscarFoto);
+  if (!produto?.ean || loja !== lojaAtual || !botao.isConnected) return;
+  const linha = botao.closest(".editor-imagem");
+  const dialogo = document.createElement("dialog");
+  dialogo.className = "busca-foto-catalogo";
+  dialogo.setAttribute("aria-label", "Buscar imagem do produto");
+  dialogo.innerHTML = `<h2>Buscar imagem</h2>
+    <p data-produto></p>
+    <p role="status" data-status>Buscando sugestões...</p>
+    <div class="galeria-fotos" data-galeria></div>
+    <a data-google target="_blank" rel="noopener noreferrer">🔍 Buscar manualmente no Google Imagens</a>
+    <label style="display:block;margin-top:12px">Link HTTPS da imagem
+      <input type="url" data-url placeholder="Cole a URL da imagem ou selecione uma sugestão">
+    </label>
+    <div class="fila-topo">
+      <button type="button" class="btn-testar-som" data-confirmar>Salvar imagem</button>
+      <button type="button" class="btn-testar-som" data-fechar>Fechar</button>
+    </div>`;
+  const q = sel => dialogo.querySelector(sel);
+  const url = q("[data-url]");
+  const status = q("[data-status]");
+  q("[data-produto]").textContent = produto.nome + " · EAN " + produto.ean;
+  q("[data-google]").href = "https://www.google.com/search?tbm=isch&q=" + encodeURIComponent(produto.ean + " " + produto.nome);
+  url.value = linha.querySelector("[data-url-imagem]").value;
+  q("[data-fechar]").onclick = () => dialogo.close();
+  dialogo.addEventListener("close", () => dialogo.remove(), { once: true });
+  function imagemValida(valor) {
+    try { return new URL(valor).protocol === "https:"; } catch { return false; }
+  }
+  q("[data-confirmar]").onclick = () => {
+    if (!imagemValida(url.value.trim())) {
+      status.textContent = "Informe um link HTTPS válido da imagem.";
+      return;
+    }
+    if (loja !== lojaAtual || !linha.isConnected) {
+      status.textContent = "O catálogo mudou. Feche e abra a busca novamente.";
+      return;
+    }
+    const input = linha.querySelector("[data-url-imagem]");
+    const salvar = linha.querySelector("[data-salvar-imagem]");
+    if (salvar.disabled) {
+      status.textContent = "O produto já está sendo salvo. Aguarde.";
+      return;
+    }
+    input.value = url.value.trim();
+    dialogo.close();
+    salvarImagemDoEditor(salvar);
+  };
+  url.addEventListener("keydown", ev => {
+    if (ev.key === "Enter") { ev.preventDefault(); q("[data-confirmar]").click(); }
+  });
+  document.body.append(dialogo);
+  dialogo.showModal();
+  try {
+    const { buscarImagemCatalogo } = await import(URL_IMPORTADOR);
+    if (typeof buscarImagemCatalogo !== "function") {
+      status.textContent = "Sugestões ainda indisponíveis; você pode buscar no Google e colar o link.";
+      return;
+    }
+    const resultado = await buscarImagemCatalogo(produto);
+    if (!dialogo.open) return;
+    const imagens = [...new Set(resultado.imagens || [])].filter(imagemValida).slice(0, 30);
+    status.textContent = imagens.length
+      ? "Selecione a foto correta (" + resultado.origem + ") ou cole outro link."
+      : "Nenhuma sugestão encontrada. Use a busca manual abaixo.";
+    const galeria = q("[data-galeria]");
+    for (const [i, foto] of imagens.entries()) {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.setAttribute("aria-label", "Selecionar imagem " + (i + 1));
+      card.setAttribute("aria-pressed", "false");
+      const img = document.createElement("img");
+      img.src = foto;
+      img.alt = "Imagem " + (i + 1);
+      img.loading = "lazy";
+      img.referrerPolicy = "no-referrer";
+      img.onerror = () => card.remove();
+      card.append(img);
+      card.onclick = () => {
+        for (const b of galeria.children) b.setAttribute("aria-pressed", "false");
+        card.setAttribute("aria-pressed", "true");
+        url.value = foto;
+      };
+      galeria.append(card);
+    }
+  } catch {
+    if (dialogo.open) status.textContent = "Não foi possível buscar sugestões. Use a busca manual abaixo.";
+  }
+}
+
 ["semImagem", "buscaImagemResultado"].forEach((id) => {
   el(id).addEventListener("click", (ev) => {
+    const buscarFoto = ev.target.closest("[data-buscar-foto]");
+    if (buscarFoto) return buscarFotoIndividual(buscarFoto).catch(erro => alert(erro.message));
     const salvar = ev.target.closest("[data-salvar-imagem]");
     if (salvar) return salvarImagemDoEditor(salvar);
     const apagar = ev.target.closest("[data-apagar-produto]");
