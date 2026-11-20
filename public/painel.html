@@ -2174,8 +2174,8 @@
 
       <h2 style="margin-top:22px">Fotos pela listagem da distribuidora</h2>
       <div class="fila-topo">
-        <span class="pedido-quando" id="statusDpc">A listagem da DPCNET est&aacute; no servidor &mdash; ela cobre boa parte da perfumaria e da higiene.</span>
-        <button type="button" id="importarDpc" class="btn-testar-som" hidden>Importar planilha DPCNET</button>
+        <span class="pedido-quando" id="statusDpc">Importe a lista DPCNET ou Solfarma para completar as fotos sem substituir as existentes.</span>
+        <button type="button" id="importarDpc" class="btn-testar-som" hidden>Importar DPCNET / Solfarma</button>
         <input type="file" id="arquivoDpc" accept=".xlsx,.xls" hidden>
         <button type="button" id="procurarDpc" class="btn-testar-som">Procurar</button>
         <button type="button" id="aplicarDpc" class="btn-testar-som" hidden>Aplicar</button>
@@ -6978,8 +6978,9 @@ function lerLinhasDpc(livro) {
       let imagem = "";
       try {
         const url = new URL(campo("IMAGEM"));
-        if (url.protocol === "https:" && url.hostname === "img.dpcnet.com.br" &&
-            !url.port && !url.username && !url.password && url.pathname.startsWith("/catalogo/")) imagem = url.href;
+        if (url.protocol === "https:" && !url.port && !url.username && !url.password &&
+            ((url.hostname === "img.dpcnet.com.br" && url.pathname.startsWith("/catalogo/")) ||
+             (url.hostname === "arquivos.solfarma.com.br" && /^\/loja\/imagens\/produto\/grande\/\d+_000\.(?:png|jpe?g|webp)$/i.test(url.pathname)))) imagem = url.href;
       } catch {}
       const anterior = porEan[ean];
       porEan[ean] = { descricao, categoria: campo("CATEGORIA"), subcategoria: campo("SUBCATEGORIA"),
@@ -7017,7 +7018,7 @@ async function importarPlanilhaDpc(arquivo) {
     const total = Object.keys(novos).length;
     const comFoto = Object.values(novos).filter(p => p.imagem).length;
     if (loja !== lojaAtual || !souDono) throw new Error("A filial foi alterada. Tente novamente.");
-    if (!confirm(`Importar ${total.toLocaleString("pt-BR")} EANs da DPCNET (${comFoto.toLocaleString("pt-BR")} com link de imagem) para a base compartilhada?`)) return;
+    if (!confirm(`Importar ${total.toLocaleString("pt-BR")} EANs da distribuidora (${comFoto.toLocaleString("pt-BR")} com link de imagem) para a base compartilhada?`)) return;
     await enviarPublicacao("/catalogo/referencia/distribuidor", {
       versao: 1, importadoEm: new Date().toISOString(), arquivo: arquivo.name,
       totalLinhas: Object.keys(unidos).length, porEan: unidos
@@ -7064,7 +7065,7 @@ async function procurarFotosDpc() {
     if (!lista.total) {
       el("statusDpc").textContent = "Nenhuma listagem de distribuidora no servidor ainda.";
       avisoDpc(
-        "Importe a planilha no botão Importar planilha DPCNET — " +
+        "Importe a planilha no botão Importar DPCNET / Solfarma — " +
         "ela fica no servidor e vale para todas as lojas.",
         "erro"
       );
@@ -7189,7 +7190,14 @@ async function aplicarFotosDpc() {
 
       try {
 
-        const resultado = imagensJaSalvas.get(String(item.ean)) || await salvarImagemDaDistribuidora(item.ean, item.url);
+        let resultado = imagensJaSalvas.get(String(item.ean));
+        if (!resultado) {
+          const origem = new URL(item.url).hostname === "arquivos.solfarma.com.br" ? "solfarma" : "dpcnet";
+          resultado = origem === "solfarma"
+            ? await enviarPublicacao("/catalogo/imagem", { ean: String(item.ean), url: item.url, origem }, loja)
+            : await salvarImagemDaDistribuidora(item.ean, item.url);
+          if (!resultado?.url) throw new Error("A imagem não foi confirmada pelo servidor.");
+        }
 
         // Mantém o catálogo em memória junto, senão a lista "sem
         // imagem" aí embaixo continua mostrando quem já tem foto.
