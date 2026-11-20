@@ -972,6 +972,11 @@
     body.painel-menu-aberto { overflow:hidden; }
   }
   @media(prefers-reduced-motion:reduce) { .painel-sidebar { transition:none; } }
+  .painel-topo .painel-btn-sair { display:inline-flex; align-items:center; justify-content:center; min-height:36px; padding:7px 12px; border:1px solid rgba(255,255,255,.45); border-radius:var(--raio-sm); background:transparent; color:var(--branco); font:inherit; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .painel-topo .painel-btn-sair[hidden] { display:none !important; }
+  .painel-topo .painel-btn-sair:hover { background:rgba(255,255,255,.12); }
+  .painel-topo .painel-btn-sair:focus-visible { outline:2px solid var(--branco); outline-offset:2px; }
+  @media(max-width:800px) { .painel-topo .painel-btn-sair, .painel-menu-toggle:not([hidden]) { min-height:36px; padding:7px 12px; } }
 </style>
 </head>
 
@@ -1041,7 +1046,7 @@
   </div>
   <div class="painel-topo-acoes">
     <button type="button" id="btnMenuPainel" class="painel-menu-toggle" aria-controls="painelSidebar" aria-expanded="false" hidden>☰ Menu</button>
-    <button type="button" id="btnSair" hidden>Sair</button>
+    <button type="button" id="btnSair" class="painel-btn-sair" hidden>Sair</button>
     <button type="button" id="btnInstalar" class="btn-instalar-painel" hidden>Instalar no computador</button>
     <a id="verSite" href="https://drogaria-site.pages.dev">← Ver o site</a>
   </div>
