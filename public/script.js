@@ -517,6 +517,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     timeoutBusca = setTimeout(() => {
       termoBusca = normalizar(valor);
+      if (termoBusca) { categoriaAtual = "todas"; subcategoriaAtual = "todas"; marcarChipAtivo("todas"); }
       modoOfertas = false;
       produtosDaOferta = null;
       aplicarFiltro();
@@ -525,6 +526,15 @@ document.addEventListener("DOMContentLoaded", () => {
          estar certo nesse instante, que é quando a atendente copia. */
       sincronizarEndereco();
     }, 300);
+  });
+
+  el("busca")?.addEventListener("focus", e => mostrarSugestoes(e.target.value));
+  el("sugestoes")?.addEventListener("click", e => {
+    const limpar = e.target.closest("[data-limpar-historico]");
+    if (limpar) { try { sessionStorage.removeItem(chaveHistoricoBusca()); } catch {} fecharSugestoes(); return; }
+    const antigo = e.target.closest("[data-historico-busca]");
+    if (antigo) { el("busca").value = antigo.dataset.historicoBusca; buscar(); return; }
+    if (e.target.closest("a.sugestao")) guardarHistoricoBusca(el("busca")?.value);
   });
 
   /* Fechar a lista: tocar fora, e Esc.
@@ -2264,39 +2274,44 @@ function fecharSugestoes() {
   el("busca")?.setAttribute("aria-expanded", "false");
 }
 
+function chaveHistoricoBusca() { return "busca-recente:" + (LojaAtual.slug() || location.hostname); }
+function historicoBusca() {
+  try { const dados = JSON.parse(sessionStorage.getItem(chaveHistoricoBusca()) || "[]"); return Array.isArray(dados) ? dados.filter(v => typeof v === "string").slice(0,6) : []; } catch { return []; }
+}
+function guardarHistoricoBusca(valor) {
+  const termo = String(valor || "").trim().slice(0,120);
+  if (termo.length < 2) return;
+  try { sessionStorage.setItem(chaveHistoricoBusca(), JSON.stringify([termo, ...historicoBusca().filter(t=>normalizar(t)!==normalizar(termo))].slice(0,6))); } catch {}
+}
+
 function mostrarSugestoes(valor) {
-
   const caixa = el("sugestoes");
-  if (!caixa) return;
-
-  const lista = Busca.sugerir(produtos, valor, { limite: 6 });
-
-  if (!lista.length) return fecharSugestoes();
-
-  caixa.innerHTML = lista.map((item) => {
-
-    const partes = Busca.partesDoDestaque(item.nome, valor);
-
-    /* O trecho digitado vem em <b> para a pessoa enxergar por que
-       aquela linha está ali. Tudo escapado: nome de produto vem do
-       cadastro da farmácia, não daqui. */
-    const nome = `${esc(partes.antes)}<b>${esc(partes.meio)}</b>${esc(partes.depois)}`;
-
-    /* Link de verdade, com href: abre em nova aba, copia endereço e
-       continua funcionando se o script falhar. Mesma rota do card. */
-    return `<li role="option">
-      <a class="sugestao" href="${esc(urlProduto(item))}">
-        <svg class="ic" width="14" height="14" aria-hidden="true"><use href="#ic-search"></use></svg>
-        <span class="sugestao-nome">${nome}</span>
-        ${item.marca ? `<span class="sugestao-marca">${esc(item.marca)}</span>` : ""}
-      </a>
-    </li>`;
-
-  }).join("");
-
+  if (!caixa || typeof Busca === "undefined") return;
+  if (!String(valor || "").trim()) {
+    const recentes = historicoBusca();
+    if (!recentes.length) return fecharSugestoes();
+    caixa.innerHTML = '<li style="padding:8px;font-size:12px;display:flex;justify-content:space-between">Buscas desta sessão <button type="button" data-limpar-historico>Limpar</button></li>' +
+      recentes.map(t=>`<li role="option"><button type="button" class="sugestao" data-historico-busca="${esc(t)}" style="width:100%;border:0;background:none;text-align:left">↶ <span class="sugestao-nome">${esc(t)}</span></button></li>`).join("");
+  } else {
+    const opcoes = { limite: 6, sinonimos: SINONIMOS_BUSCA };
+    const resultado = typeof Busca.sugestoes === "function" ? Busca.sugestoes(produtos, valor, opcoes) : {lista:Busca.sugerir(produtos,valor,opcoes),aproximada:false};
+    if (!resultado.lista.length) return fecharSugestoes();
+    const aviso = resultado.aproximada ? '<li style="padding:8px;font-size:12px">Resultados aproximados. Confira nome e apresentação.</li>' : "";
+    caixa.innerHTML = aviso + resultado.lista.map(item => {
+      const partes = Busca.partesDoDestaque(item.nome, valor);
+      const nome = `${esc(partes.antes)}<b>${esc(partes.meio)}</b>${esc(partes.depois)}`;
+      return `<li role="option">
+        <a class="sugestao" href="${esc(urlProduto(item))}">
+          <svg class="ic" width="14" height="14" aria-hidden="true"><use href="#ic-search"></use></svg>
+          <span class="sugestao-nome">${nome}</span>
+          ${item.marca ? `<span class="sugestao-marca">${esc(item.marca)}</span>` : ""}
+          ${semEstoque(item) ? '<small>Indisponível</small>' : ""}
+        </a>
+      </li>`;
+    }).join("");
+  }
   caixa.hidden = false;
   el("busca")?.setAttribute("aria-expanded", "true");
-
 }
 
 /* =========================
@@ -2308,6 +2323,7 @@ function buscar() {
   modoOfertas = false;
   produtosDaOferta = null;
   termoBusca = normalizar(el("busca")?.value || "");
+  if (termoBusca) { categoriaAtual = "todas"; subcategoriaAtual = "todas"; marcarChipAtivo("todas"); guardarHistoricoBusca(el("busca")?.value); }
   aplicarFiltro();
   sincronizarEndereco();
   // tocar em Buscar é o cliente dizendo que terminou de digitar
@@ -2491,7 +2507,7 @@ function aplicarFiltro() {
      ordenar() também precisa dele, para pontuar a relevância. */
   palavrasBuscadas = termoBusca ? palavrasDaBusca(termoBusca) : [];
 
-  produtosFiltrados = ordenar(produtos.filter(p => {
+  const candidatos = !modoOfertas && !produtosDaOferta && categoriaAtual === "todas" && subcategoriaAtual === "todas" ? produtos : produtos.filter(p => {
     if (modoOfertas && !produtosDaOferta && !p.emOferta) return false;
     if (produtosDaOferta && !produtosDaOferta.has(String(p.codigo || p.ean))) return false;
     if (!modoOfertas && categoriaAtual !== "todas" && p.familia !== categoriaAtual) return false;
@@ -2501,9 +2517,16 @@ function aplicarFiltro() {
        justamente o par que a normalização juntou. */
     if (!modoOfertas && subcategoriaAtual !== "todas"
         && chaveSubfiltro(p) !== subcategoriaAtual) return false;
-    if (termoBusca && !produtoCasaBusca(p, palavrasBuscadas)) return false;
     return true;
-  }));
+  });
+  let buscaAproximada = false;
+  if (termoBusca && typeof Busca !== "undefined" && typeof Busca.buscar === "function") {
+    const resultado = Busca.buscar(candidatos, termoBusca, { sinonimos: SINONIMOS_BUSCA });
+    buscaAproximada = resultado.aproximada;
+    produtosFiltrados = ordenacao === "relevancia" ? resultado.lista : ordenar(resultado.lista);
+  } else {
+    produtosFiltrados = ordenar(candidatos.filter(p => !termoBusca || produtoCasaBusca(p,palavrasBuscadas)));
+  }
 
   // aqui, e só aqui, existem as duas metades ao mesmo tempo: o que foi
   // digitado e quantos produtos aquilo achou
@@ -2574,7 +2597,7 @@ function aplicarFiltro() {
       const rotulo = modoOfertas
         ? (produtosDaOferta ? "Produtos da campanha" : "Ofertas")
         : termoBusca
-          ? `Resultados para "${(el("busca")?.value || "").trim()}"`
+          ? `${buscaAproximada ? "Resultados aproximados — confira nome e apresentação" : "Resultados"} para "${(el("busca")?.value || "").trim()}"`
           : nomeFamilia(categoriaAtual);
       el("resultadoTitulo").textContent = rotulo;
       el("resultadoContagem").textContent =
