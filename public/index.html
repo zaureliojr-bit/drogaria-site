@@ -364,22 +364,37 @@
   </label>
 </div>
 
-<!-- Filtros adicionais da lista atual. -->
-<details id="filtrosAvancados" class="filtros-avancados" hidden>
-  <summary><span>Filtrar produtos</span><small id="contagemFiltrosAvancados"></small></summary>
-  <div class="filtros-avancados-campos">
-    <label>Laboratório<select id="filtroLaboratorio" aria-label="Filtrar por laboratório"><option value="">Todos</option></select></label>
-    <label>Marca<select id="filtroMarca" aria-label="Filtrar por marca"><option value="">Todas</option></select></label>
-    <label>Categoria<select id="filtroCategoriaAvancado" aria-label="Filtrar por categoria"><option value="">Todas</option></select></label>
-    <button type="button" id="limparFiltrosAvancados">Limpar filtros</button>
+<!-- Barra lateral de refinamento dos resultados -->
+<div id="layoutResultados" class="layout-resultados" hidden>
+  <aside class="lateral-resultados" aria-label="Ordenação e filtros">
+    <details id="filtrosAvancados" class="filtros-avancados" hidden>
+      <summary><span>Filtrar produtos</span><small id="contagemFiltrosAvancados"></small></summary>
+      <div class="filtros-avancados-campos">
+        <section class="grupo-filtro">
+          <h3>Ordenar por</h3>
+          <div class="ordenar-lateral">
+            <button type="button" data-ordenacao-sidebar="relevancia"><span aria-hidden="true">★</span>Relevância</button>
+            <button type="button" data-ordenacao-sidebar="menor-preco"><span aria-hidden="true">↓</span>Menor preço</button>
+            <button type="button" data-ordenacao-sidebar="maior-preco"><span aria-hidden="true">↑</span>Maior preço</button>
+            <button type="button" data-ordenacao-sidebar="desconto"><span aria-hidden="true">%</span>Maior desconto</button>
+            <button type="button" data-ordenacao-sidebar="nome"><span aria-hidden="true">A–Z</span>Nome</button>
+          </div>
+        </section>
+        <section class="grupo-filtro" data-grupo-filtro="categoria"><h3>Departamento</h3><div id="filtroCategoriaAvancado" class="opcoes-filtro" aria-label="Departamento"></div></section>
+        <section class="grupo-filtro" data-grupo-filtro="subcategoria"><h3>Categoria</h3><div id="filtroSubcategoriaAvancado" class="opcoes-filtro" aria-label="Categoria"></div></section>
+        <section class="grupo-filtro" data-grupo-filtro="preco"><h3>Preço</h3><div id="filtroPrecoAvancado" class="opcoes-filtro" aria-label="Faixa de preço"></div></section>
+        <section class="grupo-filtro" data-grupo-filtro="classe"><h3>Classe do medicamento</h3><div id="filtroClasseAvancado" class="opcoes-filtro" aria-label="Classe do medicamento"></div></section>
+        <section class="grupo-filtro" data-grupo-filtro="marca"><h3>Marca</h3><div id="filtroMarca" class="opcoes-filtro" aria-label="Marca"></div></section>
+        <section class="grupo-filtro" data-grupo-filtro="laboratorio"><h3>Laboratório</h3><div id="filtroLaboratorio" class="opcoes-filtro" aria-label="Laboratório"></div></section>
+        <button type="button" id="limparFiltrosAvancados">Limpar filtros</button>
+      </div>
+    </details>
+  </aside>
+  <div class="conteudo-resultados">
+    <nav id="subfiltros" class="subfiltros" aria-label="Subcategorias" hidden></nav>
+    <main id="produtos" aria-label="Lista de produtos"></main>
   </div>
-</details>
-
-<!-- 🏷️ SUBCATEGORIA (dentro da família escolhida, só quando existir) -->
-<nav id="subfiltros" class="subfiltros" aria-label="Subcategorias" hidden></nav>
-
-<!-- 📦 PRODUTOS (grid — busca e filtro por categoria) -->
-<main id="produtos" aria-label="Lista de produtos"></main>
+</div>
 
 <!-- ⏳ LOADER -->
 <div id="loader" class="loader" aria-hidden="true">
