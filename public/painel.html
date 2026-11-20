@@ -920,6 +920,25 @@
     border-radius:16px; background:var(--branco); color:var(--tinta); }
   #geradorLanding::backdrop { background:#16163988; }
   #geradorLanding iframe { width:100%; height:420px; border:1px solid var(--linha); border-radius:10px; }
+  .dup-resumo { display:grid; grid-template-columns:repeat(auto-fit,minmax(135px,1fr)); gap:10px; margin:12px 0; }
+  .dup-resumo > div { border:1px solid var(--linha); border-radius:10px; padding:12px; }
+  .dup-resumo strong { display:block; font-size:24px; }
+  .dup-filtros { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0; }
+  .dup-filtros input[type=search] { flex:1 1 220px; min-width:0; margin:0; }
+  .dup-filtros select, .dup-lista select { padding:8px; border:1px solid var(--linha); border-radius:8px; background:var(--branco); color:var(--tinta); }
+  .dup-lista { display:grid; gap:12px; }
+  .dup-grupo { border:1px solid var(--linha); border-radius:12px; padding:12px; overflow-wrap:anywhere; }
+  .dup-grupo h3 { margin:0 0 6px; font-size:16px; }
+  .dup-indicio { font-size:12px; font-weight:700; color:var(--tinta-suave); }
+  .dup-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px; margin-top:10px; }
+  .dup-card { border:1px solid var(--linha); border-radius:8px; padding:10px; display:grid; gap:5px; min-width:0; }
+  .dup-card strong { overflow-wrap:anywhere; }
+  .dup-card small { color:var(--tinta-suave); }
+  .dup-card select { width:100%; }
+  .dup-estoque { font-weight:700; }
+  .dup-recomenda { color:#167446; font-weight:700; }
+  #dupPaginacao { display:flex; align-items:center; gap:10px; justify-content:center; margin-top:12px; }
+  #dupPaginacao[hidden] { display:none; }
 </style>
 </head>
 
@@ -1041,6 +1060,7 @@
       <button data-aba="estoque">Estoque</button>
       <button data-aba="reativacao">Reativação</button>
       <button data-aba="catalogo">Catálogo</button>
+      <button data-aba="duplicidades">Duplicidades</button>
       <button data-aba="padronizador">Padronizador</button>
       <!-- Só aparece para quem entrou com a chave de dono da plataforma.
            Esconder o botão não é a permissão: o worker recusa /lojas a
@@ -2206,6 +2226,38 @@
       <div class="tabela-wrap" id="semImagem"></div>
 
     </div><!-- /abaCatalogo -->
+
+    <!-- ===== ABA: DIAGNÓSTICO DE DUPLICIDADES ===== -->
+    <div id="abaDuplicidades" hidden>
+      <section class="form-banner">
+        <h2>Diagnóstico de duplicidades</h2>
+        <p>Analise os produtos publicados na filial atual. EANs iguais indicam possíveis cadastros duplicados; descrições semelhantes exigem conferência de apresentação, quantidade e fabricante.</p>
+        <p class="lojas-explica">Nenhum cadastro é alterado automaticamente. As decisões abaixo servem para revisão; não somam estoque, não excluem produtos nem modificam o Farmax.</p>
+        <div class="fila-topo">
+          <button type="button" id="dupCarregar" class="btn-testar-som">Atualizar diagnóstico</button>
+          <button type="button" id="dupExportar" class="btn-testar-som" disabled>Exportar revisão CSV</button>
+          <span id="dupStatus" role="status" class="pedido-quando"></span>
+        </div>
+        <div id="dupResumo" class="dup-resumo" aria-live="polite"></div>
+        <div class="dup-filtros">
+          <input id="dupBusca" type="search" class="busca-imagem-produto" placeholder="Pesquisar nome, código ou EAN" aria-label="Pesquisar duplicidades">
+          <select id="dupFiltro" aria-label="Tipo de duplicidade">
+            <option value="">Todos os indícios</option>
+            <option value="ean">Mesmo EAN</option>
+            <option value="codigo">Mesmo código interno</option>
+            <option value="nome">Mesmo nome normalizado</option>
+            <option value="similar">Nome semelhante (termos iguais)</option>
+          </select>
+          <label><input type="checkbox" id="dupComEstoque"> Só grupos com estoque disponível</label>
+        </div>
+        <div id="dupLista" class="dup-lista"></div>
+        <div class="rede-paginacao" id="dupPaginacao" hidden>
+          <button type="button" id="dupAnterior" class="btn-testar-som">Anterior</button>
+          <span id="dupPagina"></span>
+          <button type="button" id="dupProxima" class="btn-testar-som">Próxima</button>
+        </div>
+      </section>
+    </div><!-- /abaDuplicidades -->
 
     <!-- ===== ABA: PADRONIZADOR (embutido) ===== -->
     <div id="abaPadronizador" hidden>
@@ -9038,6 +9090,150 @@ el("listaLojas").addEventListener("click", async (ev) => {
   }
 });
 
+/* Diagnóstico só sobre a vitrine publicada, sem alterar produtos. */
+const DUP_LABELS = { ean: "Mesmo EAN", codigo: "Mesmo código interno", nome: "Mesmo nome normalizado", similar: "Nome semelhante (termos iguais)" };
+let dupGrupos = [], dupTotal = 0, dupPagina = 0, dupLoja = "", dupExecucao = 0;
+const DUP_POR_PAGINA = 20;
+function dupNormal(texto) {
+  return String(texto ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase()
+    .replace(/(\d)[,.](\d)/g, "$1.$2").replace(/(\d)\s+(MG|MCG|G|KG|ML|L|UI|UN)\b/g, "$1$2")
+    .replace(/[^A-Z0-9.]+/g, " ").trim().replace(/\s+/g, " ");
+}
+function dupEan(valor) {
+  const chave = String(valor ?? "").trim().replace(/[\s.-]/g, "");
+  return /^(?:\d{8}|\d{12,14})$/.test(chave) && !/^0+$/.test(chave) ? chave.padStart(14, "0") : "";
+}
+function dupEstoque(valor) {
+  if (valor === null || valor === undefined || String(valor).trim() === "") return null;
+  const n = typeof valor === "number" ? valor : Number(String(valor).trim().replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+function dupAgrupar(brutos) {
+  const produtos = brutos.filter(p => p && typeof p === "object").map((p, i) => ({
+    id: i, codigo: String(p.codigo ?? "").trim(), ean: String(p.ean ?? "").trim(), nome: String(p.descricao || p.nome || "").trim(),
+    marca: String(p.marca || p.laboratorio || "").trim(), estoque: dupEstoque(p.estoque), preco: dupEstoque(p.precoVenda), imagem: !!p.imagem
+  }));
+  const tipos = [
+    ["ean", p => dupEan(p.ean)],
+    ["codigo", p => p.codigo],
+    ["nome", p => { const n = dupNormal(p.nome); return n.length >= 8 ? n : ""; }],
+    ["similar", p => { const n = dupNormal(p.nome).split(" ").filter(Boolean); return n.length >= 3 ? n.sort().join(" ") : ""; }]
+  ];
+  const grupos = new Map();
+  for (const [tipo, chaveDe] of tipos) {
+    const index = new Map();
+    for (const p of produtos) {
+      const chave = chaveDe(p);
+      if (!chave) continue;
+      if (!index.has(chave)) index.set(chave, []);
+      index.get(chave).push(p);
+    }
+    for (const itens of index.values()) {
+      if (itens.length < 2) continue;
+      const chave = itens.map(p => p.id).sort((a,b) => a-b).join(",");
+      if (grupos.has(chave)) { grupos.get(chave).tipos.push(tipo); continue; }
+      grupos.set(chave, { id: chave, tipos: [tipo], itens: [...itens].sort((a,b) => (b.estoque > 0) - (a.estoque > 0) || (b.estoque ?? -Infinity) - (a.estoque ?? -Infinity) || Number(b.imagem)-Number(a.imagem) || a.codigo.localeCompare(b.codigo, "pt-BR")) });
+    }
+  }
+  return [...grupos.values()].sort((a,b) => Number(b.tipos.includes("ean")) - Number(a.tipos.includes("ean")) || Number(b.tipos.includes("codigo")) - Number(a.tipos.includes("codigo")) || b.itens.length-a.itens.length);
+}
+function dupChave(p) { return JSON.stringify([p.codigo,p.ean,p.nome]); }
+function dupRevisao() {
+  try { return JSON.parse(sessionStorage.getItem("duplicidades:" + dupLoja) || "{}"); } catch { return {}; }
+}
+function dupSalvarRevisao(chave, valor) {
+  const dados = dupRevisao();
+  if (valor) dados[chave] = valor; else delete dados[chave];
+  try { sessionStorage.setItem("duplicidades:" + dupLoja, JSON.stringify(dados)); } catch { el("dupStatus").textContent = "Não foi possível guardar a revisão nesta sessão."; }
+}
+async function dupCarregar() {
+  const exec = ++dupExecucao;
+  const loja = lojaAtual;
+  dupLoja = ""; dupGrupos = []; dupTotal = 0; dupPagina = 0;
+  el("dupLista").textContent = ""; el("dupResumo").textContent = "";
+  el("dupPaginacao").hidden = true; el("dupExportar").disabled = true;
+  el("dupCarregar").disabled = true;
+  el("dupStatus").textContent = "Lendo catálogo publicado da filial...";
+  try {
+    if (!loja) throw new Error("Selecione a filial antes de analisar.");
+    const dados = await api("/loja?slug=" + encodeURIComponent(loja));
+    if (dados?.loja?.slug !== loja || !/^https:\/\/raw\.githubusercontent\.com\//.test(dados.catalogo || "")) throw new Error("Não consegui validar o catálogo desta filial.");
+    const r = await fetch(dados.catalogo, { cache:"no-store" });
+    if (!r.ok) throw new Error("Catálogo indisponível (HTTP " + r.status + ").");
+    const json = await r.json();
+    if (!Array.isArray(json.produtos)) throw new Error("Formato de catálogo inválido.");
+    if (exec !== dupExecucao || loja !== lojaAtual) return;
+    dupLoja = loja;
+    dupTotal = json.produtos.length; dupGrupos = dupAgrupar(json.produtos);
+    el("dupStatus").textContent = "Filial: " + loja + " — diagnóstico do catálogo publicado.";
+    el("dupExportar").disabled = !dupGrupos.length;
+    dupRender();
+  } catch (e) {
+    if (exec === dupExecucao) el("dupStatus").textContent = e.message;
+  } finally { if (exec === dupExecucao) el("dupCarregar").disabled = false; }
+}
+function dupFiltrar() {
+  const termo = dupNormal(el("dupBusca").value), tipo = el("dupFiltro").value;
+  return dupGrupos.filter(g => (!tipo || g.tipos.includes(tipo)) &&
+    (!el("dupComEstoque").checked || g.itens.some(p => p.estoque > 0)) &&
+    (!termo || g.itens.some(p => dupNormal(p.nome + " " + p.codigo + " " + p.ean + " " + p.marca).includes(termo))));
+}
+function dupRender() {
+  if (dupLoja !== lojaAtual) { el("dupLista").textContent = "Atualize o diagnóstico da filial atual."; el("dupExportar").disabled = true; return; }
+  const grupos = dupFiltrar();
+  const totalPag = Math.max(1, Math.ceil(grupos.length/DUP_POR_PAGINA));
+  dupPagina = Math.min(dupPagina, totalPag-1);
+  const revisao = dupRevisao();
+  const cont = tipo => dupGrupos.filter(g => g.tipos.includes(tipo)).length;
+  el("dupResumo").innerHTML = [
+    [dupTotal,"Itens analisados"],[dupGrupos.length,"Grupos suspeitos"],[cont("ean"),"Mesmo EAN"],[cont("codigo"),"Mesmo código"],[cont("nome"),"Mesmo nome"],[cont("similar"),"Termos semelhantes"]
+  ].map(([n,t]) => `<div><strong>${n.toLocaleString("pt-BR")}</strong><small>${esc(t)}</small></div>`).join("");
+  el("dupLista").innerHTML = grupos.slice(dupPagina*DUP_POR_PAGINA,(dupPagina+1)*DUP_POR_PAGINA).map(g => {
+    const sugestao = g.tipos.includes("ean") && g.itens[0].estoque > 0 ? g.itens[0].id : -1;
+    return `<article class="dup-grupo"><h3>${esc(g.itens[0].nome || "Cadastro sem nome")}</h3>
+      <span class="dup-indicio">${esc(g.tipos.map(t => DUP_LABELS[t]).join(" · "))} · ${g.itens.length} registros</span>
+      <div class="dup-cards">${g.itens.map(p => {
+        const chave = dupChave(p), acao = revisao[chave] || "";
+        return `<div class="dup-card"><strong>${esc(p.nome || "Sem descrição")}</strong>
+          <small>Código: ${esc(p.codigo || "—")} · EAN: ${esc(p.ean || "—")}</small>
+          <small>${esc(p.marca || "Marca não informada")} · ${p.imagem ? "Com foto" : "Sem foto"}</small>
+          <span class="dup-estoque">Estoque: ${p.estoque === null ? "Não informado" : esc(p.estoque)} · Preço: ${p.preco === null ? "—" : p.preco.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</span>
+          ${p.id === sugestao ? '<small class="dup-recomenda">Prioridade para conferir: cadastro com estoque</small>' : ""}
+          <label>Decisão de revisão<select data-dup-chave="${esc(chave)}">
+            ${[["","Pendente"],["manter","Manter"],["mesclar","Revisar mesclagem"],["excluir","Revisar exclusão"]].map(([v,t]) => `<option value="${v}"${v === acao ? " selected" : ""}>${t}</option>`).join("")}
+          </select></label></div>`;
+      }).join("")}</div></article>`;
+  }).join("") || '<p class="vazio">Nenhum grupo encontrado com estes filtros.</p>';
+  el("dupPaginacao").hidden = totalPag <= 1;
+  el("dupPagina").textContent = `Página ${dupPagina+1} de ${totalPag} · ${grupos.length} grupos`;
+  el("dupAnterior").disabled = dupPagina === 0; el("dupProxima").disabled = dupPagina >= totalPag-1;
+}
+function dupExportar() {
+  if (dupLoja !== lojaAtual || !dupGrupos.length) return;
+  const celula = x => {
+    let t = String(x ?? "");
+    if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+    return '"' + t.replace(/"/g,'""') + '"';
+  };
+  const rev = dupRevisao();
+  const linhas = [["Filial","Grupo","Indício","Código","EAN","Descrição","Marca","Estoque","Preço","Imagem","Decisão"]];
+  dupFiltrar().forEach((g,i) => g.itens.forEach(p => linhas.push([dupLoja,i+1,g.tipos.map(t=>DUP_LABELS[t]).join(" / "),p.codigo,p.ean,p.nome,p.marca,p.estoque,p.preco,p.imagem?"Sim":"Não",rev[dupChave(p)]||"pendente"])));
+  const blob = new Blob(["\uFEFF"+linhas.map(row=>row.map(celula).join(";")).join("\r\n")],{type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob); const link = document.createElement("a");
+  link.href=url;link.download="duplicidades-"+dupLoja+".csv"; link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+el("dupCarregar").addEventListener("click",dupCarregar);
+el("dupExportar").addEventListener("click",dupExportar);
+["dupBusca","dupFiltro","dupComEstoque"].forEach(id=>el(id).addEventListener(id==="dupBusca"?"input":"change",()=>{dupPagina=0;dupRender();}));
+el("dupAnterior").addEventListener("click",()=>{dupPagina=Math.max(0,dupPagina-1);dupRender();});
+el("dupProxima").addEventListener("click",()=>{dupPagina++;dupRender();});
+el("dupLista").addEventListener("change",e=>{
+  const seletor=e.target.closest("[data-dup-chave]");
+  if (!seletor || dupLoja !== lojaAtual) return;
+  dupSalvarRevisao(seletor.dataset.dupChave,seletor.value);
+  dupRender();
+});
+
 el("abas").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-aba]");
   if (!btn) return;
@@ -9062,6 +9258,7 @@ el("abas").addEventListener("click", (ev) => {
   el("abaEstoque").hidden = aba !== "estoque";
   el("abaReativacao").hidden = aba !== "reativacao";
   el("abaCatalogo").hidden = aba !== "catalogo";
+  el("abaDuplicidades").hidden = aba !== "duplicidades";
   el("abaPadronizador").hidden = aba !== "padronizador";
   el("abaLojas").hidden = aba !== "lojas";
 
@@ -9105,6 +9302,7 @@ el("abas").addEventListener("click", (ev) => {
   if (aba === "banners") carregarBanners().catch(e => avisoBanner("Não consegui carregar os banners: " + e.message));
   if (aba === "promocoes") carregarPromocoes().catch(e => avisoPromo("Não consegui carregar as promoções: " + e.message));
   if (aba === "encarte") carregarEncartes().catch(e => avisoEncarte("Não consegui carregar os encartes: " + e.message));
+  if (aba === "duplicidades") dupCarregar();
   if (aba === "catalogo") {
     renderizarSemImagem().catch(() => {});
     filtrarBuscaImagem().catch(() => {});
