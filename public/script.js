@@ -382,6 +382,8 @@ let carrinho = carregarCarrinho();
 let categoriaAtual = "todas";
 let subcategoriaAtual = "todas";
 let termoBusca = "";
+let catalogoCompleto = false;
+const filtrosAvancadosAtivos = { laboratorio: "", marca: "", categoria: "" };
 let modoOfertas = false;
 let produtosDaOferta = null;
 let ordenacao = "relevancia";
@@ -516,7 +518,9 @@ document.addEventListener("DOMContentLoaded", () => {
     mostrarSugestoes(valor);
 
     timeoutBusca = setTimeout(() => {
-      termoBusca = normalizar(valor);
+      const novoTermo = normalizar(valor);
+      if (novoTermo !== termoBusca) resetarFiltrosAvancados();
+      termoBusca = novoTermo;
       if (termoBusca) { categoriaAtual = "todas"; subcategoriaAtual = "todas"; marcarChipAtivo("todas"); }
       modoOfertas = false;
       produtosDaOferta = null;
@@ -551,6 +555,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ev.key === "Enter") fecharSugestoes();
   });
 
+  for (const [campo,id] of Object.entries(FILTROS_AVANCADOS_IDS)) {
+    el(id)?.addEventListener("change", e => {
+      filtrosAvancadosAtivos[campo] = e.target.value;
+      aplicarFiltro();
+      sincronizarEndereco();
+    });
+  }
+  el("limparFiltrosAvancados")?.addEventListener("click", () => {
+    resetarFiltrosAvancados();
+    aplicarFiltro();
+    sincronizarEndereco();
+  });
+  el("abrirFiltrosAvancados")?.addEventListener("click", () => {
+    catalogoCompleto = true;
+    aplicarFiltro();
+    sincronizarEndereco();
+    const detalhes = el("filtrosAvancados");
+    if (detalhes) detalhes.open = true;
+    detalhes?.scrollIntoView({block:"center",behavior:"smooth"});
+  });
   el("ordenacao")?.addEventListener("change", e => {
     ordenacao = e.target.value;
     aplicarFiltro();
@@ -594,6 +618,7 @@ document.addEventListener("produtosProntos", (ev) => {
   const ofertas = parametros.getAll("oferta").filter(codigo => codigo && codigo.length <= 80);
   if (ofertas.length) {
     verOfertas(new Set(ofertas));
+    restaurarFiltrosAvancados(parametros);
     return;
   }
 
@@ -609,14 +634,17 @@ document.addEventListener("produtosProntos", (ev) => {
     const campo = el("busca");
     if (campo) campo.value = termo;
     if (typeof buscar === "function") buscar();
+    restaurarFiltrosAvancados(parametros);
     return;
   }
 
   const familia = parametros.get("familia");
-  if (!familia || typeof filtrarCategoria !== "function") return;
-  if (!familiasComProdutos().some(f => f.id === familia)) return;
-
-  filtrarCategoria(familia);
+  if (familia && typeof filtrarCategoria === "function" && familiasComProdutos().some(f => f.id === familia)) {
+    filtrarCategoria(familia);
+    const sub = parametros.get("subcategoria");
+    if (sub) filtrarSubcategoria(sub);
+  }
+  restaurarFiltrosAvancados(parametros);
 });
 
 /* ---------------------------------------------------------------------
@@ -653,7 +681,15 @@ function enderecoDaBusca() {
     const termo = (el("busca")?.value || "").trim();
 
     const url = new URL(location.href);
-    url.searchParams.delete("familia");
+    if (!termo && categoriaAtual !== "todas" && !modoOfertas) url.searchParams.set("familia", categoriaAtual);
+    else url.searchParams.delete("familia");
+    if (!termo && subcategoriaAtual !== "todas" && categoriaAtual !== "todas" && !modoOfertas) url.searchParams.set("subcategoria", subcategoriaAtual);
+    else url.searchParams.delete("subcategoria");
+    for (const [campo,param] of Object.entries(FILTROS_AVANCADOS_PARAMS)) {
+      const valor = filtrosAvancadosAtivos[campo];
+      if (valor) url.searchParams.set(param,valor); else url.searchParams.delete(param);
+    }
+    if (catalogoCompleto) url.searchParams.set("catalogo","1"); else url.searchParams.delete("catalogo");
     if (!produtosDaOferta) url.searchParams.delete("oferta");
 
     if (termo) url.searchParams.set("busca", termo);
@@ -1111,7 +1147,7 @@ function avisoDeEntrada(banners) {
 }
 
 function estaNaHome() {
-  return categoriaAtual === "todas" && !termoBusca && !modoOfertas;
+  return categoriaAtual === "todas" && !termoBusca && !modoOfertas && !catalogoCompleto && !Object.values(filtrosAvancadosAtivos).some(Boolean);
 }
 
 /* =========================
@@ -1966,6 +2002,8 @@ function marcarChipAtivo(chave) {
 }
 
 function filtrarCategoria(familiaId) {
+  catalogoCompleto = false;
+  resetarFiltrosAvancados();
   categoriaAtual = familiaId || "todas";
   // Subcategoria é filha da família - trocar de família sem zerar isto
   // deixava "Fita" (de Fralda) ativa depois de entrar em Capilar, onde
@@ -2139,6 +2177,7 @@ function filtrarSubcategoria(subcategoria) {
   subcategoriaAtual = subcategoria || "todas";
   marcarSubchipAtivo(subcategoriaAtual);
   aplicarFiltro();
+  sincronizarEndereco();
 }
 
 /* Quanto do topo da tela está coberto por barra grudada.
@@ -2228,6 +2267,9 @@ function rolarParaResultados() {
    ofertas de uma vez, e sobe a página — o cliente estava lá embaixo na
    lista, e a vitrine começa de cima. */
 function voltarParaVitrine() {
+  catalogoCompleto = false;
+  resetarFiltrosAvancados();
+  subcategoriaAtual = "todas";
   categoriaAtual = "todas";
   modoOfertas = false;
   produtosDaOferta = null;
@@ -2245,6 +2287,9 @@ function voltarParaVitrine() {
 
 /* mostra só os produtos em oferta no grid principal */
 function verOfertas(selecao = null) {
+  catalogoCompleto = false;
+  resetarFiltrosAvancados();
+  subcategoriaAtual = "todas";
   modoOfertas = true;
   produtosDaOferta = selecao;
   categoriaAtual = "todas";
@@ -2322,7 +2367,9 @@ function buscar() {
   clearTimeout(timeoutBusca);
   modoOfertas = false;
   produtosDaOferta = null;
-  termoBusca = normalizar(el("busca")?.value || "");
+  const novoTermo = normalizar(el("busca")?.value || "");
+  if (novoTermo !== termoBusca) resetarFiltrosAvancados();
+  termoBusca = novoTermo;
   if (termoBusca) { categoriaAtual = "todas"; subcategoriaAtual = "todas"; marcarChipAtivo("todas"); guardarHistoricoBusca(el("busca")?.value); }
   aplicarFiltro();
   sincronizarEndereco();
@@ -2499,6 +2546,66 @@ function ordenar(lista) {
   return [...ordenarGrupo(disponiveis), ...ordenarGrupo(indisponiveis)];
 }
 
+const FILTROS_AVANCADOS_IDS = { laboratorio:"filtroLaboratorio", marca:"filtroMarca", categoria:"filtroCategoriaAvancado" };
+const FILTROS_AVANCADOS_PARAMS = { laboratorio:"flab", marca:"fmarca", categoria:"fcat" };
+function resetarFiltrosAvancados() {
+  for (const campo of Object.keys(filtrosAvancadosAtivos)) filtrosAvancadosAtivos[campo] = "";
+}
+function restaurarFiltrosAvancados(parametros) {
+  const temFiltro = Object.values(FILTROS_AVANCADOS_PARAMS).some(param => parametros.get(param));
+  if (!temFiltro && parametros.get("catalogo") !== "1") return;
+  catalogoCompleto = parametros.get("catalogo") === "1";
+  for (const [campo,param] of Object.entries(FILTROS_AVANCADOS_PARAMS)) {
+    filtrosAvancadosAtivos[campo] = normalizar(parametros.get(param) || "").slice(0,160);
+  }
+  aplicarFiltro();
+  sincronizarEndereco();
+}
+function valorFiltroAvancado(produto,campo) {
+  const valor = campo === "categoria" ? (produto.familiaNome || produto.categoria) : produto[campo];
+  return String(valor || "").trim().replace(/\s+/g," ");
+}
+function casaFiltrosAvancados(produto,ativos,exceto="") {
+  return Object.entries(ativos).every(([campo,valor]) =>
+    campo === exceto || !valor || normalizar(valorFiltroAvancado(produto,campo)) === valor);
+}
+function opcoesFiltroAvancado(lista,campo,ativos) {
+  const mapa = new Map();
+  for (const produto of lista) {
+    if (!casaFiltrosAvancados(produto,ativos,campo)) continue;
+    const rotulo = valorFiltroAvancado(produto,campo);
+    const chave = normalizar(rotulo);
+    if (!chave) continue;
+    const anterior = mapa.get(chave);
+    mapa.set(chave,{ chave,rotulo:anterior?.rotulo || rotulo,total:(anterior?.total || 0)+1 });
+  }
+  const atual = ativos[campo];
+  if (atual && !mapa.has(atual)) mapa.set(atual,{chave:atual,rotulo:atual,total:0});
+  return [...mapa.values()].sort((a,b)=>a.rotulo.localeCompare(b.rotulo,"pt-BR"));
+}
+function renderFiltrosAvancados(base,home) {
+  const painel = el("filtrosAvancados");
+  if (!painel) return;
+  painel.hidden = home;
+  const abrir = el("abrirFiltrosAvancados");
+  if (abrir) abrir.hidden = !home;
+  if (home) { painel.open = false; return; }
+  for (const [campo,id] of Object.entries(FILTROS_AVANCADOS_IDS)) {
+    const select = el(id);
+    if (!select) continue;
+    const opcoes = opcoesFiltroAvancado(base,campo,filtrosAvancadosAtivos);
+    const atual = filtrosAvancadosAtivos[campo];
+    const textoTodos = campo === "laboratorio" ? "Todos" : "Todas";
+    select.innerHTML = '<option value="">' + textoTodos + '</option>' + opcoes.map(o=>`<option value="${esc(o.chave)}">${esc(o.rotulo)} (${o.total.toLocaleString("pt-BR")})</option>`).join("");
+    select.value = atual;
+    select.disabled = !atual && !opcoes.length;
+  }
+  const n = Object.values(filtrosAvancadosAtivos).filter(Boolean).length;
+  el("contagemFiltrosAvancados").textContent = n ? `${n} ativo${n===1?"":"s"}` : "";
+  el("limparFiltrosAvancados").disabled = !n;
+  if (n) painel.open = true;
+}
+
 function aplicarFiltro() {
 
   /* Quebrado UMA vez por filtragem, e não uma vez por produto: são
@@ -2530,9 +2637,12 @@ function aplicarFiltro() {
 
   // aqui, e só aqui, existem as duas metades ao mesmo tempo: o que foi
   // digitado e quantos produtos aquilo achou
-  anotarBusca(termoBusca, produtosFiltrados.length);
+  const baseFiltros = produtosFiltrados;
+  anotarBusca(termoBusca, baseFiltros.length);
+  if (Object.values(filtrosAvancadosAtivos).some(Boolean)) produtosFiltrados = baseFiltros.filter(p => casaFiltrosAvancados(p,filtrosAvancadosAtivos));
 
   const modoHome = estaNaHome();
+  renderFiltrosAvancados(baseFiltros,modoHome);
 
   const boxCategorias = el("categoriasHome");
   const boxProdutos = el("produtos");
@@ -2598,7 +2708,7 @@ function aplicarFiltro() {
         ? (produtosDaOferta ? "Produtos da campanha" : "Ofertas")
         : termoBusca
           ? `${buscaAproximada ? "Resultados aproximados — confira nome e apresentação" : "Resultados"} para "${(el("busca")?.value || "").trim()}"`
-          : nomeFamilia(categoriaAtual);
+          : categoriaAtual === "todas" ? "Todos os produtos" : nomeFamilia(categoriaAtual);
       el("resultadoTitulo").textContent = rotulo;
       el("resultadoContagem").textContent =
         `${produtosFiltrados.length} ${produtosFiltrados.length === 1 ? "produto" : "produtos"}`;
