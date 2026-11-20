@@ -2175,6 +2175,8 @@
       <h2 style="margin-top:22px">Fotos pela listagem da distribuidora</h2>
       <div class="fila-topo">
         <span class="pedido-quando" id="statusDpc">A listagem da DPCNET est&aacute; no servidor &mdash; ela cobre boa parte da perfumaria e da higiene.</span>
+        <button type="button" id="importarDpc" class="btn-testar-som" hidden>Importar planilha DPCNET</button>
+        <input type="file" id="arquivoDpc" accept=".xlsx,.xls" hidden>
         <button type="button" id="procurarDpc" class="btn-testar-som">Procurar</button>
         <button type="button" id="aplicarDpc" class="btn-testar-som" hidden>Aplicar</button>
         <button type="button" id="pararDpc" class="btn-apagar-produto" hidden>Parar</button>
@@ -6941,41 +6943,128 @@ function avisoDpc(msg, tipo = "erro") {
 
 // O que o "Procurar" achou, esperando o "Aplicar".
 let achadosDpc = null;
+let lojaAchadosDpc = null;
 let aplicandoDpc = false;
 let pararDpcPedido = false;
+
+// Importação direta no painel: o mesmo formato de referência utilizado
+// pela rede, sem abrir o padronizador e sem alterar o cadastro dos produtos.
+async function lerReferenciaDpc() {
+  const r = await fetch(PROXY_IMAGENS + "/referencias/distribuidor", { cache: "no-store" });
+  if (r.status === 404) return { porEan: {} };
+  if (!r.ok) throw new Error("Não consegui consultar a lista existente (HTTP " + r.status + ").");
+  const dados = await r.json();
+  if (!dados || typeof dados.porEan !== "object" || !dados.porEan || Array.isArray(dados.porEan)) {
+    throw new Error("Formato da lista existente inválido. Nenhum dado foi substituído.");
+  }
+  return dados;
+}
+
+function lerLinhasDpc(livro) {
+  const porEan = Object.create(null);
+  let achou = false;
+  for (const aba of livro.SheetNames) {
+    const linhas = XLSX.utils.sheet_to_json(livro.Sheets[aba], { header: 1, defval: "", raw: false });
+    const nomes = linha => linha.map(v => String(v).trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase());
+    const cab = linhas.findIndex((linha, i) => i < 100 && nomes(linha).includes("EAN") && nomes(linha).includes("IMAGEM") && nomes(linha).includes("DESCRICAO"));
+    if (cab < 0) continue;
+    achou = true;
+    const colunas = nomes(linhas[cab]);
+    for (const linha of linhas.slice(cab + 1)) {
+      const campo = nome => String(linha[colunas.indexOf(nome)] ?? "").trim();
+      const ean = campo("EAN");
+      const descricao = campo("DESCRICAO");
+      if (!/^\d{8,14}$/.test(ean) || !descricao) continue;
+      let imagem = "";
+      try {
+        const url = new URL(campo("IMAGEM"));
+        if (url.protocol === "https:" && url.hostname === "img.dpcnet.com.br" &&
+            !url.port && !url.username && !url.password && url.pathname.startsWith("/catalogo/")) imagem = url.href;
+      } catch {}
+      const anterior = porEan[ean];
+      porEan[ean] = { descricao, categoria: campo("CATEGORIA"), subcategoria: campo("SUBCATEGORIA"),
+        laboratorio: campo("LABORATORIO"), imagem: imagem || anterior?.imagem || "" };
+    }
+    break;
+  }
+  if (!achou || !Object.keys(porEan).length) throw new Error("Planilha sem colunas válidas EAN, Descrição e Imagem.");
+  return porEan;
+}
+
+async function importarPlanilhaDpc(arquivo) {
+  if (!souDono || !arquivo || aplicandoDpc || el("importarDpc").disabled) return;
+  const loja = lojaAtual;
+  const botao = el("importarDpc");
+  botao.disabled = true;
+  el("procurarDpc").disabled = true;
+  el("aplicarDpc").hidden = true;
+  achadosDpc = null;
+  avisoDpc("");
+  try {
+    el("statusDpc").textContent = "Lendo a planilha...";
+    await reaCarregarXLSX();
+    const planilha = XLSX.read(new Uint8Array(await arquivo.arrayBuffer()), { type: "array" });
+    const novos = lerLinhasDpc(planilha);
+    const anterior = await lerReferenciaDpc();
+    const unidos = { ...anterior.porEan };
+    for (const [ean, item] of Object.entries(novos)) {
+      const existente = { ...(unidos[ean] || {}) };
+      if (typeof existente.imagem !== "string" || !/^https?:\/\//i.test(existente.imagem.trim())) delete existente.imagem;
+      // Mantém os campos já cadastrados e completa os que faltam.
+      const preenchido = Object.fromEntries(Object.entries(item).filter(([, v]) => v));
+      unidos[ean] = { ...preenchido, ...Object.fromEntries(Object.entries(existente).filter(([, v]) => v !== "" && v != null)) };
+    }
+    const total = Object.keys(novos).length;
+    const comFoto = Object.values(novos).filter(p => p.imagem).length;
+    if (loja !== lojaAtual || !souDono) throw new Error("A filial foi alterada. Tente novamente.");
+    if (!confirm(`Importar ${total.toLocaleString("pt-BR")} EANs da DPCNET (${comFoto.toLocaleString("pt-BR")} com link de imagem) para a base compartilhada?`)) return;
+    await enviarPublicacao("/catalogo/referencia/distribuidor", {
+      versao: 1, importadoEm: new Date().toISOString(), arquivo: arquivo.name,
+      totalLinhas: Object.keys(unidos).length, porEan: unidos
+    }, loja);
+    avisoDpc("Lista importada no banco de referências da rede. Agora procure os produtos sem foto e aplique as imagens.", "ok");
+    el("statusDpc").textContent = `${Object.keys(unidos).length.toLocaleString("pt-BR")} EANs disponíveis para toda a rede.`;
+  } catch (erro) {
+    avisoDpc("Não consegui importar a planilha: " + erro.message);
+  } finally {
+    botao.disabled = false;
+    el("procurarDpc").disabled = false;
+    el("arquivoDpc").value = "";
+  }
+}
+
+el("importarDpc").addEventListener("click", () => el("arquivoDpc").click());
+el("arquivoDpc").addEventListener("change", e => importarPlanilhaDpc(e.target.files[0]));
 
 async function procurarFotosDpc() {
 
   if (aplicandoDpc) return;
 
   el("procurarDpc").disabled = true;
+  el("importarDpc").disabled = true;
   el("aplicarDpc").hidden = true;
+  achadosDpc = null;
   avisoDpc("");
+  const loja = lojaAtual;
   el("statusDpc").textContent = "Buscando a listagem no servidor (são alguns MB)...";
 
   try {
 
-    const { imagensDaDistribuidora } = await import(URL_IMPORTADOR);
-
-    /* O painel sobe pelo deploy automático do site; o bundle vem do
-       domínio do padronizador, que é reimplantado à mão. Nas horas (ou
-       dias) entre os dois, a função simplesmente não existe aqui - e
-       sem este aviso o erro que apareceria seria "não é uma função". */
-    if (typeof imagensDaDistribuidora !== "function") {
-      el("statusDpc").textContent = "O padronizador ainda não foi atualizado.";
-      avisoDpc(
-        "Esta parte precisa da versão nova do padronizador publicada " +
-        "(npm run build e deploy). Até lá, o campo de link aí embaixo continua funcionando."
-      );
-      return;
-    }
-
-    const lista = await imagensDaDistribuidora();
+    const indice = await lerReferenciaDpc();
+    const lista = {
+      total: Object.keys(indice.porEan).length,
+      importadoEm: indice.importadoEm,
+      imagemDe(ean) {
+        const chave = String(ean || "").trim();
+        const dados = indice.porEan[chave] || (chave.length === 12 ? indice.porEan["0" + chave] : null);
+        return typeof dados?.imagem === "string" && /^https?:\/\//i.test(dados.imagem.trim()) ? dados.imagem.trim() : null;
+      }
+    };
 
     if (!lista.total) {
       el("statusDpc").textContent = "Nenhuma listagem de distribuidora no servidor ainda.";
       avisoDpc(
-        "Pra usar isto, abra o padronizador e suba a planilha da distribuidora uma vez — " +
+        "Importe a planilha no botão Importar planilha DPCNET — " +
         "ela fica no servidor e vale para todas as lojas.",
         "erro"
       );
@@ -6988,7 +7077,9 @@ async function procurarFotosDpc() {
     // Só quem está sem foto. Produto que já tem imagem não se mexe:
     // pode ter sido escolhida à mão, olhando a embalagem, e a da
     // distribuidora não é necessariamente melhor.
+    if (loja !== lojaAtual) return;
     achadosDpc = [];
+    lojaAchadosDpc = loja;
 
     /* E tarjado fica de fora, mesmo que a distribuidora tenha a foto.
        A caixa neutra ali não é falta de imagem: é a escolha certa para
@@ -6998,9 +7089,10 @@ async function procurarFotosDpc() {
        isso é agora, não no dia em que entrar. */
     let tarjadosPulados = 0;
 
-    for (const p of cat.values()) {
+    const vistos = new Set();
+    for (const p of produtosParaBuscaLote([...cat.values()])) {
 
-      if (p.imagem || !p.ean) continue;
+      if (p.imagem || !p.ean || vistos.has(p.ean)) continue;
 
       const url = lista.imagemDe(p.ean);
 
@@ -7008,6 +7100,7 @@ async function procurarFotosDpc() {
 
       if (classeDeTarja(p) === "tarjado") { tarjadosPulados++; continue; }
 
+      vistos.add(p.ean);
       achadosDpc.push({ ean: p.ean, codigo: p.codigo, nome: p.nome, url });
 
     }
@@ -7037,6 +7130,7 @@ async function procurarFotosDpc() {
   } finally {
 
     el("procurarDpc").disabled = false;
+    el("importarDpc").disabled = false;
 
   }
 
@@ -7045,7 +7139,8 @@ async function procurarFotosDpc() {
 async function aplicarFotosDpc() {
 
   if (aplicandoDpc || !achadosDpc || !achadosDpc.length) return;
-
+  if (lojaAchadosDpc !== lojaAtual) { avisoDpc("A filial mudou. Clique em Procurar novamente."); return; }
+  const loja = lojaAtual;
   const fila = achadosDpc;
 
   if (!confirm(
@@ -7058,15 +7153,17 @@ async function aplicarFotosDpc() {
   pararDpcPedido = false;
   el("procurarDpc").disabled = true;
   el("aplicarDpc").disabled = true;
+  el("importarDpc").disabled = true;
   el("pararDpc").hidden = false;
   avisoDpc("");
 
-  const { salvarImagemDaDistribuidora } = await import(URL_IMPORTADOR);
+  let salvarImagemDaDistribuidora;
 
   /* O catálogo em memória, pego AGORA: o "Verificar agora" zera a
      variável global quando publica, e perder o objeto no meio do laço
      deixaria as fotos gravadas sem aparecer na lista aí embaixo. */
   const cat = await carregarCatalogo();
+  const imagensJaSalvas = new Map();
 
   let entraram = 0;
   let falharam = 0;
@@ -7086,13 +7183,13 @@ async function aplicarFotosDpc() {
      trinta fotos ao mesmo tempo, e a conta de quem não aguenta é dele. */
   const trabalhar = async () => {
 
-    while (proximo < fila.length && !pararDpcPedido) {
+    while (proximo < fila.length && !pararDpcPedido && loja === lojaAtual) {
 
       const item = fila[proximo++];
 
       try {
 
-        const resultado = await salvarImagemDaDistribuidora(item.ean, item.url);
+        const resultado = imagensJaSalvas.get(String(item.ean)) || await salvarImagemDaDistribuidora(item.ean, item.url);
 
         // Mantém o catálogo em memória junto, senão a lista "sem
         // imagem" aí embaixo continua mostrando quem já tem foto.
@@ -7117,6 +7214,15 @@ async function aplicarFotosDpc() {
 
   try {
 
+    ({ salvarImagemDaDistribuidora } = await import(URL_IMPORTADOR));
+    if (typeof salvarImagemDaDistribuidora !== "function") throw new Error("A atualização do serviço de imagens ainda não está publicada.");
+    // Consulta o acervo global primeiro: fotos manuais de outra filial não são sobrescritas.
+    for (let i = 0; i < fila.length && !pararDpcPedido && loja === lojaAtual; i += 100) {
+      const eans = fila.slice(i, i + 100).map(p => p.ean).join(",");
+      const r = await fetch(PROXY_IMAGENS + "/lote?eans=" + encodeURIComponent(eans), { cache: "no-store" });
+      if (!r.ok) throw new Error("Não consegui conferir o banco de imagens. Nenhuma foto foi substituída.");
+      for (const [ean, dados] of Object.entries(await r.json())) if (dados?.url) imagensJaSalvas.set(ean, dados);
+    }
     await Promise.all([trabalhar(), trabalhar(), trabalhar(), trabalhar()]);
 
     /* Sobra para um segundo "Aplicar" só o que não entrou - quem
@@ -7140,9 +7246,12 @@ async function aplicarFotosDpc() {
     await renderizarSemImagem();
     filtrarBuscaImagem().catch(() => {});
 
+  } catch (erro) {
+    avisoDpc("Não consegui aplicar as fotos: " + erro.message);
   } finally {
 
     aplicandoDpc = false;
+    el("importarDpc").disabled = false;
     el("pararDpc").hidden = true;
     el("procurarDpc").disabled = false;
     el("aplicarDpc").disabled = false;
@@ -7553,6 +7662,7 @@ async function carregarSessao() {
     const s = await api("/sessao");
     souDono = !!s.dono;
     el("catalogoRede").hidden = !souDono;
+    el("importarDpc").hidden = !souDono;
     el("publicarLoteCupom").hidden = !souDono;
     el("publicarLoteBanner").hidden = !souDono;
     el("publicarLoteEncarte").hidden = !souDono;
