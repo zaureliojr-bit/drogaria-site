@@ -939,6 +939,39 @@
   .dup-recomenda { color:#167446; font-weight:700; }
   #dupPaginacao { display:flex; align-items:center; gap:10px; justify-content:center; margin-top:12px; }
   #dupPaginacao[hidden] { display:none; }
+
+  /* Layout administrativo: navegação lateral, sem alterar a paleta atual. */
+  .painel { max-width: 1560px; margin: 0 auto; padding: 0 18px; }
+  #conteudo { display:grid; grid-template-columns:230px minmax(0,1fr); align-items:start; gap:18px; padding:18px 0 28px; }
+  .painel-sidebar { min-width:0; border:1px solid var(--linha); border-radius:var(--raio-lg); background:var(--branco); box-shadow:var(--sombra-sm); position:sticky; top:12px; max-height:calc(100vh - 24px); overflow:auto; }
+  .painel-sidebar-cabecalho { position:relative; padding:18px 16px 14px; border-bottom:1px solid var(--linha); }
+  .painel-sidebar-cabecalho strong { display:block; font-size:17px; color:var(--marca); }
+  .painel-sidebar-cabecalho small { display:block; margin-top:3px; color:var(--tinta-suave); font-size:11.5px; }
+  #abas { display:flex; flex-direction:column; gap:3px; padding:10px; position:static; width:auto; max-width:none; background:transparent; border:0; box-shadow:none; overflow:visible; }
+  #abas button { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:42px; flex:0 0 auto; padding:10px 12px; text-align:left; border:0; border-left:3px solid transparent; border-radius:var(--raio-sm); background:transparent; color:var(--tinta-suave); font-size:13px; font-weight:600; white-space:normal; cursor:pointer; }
+  #abas button[hidden] { display:none !important; }
+  #abas button:hover { background:var(--papel); color:var(--marca); }
+  #abas button.ativo { background:var(--marca-clara); border-left-color:var(--marca); color:var(--marca-escura); font-weight:700; }
+  #abas .contador { margin-left:auto; }
+  .painel-area { min-width:0; padding:0 0 12px; }
+  .painel-area-cabecalho { padding:2px 0 13px; margin-bottom:8px; border-bottom:1px solid var(--linha); }
+  .painel-area-cabecalho span { color:var(--tinta-suave); font-size:12px; font-weight:600; }
+  .painel-area-cabecalho h2 { font-size:26px; font-weight:800; letter-spacing:-.4px; color:var(--tinta); margin:5px 0 0; }
+  .painel-area > div { min-width:0; }
+  .painel-menu-toggle, .painel-menu-fechar, .painel-menu-fundo { display:none; }
+  @media(max-width:800px) {
+    .painel { padding:0 12px; }
+    #conteudo { display:block; padding:14px 0 24px; }
+    .painel-menu-toggle:not([hidden]) { display:inline-flex; align-items:center; gap:5px; padding:7px 10px; border:1px solid rgba(255,255,255,.45); background:transparent; color:var(--branco); border-radius:var(--raio-sm); font:inherit; font-size:12px; font-weight:700; cursor:pointer; }
+    .painel-menu-fundo:not([hidden]) { display:block; position:fixed; inset:0; z-index:1200; width:100%; height:100%; padding:0; border:0; background:rgba(0,0,0,.42); cursor:pointer; }
+    .painel-sidebar { position:fixed; inset:0 auto 0 0; z-index:1201; width:min(285px,85vw); max-height:100%; border-radius:0 var(--raio-lg) var(--raio-lg) 0; overflow:auto; overscroll-behavior:contain; padding-bottom:env(safe-area-inset-bottom,0px); transform:translateX(-105%); visibility:hidden; transition:transform .2s ease,visibility .2s; }
+    .painel-sidebar.menu-aberto { transform:translateX(0); visibility:visible; }
+    .painel-menu-fechar { display:grid; place-items:center; position:absolute; right:12px; top:14px; width:32px; height:32px; border:1px solid var(--linha); border-radius:var(--raio-sm); background:var(--branco); color:var(--tinta); font-size:23px; cursor:pointer; }
+    #abas button { min-height:46px; }
+    .painel-area-cabecalho h2 { font-size:22px; }
+    body.painel-menu-aberto { overflow:hidden; }
+  }
+  @media(prefers-reduced-motion:reduce) { .painel-sidebar { transition:none; } }
 </style>
 </head>
 
@@ -1007,6 +1040,7 @@
     </div>
   </div>
   <div class="painel-topo-acoes">
+    <button type="button" id="btnMenuPainel" class="painel-menu-toggle" aria-controls="painelSidebar" aria-expanded="false" hidden>☰ Menu</button>
     <button type="button" id="btnSair" hidden>Sair</button>
     <button type="button" id="btnInstalar" class="btn-instalar-painel" hidden>Instalar no computador</button>
     <a id="verSite" href="https://drogaria-site.pages.dev">← Ver o site</a>
@@ -1036,8 +1070,15 @@
 
   <div id="conteudo" style="display:none;">
 
-    <div class="abas" id="abas">
-      <button data-aba="fila" class="ativo">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
+    <button type="button" id="painelMenuFundo" class="painel-menu-fundo" aria-label="Fechar menu" hidden></button>
+    <aside id="painelSidebar" class="painel-sidebar" aria-label="Navegação do painel">
+      <div class="painel-sidebar-cabecalho">
+        <strong>DrogaLink</strong>
+        <small>Painel administrativo</small>
+        <button type="button" id="fecharMenuPainel" class="painel-menu-fechar" aria-label="Fechar menu">×</button>
+      </div>
+      <nav class="abas" id="abas" aria-label="Módulos">
+      <button data-aba="fila" class="ativo" aria-current="page">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
       <button data-aba="promocoes">Promoções</button>
       <!-- As quatro de quem administra a plataforma: vitrine e campanha.
 
@@ -1066,7 +1107,13 @@
            Esconder o botão não é a permissão: o worker recusa /lojas a
            quem não é dono, e é lá que a conta é feita. -->
       <button data-aba="lojas" id="botaoAbaLojas" hidden>Filiais</button>
-    </div>
+      </nav>
+    </aside>
+    <main id="painelArea" class="painel-area">
+      <div class="painel-area-cabecalho">
+        <span>DrogaLink / Painel</span>
+        <h2 id="painelSecaoTitulo" tabindex="-1">Pedidos</h2>
+      </div>
 
     <!-- ===== ABA: FILA DE PEDIDOS ===== -->
     <div id="abaFila">
@@ -2267,7 +2314,7 @@
            nunca clique nesta aba. -->
       <iframe id="iframePadronizador" class="iframe-padronizador" title="Padronizador"></iframe>
     </div><!-- /abaPadronizador -->
-
+    </main>
   </div>
 
 </div>
@@ -2709,6 +2756,8 @@ function mostrarLogin(mensagem) {
   el("login").style.display = "";
   el("conteudo").style.display = "none";
   el("btnSair").hidden = true;
+  el("btnMenuPainel").hidden = true;
+  fecharMenuLateral(false);
   el("erroLogin").innerHTML = mensagem ? `<div class="erro">${esc(mensagem)}</div>` : "";
   el("senha").focus();
 }
@@ -4485,6 +4534,7 @@ async function carregar() {
   el("login").style.display = "none";
   el("conteudo").style.display = "";
   el("btnSair").hidden = false;
+  el("btnMenuPainel").hidden = false;
 }
 
 /* "Apagar dados" — o pedido de exclusão do art. 18 da LGPD.
@@ -4558,6 +4608,7 @@ async function abrirPainel() {
   el("login").style.display = "none";
   el("conteudo").style.display = "";
   el("btnSair").hidden = false;
+  el("btnMenuPainel").hidden = false;
   await carregarSessao();
   ligarPolling();
   carregarCatalogo().then(() => {
@@ -9234,19 +9285,42 @@ el("dupLista").addEventListener("change",e=>{
   dupRender();
 });
 
+function fecharMenuLateral(devolverFoco = true) {
+  el("painelSidebar")?.classList.remove("menu-aberto");
+  const fundo = el("painelMenuFundo");
+  if (fundo) fundo.hidden = true;
+  el("btnMenuPainel")?.setAttribute("aria-expanded","false");
+  document.body.classList.remove("painel-menu-aberto");
+  if (devolverFoco && window.matchMedia("(max-width:800px)").matches && !el("btnMenuPainel")?.hidden) el("btnMenuPainel")?.focus();
+}
+function abrirMenuLateral() {
+  if (!window.matchMedia("(max-width:800px)").matches) return;
+  el("painelSidebar").classList.add("menu-aberto");
+  el("painelMenuFundo").hidden = false;
+  el("btnMenuPainel").setAttribute("aria-expanded","true");
+  document.body.classList.add("painel-menu-aberto");
+  el("abas").querySelector("button.ativo:not([hidden])")?.focus();
+}
+el("btnMenuPainel").addEventListener("click", () => el("painelSidebar").classList.contains("menu-aberto") ? fecharMenuLateral() : abrirMenuLateral());
+el("fecharMenuPainel").addEventListener("click", () => fecharMenuLateral());
+el("painelMenuFundo").addEventListener("click", () => fecharMenuLateral());
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && el("painelSidebar").classList.contains("menu-aberto")) fecharMenuLateral();
+});
+window.matchMedia("(max-width:800px)").addEventListener?.("change", () => fecharMenuLateral(false));
+
 el("abas").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-aba]");
   if (!btn) return;
-  document.querySelectorAll("#abas button").forEach(b => b.classList.toggle("ativo", b === btn));
-  const barra = ev.currentTarget;
-  if (barra.scrollWidth > barra.clientWidth) {
-    const abaVisivel = btn.getBoundingClientRect();
-    const areaVisivel = barra.getBoundingClientRect();
-    barra.scrollBy({
-      left: abaVisivel.left + abaVisivel.width / 2 - areaVisivel.left - areaVisivel.width / 2,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth"
-    });
-  }
+  document.querySelectorAll("#abas button").forEach(b => {
+    b.classList.toggle("ativo", b === btn);
+    if (b === btn) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
+  });
+  const titulo = btn.childNodes[0]?.textContent?.trim() || btn.textContent.trim();
+  el("painelSecaoTitulo").textContent = titulo;
+  const estavaAberto = el("painelSidebar").classList.contains("menu-aberto");
+  fecharMenuLateral(false);
+  if (estavaAberto) el("painelSecaoTitulo").focus({preventScroll:true});
   const aba = btn.dataset.aba;
   el("abaFila").hidden = aba !== "fila";
   el("abaPromocoes").hidden = aba !== "promocoes";
