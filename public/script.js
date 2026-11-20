@@ -170,7 +170,7 @@ const SECOES_INICIAIS = 4;
    Sem isso, trocar de filial no mesmo navegador mostraria o catálogo da
    anterior: o cache é por aba, e a aba é a mesma. O preço errado
    apareceria com cara de certo, que é o pior jeito de errar preço. */
-const CACHE_CHAVE = "catalogo_v10_" + (API_PRODUTOS.split("/").pop() || "");
+const CACHE_CHAVE = "catalogo_v11_" + (API_PRODUTOS.split("/").pop() || "");
 const CACHE_MINUTOS = 30;
 
 /* =========================
@@ -383,7 +383,7 @@ let categoriaAtual = "todas";
 let subcategoriaAtual = "todas";
 let termoBusca = "";
 let catalogoCompleto = false;
-const filtrosAvancadosAtivos = { laboratorio: "", marca: "", categoria: "" };
+const filtrosAvancadosAtivos = { laboratorio: "", marca: "", categoria: "", subcategoria: "", preco: "", classe: "" };
 let modoOfertas = false;
 let produtosDaOferta = null;
 let ordenacao = "relevancia";
@@ -555,13 +555,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ev.key === "Enter") fecharSugestoes();
   });
 
-  for (const [campo,id] of Object.entries(FILTROS_AVANCADOS_IDS)) {
-    el(id)?.addEventListener("change", e => {
-      filtrosAvancadosAtivos[campo] = e.target.value;
+  el("filtrosAvancados")?.addEventListener("click", e => {
+    const botao = e.target.closest("[data-filtro-campo]");
+    if (botao) {
+      const campo = botao.dataset.filtroCampo;
+      if (!Object.hasOwn(filtrosAvancadosAtivos,campo)) return;
+      const valor = botao.dataset.filtroValor;
+      filtrosAvancadosAtivos[campo] = filtrosAvancadosAtivos[campo] === valor ? "" : valor;
       aplicarFiltro();
       sincronizarEndereco();
-    });
-  }
+      return;
+    }
+    const ordem = e.target.closest("[data-ordenacao-sidebar]");
+    if (ordem) {
+      ordenacao = ordem.dataset.ordenacaoSidebar;
+      if (el("ordenacao")) el("ordenacao").value = ordenacao;
+      aplicarFiltro();
+    }
+  });
   el("limparFiltrosAvancados")?.addEventListener("click", () => {
     resetarFiltrosAvancados();
     aplicarFiltro();
@@ -1521,6 +1532,8 @@ function mapearProduto(p) {
        vendendo caixa. */
     substancia: p.substancia || "",
     classeTerapeutica: p.classeTerapeutica || "",
+    classeFarmacologica: p.classeFarmacologica || "",
+    subgrupoFarmacologico: p.subgrupoFarmacologico || "",
     registroAnvisa: p.registroAnvisa || "",
     ehMedicamento: !!familia.medicamento,
     temSeloGenerico: CATS_COM_SELO_GENERICO.includes(chaveCategoria(p.categoria)),
@@ -2546,8 +2559,9 @@ function ordenar(lista) {
   return [...ordenarGrupo(disponiveis), ...ordenarGrupo(indisponiveis)];
 }
 
-const FILTROS_AVANCADOS_IDS = { laboratorio:"filtroLaboratorio", marca:"filtroMarca", categoria:"filtroCategoriaAvancado" };
-const FILTROS_AVANCADOS_PARAMS = { laboratorio:"flab", marca:"fmarca", categoria:"fcat" };
+const FILTROS_AVANCADOS_IDS = { categoria:"filtroCategoriaAvancado", subcategoria:"filtroSubcategoriaAvancado", preco:"filtroPrecoAvancado", classe:"filtroClasseAvancado", marca:"filtroMarca", laboratorio:"filtroLaboratorio" };
+const FILTROS_AVANCADOS_PARAMS = { laboratorio:"flab", marca:"fmarca", categoria:"fcat", subcategoria:"fsub", preco:"fpreco", classe:"fclasse" };
+const FAIXAS_PRECO_FILTRO = [{chave:"0-20",rotulo:"Até R$ 19,99",min:0,max:20},{chave:"20-50",rotulo:"R$ 20 a R$ 49,99",min:20,max:50},{chave:"50-100",rotulo:"R$ 50 a R$ 99,99",min:50,max:100},{chave:"100-200",rotulo:"R$ 100 a R$ 199,99",min:100,max:200},{chave:"200+",rotulo:"R$ 200 ou mais",min:200,max:Infinity}];
 function resetarFiltrosAvancados() {
   for (const campo of Object.keys(filtrosAvancadosAtivos)) filtrosAvancadosAtivos[campo] = "";
 }
@@ -2562,7 +2576,14 @@ function restaurarFiltrosAvancados(parametros) {
   sincronizarEndereco();
 }
 function valorFiltroAvancado(produto,campo) {
-  const valor = campo === "categoria" ? (produto.familiaNome || produto.categoria) : produto[campo];
+  let valor = produto[campo];
+  if (campo === "categoria") valor = produto.familiaNome || produto.categoria;
+  if (campo === "subcategoria") valor = produto.subcategoria || produto.categoria;
+  if (campo === "classe") valor = produto.ehMedicamento ? (produto.classeFarmacologica || produto.classeTerapeutica || "").replace(/^\s*[A-Z][0-9][A-Z0-9]*\s*[-–]\s*/i,"") : "";
+  if (campo === "preco") {
+    const preco = Number(produto.preco);
+    return Number.isFinite(preco) && preco>0 ? FAIXAS_PRECO_FILTRO.find(f=>preco>=f.min && preco<f.max)?.chave || "" : "";
+  }
   return String(valor || "").trim().replace(/\s+/g," ");
 }
 function casaFiltrosAvancados(produto,ativos,exceto="") {
@@ -2573,37 +2594,41 @@ function opcoesFiltroAvancado(lista,campo,ativos) {
   const mapa = new Map();
   for (const produto of lista) {
     if (!casaFiltrosAvancados(produto,ativos,campo)) continue;
-    const rotulo = valorFiltroAvancado(produto,campo);
-    const chave = normalizar(rotulo);
+    const bruto = valorFiltroAvancado(produto,campo);
+    const chave = normalizar(bruto);
+    const rotulo = campo === "preco" ? FAIXAS_PRECO_FILTRO.find(f=>f.chave===chave)?.rotulo || bruto : bruto;
     if (!chave) continue;
     const anterior = mapa.get(chave);
     mapa.set(chave,{ chave,rotulo:anterior?.rotulo || rotulo,total:(anterior?.total || 0)+1 });
   }
   const atual = ativos[campo];
-  if (atual && !mapa.has(atual)) mapa.set(atual,{chave:atual,rotulo:atual,total:0});
-  return [...mapa.values()].sort((a,b)=>a.rotulo.localeCompare(b.rotulo,"pt-BR"));
+  if (atual && !mapa.has(atual)) mapa.set(atual,{chave:atual,rotulo:campo==="preco" ? FAIXAS_PRECO_FILTRO.find(f=>f.chave===atual)?.rotulo || atual : atual,total:0});
+  return [...mapa.values()].sort((a,b)=>campo==="preco" ? FAIXAS_PRECO_FILTRO.findIndex(f=>f.chave===a.chave)-FAIXAS_PRECO_FILTRO.findIndex(f=>f.chave===b.chave) : b.total-a.total || a.rotulo.localeCompare(b.rotulo,"pt-BR"));
 }
 function renderFiltrosAvancados(base,home) {
   const painel = el("filtrosAvancados");
   if (!painel) return;
   painel.hidden = home;
+  const layout = el("layoutResultados");
+  if (layout) layout.hidden = home;
   const abrir = el("abrirFiltrosAvancados");
   if (abrir) abrir.hidden = !home;
   if (home) { painel.open = false; return; }
+  const desktop = window.matchMedia("(min-width:901px)").matches;
+  if (desktop) painel.open = true;
   for (const [campo,id] of Object.entries(FILTROS_AVANCADOS_IDS)) {
-    const select = el(id);
-    if (!select) continue;
+    const lista = el(id);
+    if (!lista) continue;
     const opcoes = opcoesFiltroAvancado(base,campo,filtrosAvancadosAtivos);
     const atual = filtrosAvancadosAtivos[campo];
-    const textoTodos = campo === "laboratorio" ? "Todos" : "Todas";
-    select.innerHTML = '<option value="">' + textoTodos + '</option>' + opcoes.map(o=>`<option value="${esc(o.chave)}">${esc(o.rotulo)} (${o.total.toLocaleString("pt-BR")})</option>`).join("");
-    select.value = atual;
-    select.disabled = !atual && !opcoes.length;
+    const grupo = lista.closest("[data-grupo-filtro]");
+    if (grupo) grupo.hidden = !atual && !opcoes.length;
+    lista.innerHTML = opcoes.map(o=>`<button type="button" class="opcao-filtro" data-filtro-campo="${esc(campo)}" data-filtro-valor="${esc(o.chave)}" aria-pressed="${o.chave===atual}"><span>${esc(o.rotulo)}</span><small>(${o.total.toLocaleString("pt-BR")})</small></button>`).join("");
   }
+  painel.querySelectorAll("[data-ordenacao-sidebar]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.ordenacaoSidebar===ordenacao)));
   const n = Object.values(filtrosAvancadosAtivos).filter(Boolean).length;
   el("contagemFiltrosAvancados").textContent = n ? `${n} ativo${n===1?"":"s"}` : "";
   el("limparFiltrosAvancados").disabled = !n;
-  if (n) painel.open = true;
 }
 
 function aplicarFiltro() {
