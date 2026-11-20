@@ -2461,20 +2461,26 @@ function pontoDaBusca(p, palavras) {
 }
 
 function ordenar(lista) {
-  const copia = [...lista];
-  if (ordenacao === "menor-preco") return copia.sort((a, b) => a.preco - b.preco);
-  if (ordenacao === "maior-preco") return copia.sort((a, b) => b.preco - a.preco);
-  if (ordenacao === "desconto")    return copia.sort((a, b) => b.desconto - a.desconto);
-  if (ordenacao === "nome")        return copia.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  // Estoque é o primeiro critério em qualquer ordenação. A relevância,
+  // o preço, o desconto e o nome continuam ordenando dentro de cada grupo.
+  const disponiveis = [];
+  const indisponiveis = [];
+  for (const produto of lista) {
+    (semEstoque(produto) ? indisponiveis : disponiveis).push(produto);
+  }
 
-  /* "Relevância" só tem o que ordenar quando há busca. Sem termo, a
-     ordem do catálogo continua sendo a de sempre — mexer nela mudaria
-     a vitrine inteira sem ninguém ter pedido. */
-  if (!palavrasBuscadas.length) return copia;
+  const ordenarGrupo = (grupo) => {
+    if (ordenacao === "menor-preco") return grupo.sort((a, b) => a.preco - b.preco);
+    if (ordenacao === "maior-preco") return grupo.sort((a, b) => b.preco - a.preco);
+    if (ordenacao === "desconto")    return grupo.sort((a, b) => b.desconto - a.desconto);
+    if (ordenacao === "nome")        return grupo.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    if (!palavrasBuscadas.length) return grupo;
+    return grupo.sort((a, b) =>
+      pontoDaBusca(b, palavrasBuscadas) - pontoDaBusca(a, palavrasBuscadas)
+      || a.nome.length - b.nome.length);
+  };
 
-  return copia.sort((a, b) =>
-    pontoDaBusca(b, palavrasBuscadas) - pontoDaBusca(a, palavrasBuscadas)
-    || a.nome.length - b.nome.length);
+  return [...ordenarGrupo(disponiveis), ...ordenarGrupo(indisponiveis)];
 }
 
 function aplicarFiltro() {
