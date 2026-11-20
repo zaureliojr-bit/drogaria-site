@@ -250,6 +250,8 @@
   </div>
 </div>
 
+<button type="button" id="abrirFiltrosAvancados" class="abrir-filtros-avancados" aria-controls="filtrosAvancados">Filtrar por laboratório, marca ou categoria</button>
+
 <p class="recado-loja">
   <svg class="ic" width="16" height="16" aria-hidden="true"><use href="#ic-truck"></use></svg>
   <span><strong>Entrega rápida</strong> <span data-loja="cidade-entrega">em São Bernardo do Campo</span></span>
@@ -361,6 +363,17 @@
     </select>
   </label>
 </div>
+
+<!-- Filtros adicionais da lista atual. -->
+<details id="filtrosAvancados" class="filtros-avancados" hidden>
+  <summary><span>Filtrar produtos</span><small id="contagemFiltrosAvancados"></small></summary>
+  <div class="filtros-avancados-campos">
+    <label>Laboratório<select id="filtroLaboratorio" aria-label="Filtrar por laboratório"><option value="">Todos</option></select></label>
+    <label>Marca<select id="filtroMarca" aria-label="Filtrar por marca"><option value="">Todas</option></select></label>
+    <label>Categoria<select id="filtroCategoriaAvancado" aria-label="Filtrar por categoria"><option value="">Todas</option></select></label>
+    <button type="button" id="limparFiltrosAvancados">Limpar filtros</button>
+  </div>
+</details>
 
 <!-- 🏷️ SUBCATEGORIA (dentro da família escolhida, só quando existir) -->
 <nav id="subfiltros" class="subfiltros" aria-label="Subcategorias" hidden></nav>
