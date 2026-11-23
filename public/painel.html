@@ -977,6 +977,8 @@
   .painel-topo .painel-btn-sair:hover { background:rgba(255,255,255,.12); }
   .painel-topo .painel-btn-sair:focus-visible { outline:2px solid var(--branco); outline-offset:2px; }
   @media(max-width:800px) { .painel-topo .painel-btn-sair, .painel-menu-toggle:not([hidden]) { min-height:36px; padding:7px 12px; } }
+  #fila[hidden], #historicoPedidos[hidden] { display:none !important; }
+  #historicoPedidos summary strong { margin-left:8px; overflow-wrap:anywhere; }
 </style>
 </head>
 
@@ -1140,7 +1142,23 @@
         o painel não vai tocar quando entrar pedido.
       </div>
 
+      <div class="periodo" aria-label="Visualização dos pedidos">
+        <button type="button" id="pedidosAbertos" class="ativo" aria-pressed="true">Em andamento</button>
+        <button type="button" id="pedidosConcluidos" aria-pressed="false">Concluídos</button>
+      </div>
       <div class="fila" id="fila"></div>
+      <section id="historicoPedidos" hidden>
+        <div class="fila-topo">
+          <input type="search" id="buscaHistoricoPedidos" class="busca-imagem-produto" placeholder="Número, cliente ou telefone" aria-label="Buscar pedidos concluídos">
+          <button type="button" id="atualizarHistoricoPedidos" class="btn-testar-som">Buscar / Atualizar</button>
+        </div>
+        <p id="statusHistoricoPedidos" role="status" class="pedido-quando"></p>
+        <div id="listaHistoricoPedidos" class="fila"></div>
+        <div class="periodo">
+          <button type="button" id="anteriorHistoricoPedidos" disabled>Anterior</button>
+          <button type="button" id="proximoHistoricoPedidos" disabled>Próxima</button>
+        </div>
+      </section>
 
     </div>
 
@@ -2758,6 +2776,7 @@ async function api(rota) {
 }
 
 function mostrarLogin(mensagem) {
+  mostrarHistoricoPedidos(false);
   el("login").style.display = "";
   el("conteudo").style.display = "none";
   el("btnSair").hidden = true;
@@ -5119,6 +5138,62 @@ function ajustarAlarme() {
     }, INTERVALO_ALARME);
   }
 }
+
+let historicoPagina = 1, historicoExec = 0;
+function mostrarHistoricoPedidos(ativo) {
+  el("fila").hidden = ativo;
+  el("historicoPedidos").hidden = !ativo;
+  el("pedidosAbertos").classList.toggle("ativo", !ativo);
+  el("pedidosConcluidos").classList.toggle("ativo", ativo);
+  el("pedidosAbertos").setAttribute("aria-pressed", String(!ativo));
+  el("pedidosConcluidos").setAttribute("aria-pressed", String(ativo));
+  if (ativo) carregarHistoricoPedidos(1);
+  else { ++historicoExec; el("listaHistoricoPedidos").textContent = ""; }
+}
+async function carregarHistoricoPedidos(pagina = 1) {
+  const id = ++historicoExec, loja = lojaAtual;
+  const status = el("statusHistoricoPedidos"), lista = el("listaHistoricoPedidos");
+  lista.textContent = ""; status.textContent = "Carregando pedidos concluídos...";
+  el("anteriorHistoricoPedidos").disabled = true;
+  el("proximoHistoricoPedidos").disabled = true;
+  try {
+    const query = new URLSearchParams({pagina:String(pagina), busca:el("buscaHistoricoPedidos").value.trim()});
+    const dados = await api("/pedidos/historico?" + query);
+    if (id !== historicoExec || loja !== lojaAtual || el("historicoPedidos").hidden) return;
+    historicoPagina = dados.pagina;
+    const paginas = Math.max(1, Math.ceil(dados.total / dados.limite));
+    status.textContent = `${dados.total} pedido(s) concluído(s) · Página ${historicoPagina} de ${paginas}`;
+    lista.innerHTML = dados.pedidos.map(p => `<details class="pedido" data-historico-ref="${esc(p.ref)}">
+      <summary style="cursor:pointer;padding:12px">
+        <span class="pill pill-entregue">Concluído</span>
+        <strong>${esc(p.ref)} · ${esc(p.cliente)}</strong>
+        <div class="pedido-quando">Pedido em ${esc(new Date(p.criado_em).toLocaleString("pt-BR"))} · ${esc(p.pagamento || "")} · ${dinheiro(p.total)}</div>
+      </summary>
+      <div style="padding:12px"><p>${esc(p.telefone)} · ${esc(p.entrega)}${p.endereco ? " · "+esc(p.endereco):""}</p><div data-historico-itens role="status">Abra para ver os itens.</div></div>
+    </details>`).join("") || '<div class="fila-vazia">Nenhum pedido concluído encontrado.</div>';
+    el("anteriorHistoricoPedidos").disabled = historicoPagina <= 1;
+    el("proximoHistoricoPedidos").disabled = historicoPagina >= paginas;
+  } catch (e) { if (id === historicoExec && loja === lojaAtual) status.textContent = "Não consegui carregar o histórico. Verifique se o Worker de pedidos foi atualizado."; }
+}
+el("listaHistoricoPedidos").addEventListener("toggle", async ev => {
+  const card = ev.target;
+  if (!card.matches?.("details[data-historico-ref]") || !card.open || card.dataset.carregado) return;
+  const loja = lojaAtual, id = historicoExec, alvo = card.querySelector("[data-historico-itens]");
+  alvo.textContent = "Carregando itens...";
+  try {
+    const dados = await api("/pedidos/" + encodeURIComponent(card.dataset.historicoRef));
+    if (!card.isConnected || loja !== lojaAtual || id !== historicoExec) return;
+    if (dados.pedido?.status !== "entregue") throw Error("Pedido não concluído.");
+    alvo.innerHTML = (dados.itens || []).map(i => `<div class="pedido-item"><div class="pedido-item-nome">${esc(i.descricao)}<small>${esc(i.ean || i.codigo || "")}</small></div><div class="pedido-item-qtd">${esc(i.qtd)}x</div><div class="pedido-item-valor">${dinheiro(i.total_item)}</div></div>`).join("") || "Nenhum item registrado.";
+    card.dataset.carregado = "1";
+  } catch { if (card.isConnected && id === historicoExec && loja === lojaAtual) alvo.textContent = "Não consegui carregar os itens. Feche e abra novamente."; }
+}, true);
+el("pedidosAbertos").addEventListener("click", () => mostrarHistoricoPedidos(false));
+el("pedidosConcluidos").addEventListener("click", () => mostrarHistoricoPedidos(true));
+el("atualizarHistoricoPedidos").addEventListener("click", () => carregarHistoricoPedidos(1));
+el("buscaHistoricoPedidos").addEventListener("keydown", e => { if (e.key === "Enter") carregarHistoricoPedidos(1); });
+el("anteriorHistoricoPedidos").addEventListener("click", () => carregarHistoricoPedidos(historicoPagina - 1));
+el("proximoHistoricoPedidos").addEventListener("click", () => carregarHistoricoPedidos(historicoPagina + 1));
 
 function pintarFila() {
   el("fila").innerHTML = fila.length
@@ -8159,6 +8234,7 @@ async function carregarLojas() {
    dois segundos de espera, e é o tipo de erro que só aparece depois de
    alguém publicar o banner errado. */
 function operarNaLoja(slug) {
+  mostrarHistoricoPedidos(false);
   sessionStorage.setItem("painelLoja", slug);
   location.reload();
 }
@@ -9328,6 +9404,7 @@ el("abas").addEventListener("click", (ev) => {
   if (estavaAberto) el("painelSecaoTitulo").focus({preventScroll:true});
   const aba = btn.dataset.aba;
   el("abaFila").hidden = aba !== "fila";
+  if (aba === "fila") mostrarHistoricoPedidos(false);
   el("abaPromocoes").hidden = aba !== "promocoes";
   el("abaCupons").hidden = aba !== "cupons";
   el("abaBanners").hidden = aba !== "banners";
