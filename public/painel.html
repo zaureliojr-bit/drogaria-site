@@ -1085,6 +1085,7 @@
         <button type="button" id="fecharMenuPainel" class="painel-menu-fechar" aria-label="Fechar menu">×</button>
       </div>
       <nav class="abas" id="abas" aria-label="Módulos">
+      <button data-aba="rede" data-so-dono hidden>Visão geral da rede</button>
       <button data-aba="fila" class="ativo" aria-current="page">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
       <button data-aba="promocoes">Promoções</button>
       <!-- As quatro de quem administra a plataforma: vitrine e campanha.
@@ -1122,6 +1123,24 @@
         <h2 id="painelSecaoTitulo" tabindex="-1">Pedidos</h2>
       </div>
 
+    <section id="abaRede" hidden>
+      <div class="form-banner">
+        <p>Vendas concluídas e pedidos de todas as filiais. A filial selecionada aqui não altera a loja de operação das demais abas.</p>
+        <div class="fila-topo">
+          <label>Filial <select id="redeFilialPedidos"><option value="">Todas as filiais</option></select></label>
+          <label>Período <select id="redeDiasPedidos"><option value="0">Todo o histórico</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option></select></label>
+          <label>Pedidos <select id="redeStatusPedidos"><option value="todos">Todos</option><option value="abertos">Em andamento</option><option value="entregue">Concluídos</option><option value="cancelado">Cancelados</option></select></label>
+          <button type="button" id="redeAtualizarPedidos" class="btn-testar-som">Atualizar</button>
+        </div>
+        <p id="redePedidosAviso" role="status"></p>
+        <div id="redePedidosTotais" class="numeros"></div>
+        <h2>Resumo por filial</h2>
+        <div id="redePedidosFiliais" class="tabela-wrap"></div>
+        <h2 style="margin-top:18px">Pedidos da rede</h2>
+        <div id="redePedidosLista" class="fila"></div>
+        <div class="periodo"><button type="button" id="redePedidosAnterior" disabled>Anterior</button><span id="redePedidosPagina" class="pedido-quando"></span><button type="button" id="redePedidosProximo" disabled>Próxima</button></div>
+      </div>
+    </section>
     <!-- ===== ABA: FILA DE PEDIDOS ===== -->
     <div id="abaFila">
 
@@ -4634,6 +4653,7 @@ async function abrirPainel() {
   el("btnSair").hidden = false;
   el("btnMenuPainel").hidden = false;
   await carregarSessao();
+  if (souDono && !new URLSearchParams(location.search).has("filial")) document.querySelector('#abas [data-aba="rede"]')?.click();
   ligarPolling();
   carregarCatalogo().then(() => {
     if (fila.length) pintarFila();
@@ -9390,9 +9410,69 @@ document.addEventListener("keydown", e => {
 });
 window.matchMedia("(max-width:800px)").addEventListener?.("change", () => fecharMenuLateral(false));
 
+let redePedidosExec = 0, redePedidosCursores = [null], redePedidosProximo = null;
+const redeRotulosStatus = {novo:"Novo",separando:"Separando","receita-ok":"Receita conferida",entregue:"Concluído",cancelado:"Cancelado"};
+async function carregarRedePedidos(reiniciar = false) {
+  if (!souDono) return;
+  if (reiniciar) redePedidosCursores=[null];
+  const id=++redePedidosExec;
+  const aviso=el("redePedidosAviso"), lista=el("redePedidosLista");
+  aviso.textContent="Consultando filiais...";
+  lista.textContent="";
+  el("redePedidosTotais").textContent="";
+  el("redePedidosFiliais").textContent="";
+  el("redePedidosAnterior").disabled=true;
+  el("redePedidosProximo").disabled=true;
+  redePedidosProximo=null;
+  try {
+    const filial=el("redeFilialPedidos").value;
+    const params=new URLSearchParams({filial,dias:el("redeDiasPedidos").value,status:el("redeStatusPedidos").value});
+    const cursor=redePedidosCursores.at(-1); if(cursor) params.set("cursor",cursor);
+    const dados=await api("/rede/pedidos?"+params);
+    if(id!==redePedidosExec || !souDono) return;
+    const selecao=el("redeFilialPedidos");
+    selecao.innerHTML='<option value="">Todas as filiais</option>'+dados.lojas.map(l=>`<option value="${esc(l.slug)}">${esc(l.nome)}${l.ativo?"":" (inativa)"}</option>`).join("");
+    selecao.value=filial;
+    const t=dados.totais;
+    const parcial=dados.falhas.length>0;
+    aviso.textContent=parcial ? "Resultado parcial: não foi possível consultar "+dados.falhas.map(l=>l.nome).join(", ")+". Totais somente das filiais consultadas." : "Dados consolidados de "+dados.contas.length+" filial(is).";
+    el("redePedidosTotais").innerHTML=[
+      ["Vendas concluídas",dinheiro(t.vendas)],["Pedidos registrados",t.total],["Concluídos",t.concluidos],["Em andamento",t.abertos],["Cancelados",t.cancelados],["Ticket médio concluído",dinheiro(t.concluidos?t.vendas/t.concluidos:0)]
+    ].map(([rotulo,valor],i)=>`<div class="num${i===0?" num-destaque":""}"><span>${esc(rotulo)}</span><strong>${esc(valor)}</strong></div>`).join("");
+    el("redePedidosFiliais").innerHTML=tabela([{titulo:"Filial",larga:true},{titulo:"Pedidos",num:true},{titulo:"Concluídos",num:true},{titulo:"Em andamento",num:true},{titulo:"Vendas",num:true}],dados.contas.map(l=>[esc(l.nome),Number(l.total||0),Number(l.concluidos||0),Number(l.abertos||0),dinheiro(l.vendas)]),"Nenhuma filial consultada.");
+    lista.innerHTML=dados.pedidos.map(p=>`<details class="pedido" data-rede-ref="${esc(p.ref)}" data-rede-filial="${esc(p.filial)}">
+      <summary style="padding:12px;cursor:pointer"><strong>${esc(p.filialNome)}</strong><div>${esc(p.ref)} · ${esc(p.cliente)}</div><span class="pill ${p.status==="entregue"?"pill-entregue":"pill-novo"}">${esc(redeRotulosStatus[p.status]||p.status)}</span> · ${esc(dataHora(p.criado_em))} · ${dinheiro(p.total)}</summary>
+      <div style="padding:12px"><div>${esc(p.entrega)} · ${esc(p.pagamento)}</div><div data-rede-detalhes role="status">Abra para ver os itens.</div></div></details>`).join("")||'<div class="fila-vazia">Nenhum pedido neste filtro.</div>';
+    redePedidosProximo=dados.proximo;
+    el("redePedidosPagina").textContent="Página "+redePedidosCursores.length;
+    el("redePedidosAnterior").disabled=redePedidosCursores.length<=1;
+    el("redePedidosProximo").disabled=!redePedidosProximo;
+  } catch(e) {
+    if (id===redePedidosExec) aviso.textContent="Não foi possível consultar a rede. Confira se o Worker de pedidos está atualizado.";
+  }
+}
+for(const id of ["redeFilialPedidos","redeDiasPedidos","redeStatusPedidos"]) el(id).addEventListener("change",()=>carregarRedePedidos(true));
+el("redeAtualizarPedidos").addEventListener("click",()=>carregarRedePedidos(true));
+el("redePedidosAnterior").addEventListener("click",()=>{if(redePedidosCursores.length>1){redePedidosCursores.pop();carregarRedePedidos();}});
+el("redePedidosProximo").addEventListener("click",()=>{if(redePedidosProximo){redePedidosCursores.push(redePedidosProximo);carregarRedePedidos();}});
+el("redePedidosLista").addEventListener("toggle",async e=>{
+  const card=e.target;
+  if(!souDono || !card.matches?.("details[data-rede-ref]") || !card.open || card.dataset.carregado) return;
+  const alvo=card.querySelector("[data-rede-detalhes]"), id=redePedidosExec;
+  alvo.textContent="Carregando itens...";
+  try {
+    const r=await fetch(API.replace(/\/+$/,"")+"/pedidos/"+encodeURIComponent(card.dataset.redeRef),{headers:cabecalhos({"X-Painel-Loja":card.dataset.redeFilial}),cache:"no-store"});
+    if(!r.ok) throw Error("Falha");
+    const dados=await r.json();
+    if(!souDono || id!==redePedidosExec || !card.isConnected) return;
+    alvo.innerHTML=(dados.itens||[]).map(i=>`<div class="pedido-item"><div class="pedido-item-nome">${esc(i.descricao)}</div><div>${esc(i.qtd)}x</div><div>${dinheiro(i.total_item)}</div></div>`).join("")||"Nenhum item registrado.";
+    card.dataset.carregado="1";
+  }catch{if(card.isConnected && id===redePedidosExec) alvo.textContent="Não foi possível consultar os itens. Feche e abra novamente.";}
+},true);
+
 el("abas").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-aba]");
-  if (!btn) return;
+  if (!btn || (btn.hasAttribute("data-so-dono") && !souDono)) return;
   document.querySelectorAll("#abas button").forEach(b => {
     b.classList.toggle("ativo", b === btn);
     if (b === btn) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
@@ -9403,6 +9483,8 @@ el("abas").addEventListener("click", (ev) => {
   fecharMenuLateral(false);
   if (estavaAberto) el("painelSecaoTitulo").focus({preventScroll:true});
   const aba = btn.dataset.aba;
+  el("abaRede").hidden = aba !== "rede";
+  if (aba === "rede" && souDono) carregarRedePedidos(true);
   el("abaFila").hidden = aba !== "fila";
   if (aba === "fila") mostrarHistoricoPedidos(false);
   el("abaPromocoes").hidden = aba !== "promocoes";
