@@ -979,6 +979,11 @@
   @media(max-width:800px) { .painel-topo .painel-btn-sair, .painel-menu-toggle:not([hidden]) { min-height:36px; padding:7px 12px; } }
   #fila[hidden], #historicoPedidos[hidden] { display:none !important; }
   #historicoPedidos summary strong { margin-left:8px; overflow-wrap:anywhere; }
+  .painel-topo-acoes { flex-wrap:wrap; }
+  .painel-filial-topo { display:flex; align-items:center; gap:7px; min-width:0; max-width:100%; font-size:12px; font-weight:700; }
+  .painel-filial-topo[hidden] { display:none !important; }
+  .painel-filial-topo select { min-height:36px; max-width:260px; min-width:0; padding:7px 10px; border:1px solid rgba(255,255,255,.55); border-radius:var(--raio-sm); font:inherit; color:var(--marca-escura); background:var(--branco); text-overflow:ellipsis; cursor:pointer; }
+  @media(max-width:800px) { .painel-filial-topo { flex:1 1 100%; } .painel-filial-topo select { flex:1; max-width:none; } .painel-topo-acoes { width:100%; gap:8px; } }
 </style>
 </head>
 
@@ -1047,6 +1052,8 @@
     </div>
   </div>
   <div class="painel-topo-acoes">
+    <label id="seletorFilialTopo" class="painel-filial-topo" hidden><span>Trocar filial</span><select id="filialTopo" aria-label="Trocar filial de operação"><option value="">Carregando filiais...</option></select></label>
+    <button type="button" id="btnRedeTopo" class="painel-btn-sair" hidden>Visão da rede</button>
     <button type="button" id="btnMenuPainel" class="painel-menu-toggle" aria-controls="painelSidebar" aria-expanded="false" hidden>☰ Menu</button>
     <button type="button" id="btnSair" class="painel-btn-sair" hidden>Sair</button>
     <button type="button" id="btnInstalar" class="btn-instalar-painel" hidden>Instalar no computador</button>
@@ -2799,6 +2806,8 @@ function mostrarLogin(mensagem) {
   el("login").style.display = "";
   el("conteudo").style.display = "none";
   el("btnSair").hidden = true;
+  el("seletorFilialTopo").hidden = true;
+  el("btnRedeTopo").hidden = true;
   el("btnMenuPainel").hidden = true;
   fecharMenuLateral(false);
   el("erroLogin").innerHTML = mensagem ? `<div class="erro">${esc(mensagem)}</div>` : "";
@@ -7880,6 +7889,9 @@ async function carregarSessao() {
     if (s.loja && s.loja.slug) lojaAtual = s.loja.slug;
     if (s.loja && s.loja.nome) lojaNome = s.loja.nome;
     el("botaoAbaLojas").hidden = !souDono;
+    el("seletorFilialTopo").hidden = !souDono;
+    el("btnRedeTopo").hidden = !souDono;
+    if (souDono) carregarFiliaisTopo();
 
     /* As abas de vitrine e campanha somem para quem entrou como loja.
 
@@ -8253,10 +8265,48 @@ async function carregarLojas() {
    trocada — fila da filial nova com os banners da antiga — é pior do que
    dois segundos de espera, e é o tipo de erro que só aparece depois de
    alguém publicar o banner errado. */
+let filiaisTopoPermitidas = new Set();
+async function carregarFiliaisTopo() {
+  const select = el("filialTopo");
+  select.disabled = true;
+  try {
+    const {lojas = []} = await api("/lojas");
+    if (!souDono) return;
+    const ativas = lojas.filter(l => l.ativo && l.slug);
+    filiaisTopoPermitidas = new Set(ativas.map(l => l.slug));
+    select.replaceChildren();
+    for (const l of ativas) {
+      const opt = document.createElement("option");
+      opt.value = l.slug;
+      opt.textContent = l.nome;
+      select.append(opt);
+    }
+    if (!filiaisTopoPermitidas.has(lojaAtual)) {
+      const opt = document.createElement("option");
+      opt.value = lojaAtual; opt.textContent = lojaNome || "Filial atual"; opt.disabled = true;
+      select.prepend(opt);
+    }
+    select.value = lojaAtual;
+    select.disabled = !ativas.length;
+  } catch {
+    select.replaceChildren(new Option("Não foi possível carregar as filiais", ""));
+    select.disabled = true;
+  }
+}
+el("filialTopo").addEventListener("change", e => {
+  const slug=e.target.value;
+  if (souDono && filiaisTopoPermitidas.has(slug) && slug !== lojaAtual) operarNaLoja(slug);
+});
+el("btnRedeTopo").addEventListener("click", () => {
+  if (souDono) document.querySelector('#abas [data-aba="rede"]')?.click();
+});
 function operarNaLoja(slug) {
+  if (!souDono || !/^[a-z0-9-]+$/.test(String(slug || ""))) return;
   mostrarHistoricoPedidos(false);
   sessionStorage.setItem("painelLoja", slug);
-  location.reload();
+  const destino = new URL(location.href);
+  destino.searchParams.set("filial",slug);
+  location.assign(destino.href);
 }
 
 async function salvarSenhaDaLoja() {
