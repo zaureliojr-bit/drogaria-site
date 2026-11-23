@@ -1007,6 +1007,10 @@
   #abaRede h2 { margin:16px 0 10px; font-size:16px; }
   @media(max-width:1100px) { #abaRede .rede-filtros-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   @media(max-width:520px) { #abaRede .rede-filtros-grid { grid-template-columns:1fr; gap:10px; padding:12px; } #abaRede .rede-filtros-cab { flex-wrap:wrap; } #abaRede .rede-atualizar { width:100%; } }
+  .dup-acoes { display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin-top:12px; }
+  .dup-acoes small { color:var(--tinta-suave); }
+  .dup-aplicar { background:var(--marca); color:var(--branco); border:0; border-radius:var(--raio-sm); padding:10px 14px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+  .dup-aplicar:disabled { opacity:.5; cursor:not-allowed; }
 </style>
 </head>
 
@@ -2354,7 +2358,7 @@
       <section class="form-banner">
         <h2>Diagnóstico de duplicidades</h2>
         <p>Analise os produtos publicados na filial atual. EANs iguais indicam possíveis cadastros duplicados; descrições semelhantes exigem conferência de apresentação, quantidade e fabricante.</p>
-        <p class="lojas-explica">Nenhum cadastro é alterado automaticamente. As decisões abaixo servem para revisão; não somam estoque, não excluem produtos nem modificam o Farmax.</p>
+        <p class="lojas-explica">Escolha um cadastro para manter e marque os demais para exclusão ou mesclagem. O master aplica as decisões após confirmar. O cadastro descartado sai apenas do site desta filial, sem somar estoque nem alterar o Farmax.</p>
         <div class="fila-topo">
           <button type="button" id="dupCarregar" class="btn-testar-som">Atualizar diagnóstico</button>
           <button type="button" id="dupExportar" class="btn-testar-som" disabled>Exportar revisão CSV</button>
@@ -9321,6 +9325,7 @@ el("listaLojas").addEventListener("click", async (ev) => {
 /* Diagnóstico só sobre a vitrine publicada, sem alterar produtos. */
 const DUP_LABELS = { ean: "Mesmo EAN", codigo: "Mesmo código interno", nome: "Mesmo nome normalizado", similar: "Nome semelhante (termos iguais)" };
 let dupGrupos = [], dupTotal = 0, dupPagina = 0, dupLoja = "", dupExecucao = 0;
+let dupAplicando = false;
 const DUP_POR_PAGINA = 20;
 function dupNormal(texto) {
   return String(texto ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase()
@@ -9406,6 +9411,38 @@ function dupFiltrar() {
     (!el("dupComEstoque").checked || g.itens.some(p => p.estoque > 0)) &&
     (!termo || g.itens.some(p => dupNormal(p.nome + " " + p.codigo + " " + p.ean + " " + p.marca).includes(termo))));
 }
+function dupDecisoes(g, revisao) {
+  const manter = g.itens.filter(p=>revisao[dupChave(p)]==="manter");
+  if (manter.length!==1) return null;
+  const fica=manter[0];
+  const outros=g.itens.filter(p=>p.id!==fica.id);
+  if (outros.some(p=>!["mesclar","excluir"].includes(revisao[dupChave(p)]))) return null;
+  if (outros.some(p=>revisao[dupChave(p)]==="mesclar" && (!dupEan(p.ean)||dupEan(p.ean)!==dupEan(fica.ean)))) return null;
+  const ident=p=>({codigo:p.codigo,ean:p.ean,nome:p.nome});
+  return outros.map(p=>({manter:ident(fica),remover:ident(p),acao:revisao[dupChave(p)]}));
+}
+async function dupAplicarGrupo(id) {
+  if (!souDono || dupAplicando || dupLoja!==lojaAtual) return;
+  const g=dupGrupos.find(g=>g.id===id);
+  const decisoes=g && dupDecisoes(g,dupRevisao());
+  if (!decisoes?.length) return;
+  const fica=decisoes[0].manter;
+  const texto=decisoes.map(d=>"• "+d.remover.codigo+" — "+d.remover.nome).join("\n");
+  if (!confirm("Filial: "+dupLoja+"\n\nManter: "+fica.codigo+" — "+fica.nome+"\n\nRetirar da vitrine:\n"+texto+"\n\nEstoques e preços NÃO serão somados. O Farmax e as imagens não serão alterados. Os códigos descartados não voltarão nas próximas publicações. Confirma?")) return;
+  const loja=dupLoja;
+  dupAplicando=true; el("dupCarregar").disabled=true; dupRender();
+  el("dupStatus").textContent="Aplicando decisões...";
+  try {
+    const resultado=await enviarPublicacao("/catalogo/duplicidades",{decisoes},loja);
+    if (!resultado.ok || resultado.modo!=="duplicidades") throw Error("Atualize os Workers de publicação e pedidos.");
+    if (loja!==lojaAtual) return;
+    for(const p of g.itens) dupSalvarRevisao(dupChave(p),"");
+    catalogo=null;
+    await dupCarregar();
+    el("dupStatus").textContent="Decisões aplicadas. "+decisoes.length+" cadastro(s) retirado(s) desta filial.";
+  } catch(e) { el("dupStatus").textContent="Não foi possível aplicar: "+e.message; }
+  finally { dupAplicando=false; el("dupCarregar").disabled=false; dupRender(); }
+}
 function dupRender() {
   if (dupLoja !== lojaAtual) { el("dupLista").textContent = "Atualize o diagnóstico da filial atual."; el("dupExportar").disabled = true; return; }
   const grupos = dupFiltrar();
@@ -9417,6 +9454,7 @@ function dupRender() {
     [dupTotal,"Itens analisados"],[dupGrupos.length,"Grupos suspeitos"],[cont("ean"),"Mesmo EAN"],[cont("codigo"),"Mesmo código"],[cont("nome"),"Mesmo nome"],[cont("similar"),"Termos semelhantes"]
   ].map(([n,t]) => `<div><strong>${n.toLocaleString("pt-BR")}</strong><small>${esc(t)}</small></div>`).join("");
   el("dupLista").innerHTML = grupos.slice(dupPagina*DUP_POR_PAGINA,(dupPagina+1)*DUP_POR_PAGINA).map(g => {
+    const pronto = !!dupDecisoes(g,revisao);
     const sugestao = g.tipos.includes("ean") && g.itens[0].estoque > 0 ? g.itens[0].id : -1;
     return `<article class="dup-grupo"><h3>${esc(g.itens[0].nome || "Cadastro sem nome")}</h3>
       <span class="dup-indicio">${esc(g.tipos.map(t => DUP_LABELS[t]).join(" · "))} · ${g.itens.length} registros</span>
@@ -9427,10 +9465,11 @@ function dupRender() {
           <small>${esc(p.marca || "Marca não informada")} · ${p.imagem ? "Com foto" : "Sem foto"}</small>
           <span class="dup-estoque">Estoque: ${p.estoque === null ? "Não informado" : esc(p.estoque)} · Preço: ${p.preco === null ? "—" : p.preco.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</span>
           ${p.id === sugestao ? '<small class="dup-recomenda">Prioridade para conferir: cadastro com estoque</small>' : ""}
-          <label>Decisão de revisão<select data-dup-chave="${esc(chave)}">
+          <label>Decisão de revisão<select data-dup-chave="${esc(chave)}"${dupAplicando?" disabled":""}>
             ${[["","Pendente"],["manter","Manter"],["mesclar","Revisar mesclagem"],["excluir","Revisar exclusão"]].map(([v,t]) => `<option value="${v}"${v === acao ? " selected" : ""}>${t}</option>`).join("")}
           </select></label></div>`;
-      }).join("")}</div></article>`;
+      }).join("")}</div>
+      ${souDono ? `<div class="dup-acoes"><button type="button" class="dup-aplicar" data-dup-aplicar="${esc(g.id)}"${!pronto || dupAplicando?" disabled":""}>Aplicar decisões</button><small>${pronto?"Revise a confirmação antes de publicar.":"Escolha um para manter; defina o destino dos demais."}</small></div>`:""}</article>`;
   }).join("") || '<p class="vazio">Nenhum grupo encontrado com estes filtros.</p>';
   el("dupPaginacao").hidden = totalPag <= 1;
   el("dupPagina").textContent = `Página ${dupPagina+1} de ${totalPag} · ${grupos.length} grupos`;
@@ -9455,6 +9494,7 @@ el("dupExportar").addEventListener("click",dupExportar);
 ["dupBusca","dupFiltro","dupComEstoque"].forEach(id=>el(id).addEventListener(id==="dupBusca"?"input":"change",()=>{dupPagina=0;dupRender();}));
 el("dupAnterior").addEventListener("click",()=>{dupPagina=Math.max(0,dupPagina-1);dupRender();});
 el("dupProxima").addEventListener("click",()=>{dupPagina++;dupRender();});
+el("dupLista").addEventListener("click",e=>{ const b=e.target.closest("[data-dup-aplicar]"); if(b) dupAplicarGrupo(b.dataset.dupAplicar); });
 el("dupLista").addEventListener("change",e=>{
   const seletor=e.target.closest("[data-dup-chave]");
   if (!seletor || dupLoja !== lojaAtual) return;
