@@ -9391,7 +9391,9 @@ async function dupCarregar() {
     if (!loja) throw new Error("Selecione a filial antes de analisar.");
     const dados = await api("/loja?slug=" + encodeURIComponent(loja));
     if (dados?.loja?.slug !== loja || !/^https:\/\/raw\.githubusercontent\.com\//.test(dados.catalogo || "")) throw new Error("Não consegui validar o catálogo desta filial.");
-    const r = await fetch(dados.catalogo, { cache:"no-store" });
+    const url = new URL(dados.catalogo);
+    url.searchParams.set("_atualizado", String(Date.now()));
+    const r = await fetch(url.href, { cache:"no-store" });
     if (!r.ok) throw new Error("Catálogo indisponível (HTTP " + r.status + ").");
     const json = await r.json();
     if (!Array.isArray(json.produtos)) throw new Error("Formato de catálogo inválido.");
@@ -9439,7 +9441,7 @@ async function dupAplicarGrupo(id) {
     for(const p of g.itens) dupSalvarRevisao(dupChave(p),"");
     catalogo=null;
     await dupCarregar();
-    el("dupStatus").textContent="Decisões aplicadas. "+decisoes.length+" cadastro(s) retirado(s) desta filial.";
+    el("dupStatus").textContent=resultado.jaAplicado ? "Estas decisões já estavam aplicadas no catálogo." : "Decisões aplicadas. "+decisoes.length+" cadastro(s) retirado(s) desta filial.";
   } catch(e) { el("dupStatus").textContent="Não foi possível aplicar: "+e.message; }
   finally { dupAplicando=false; el("dupCarregar").disabled=false; dupRender(); }
 }
