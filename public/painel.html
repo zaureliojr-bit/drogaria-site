@@ -984,6 +984,29 @@
   .painel-filial-topo[hidden] { display:none !important; }
   .painel-filial-topo select { min-height:36px; max-width:260px; min-width:0; padding:7px 10px; border:1px solid rgba(255,255,255,.55); border-radius:var(--raio-sm); font:inherit; color:var(--marca-escura); background:var(--branco); text-overflow:ellipsis; cursor:pointer; }
   @media(max-width:800px) { .painel-filial-topo { flex:1 1 100%; } .painel-filial-topo select { flex:1; max-width:none; } .painel-topo-acoes { width:100%; gap:8px; } }
+
+  /* Visão consolidada: filtros e estados de consulta. */
+  #abaRede .rede-overview { padding:clamp(14px,2vw,22px); }
+  #abaRede .rede-filtros-cab { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:18px; }
+  #abaRede .rede-filtros-cab h3 { margin:0 0 5px; font-size:18px; font-weight:800; color:var(--tinta); }
+  #abaRede .rede-filtros-cab p { margin:0; color:var(--tinta-suave); font-size:13px; line-height:1.5; }
+  #abaRede .rede-selo { padding:6px 11px; border-radius:100px; background:var(--marca-clara); color:var(--marca-escura); font-size:11px; font-weight:700; white-space:nowrap; }
+  #abaRede .rede-filtros-grid { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) auto; gap:14px; align-items:end; padding:16px; background:var(--papel); border:1px solid var(--linha); border-radius:var(--raio-md); }
+  #abaRede .rede-filtros-grid label { display:flex; flex-direction:column; gap:7px; min-width:0; color:var(--tinta); font-size:12px; font-weight:700; }
+  #abaRede .rede-filtros-grid select { width:100%; min-width:0; min-height:44px; padding:10px 12px; background:var(--branco); border:1.5px solid var(--linha); border-radius:var(--raio-sm); font:inherit; font-size:13px; color:var(--tinta); cursor:pointer; }
+  #abaRede .rede-filtros-grid select:focus { outline:none; border-color:var(--marca); box-shadow:0 0 0 3px var(--marca-clara); }
+  #abaRede .rede-atualizar { min-height:44px; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 18px; border:1px solid var(--marca); border-radius:var(--raio-sm); background:var(--marca); color:var(--branco); font:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+  #abaRede .rede-atualizar:hover { background:var(--marca-escura); }
+  #abaRede .rede-atualizar span { font-size:19px; line-height:1; }
+  #abaRede .rede-aviso { margin:14px 0 16px; padding:10px 13px; border-radius:var(--raio-sm); background:var(--papel); color:var(--tinta-suave); border:1px solid var(--linha); font-size:12px; line-height:1.5; }
+  #abaRede .rede-aviso:empty { display:none; }
+  #abaRede .rede-aviso[data-estado="parcial"] { background:#fff7e5; border-color:#e7cb8a; color:#755319; }
+  #abaRede .rede-aviso[data-estado="erro"] { background:var(--erro-clara); border-color:var(--erro); color:var(--erro); }
+  #abaRede .rede-aviso[data-estado="ok"] { background:var(--marca-xclara); color:var(--marca-escura); }
+  #abaRede #redePedidosTotais { margin:16px 0 22px; }
+  #abaRede h2 { margin:16px 0 10px; font-size:16px; }
+  @media(max-width:1100px) { #abaRede .rede-filtros-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media(max-width:520px) { #abaRede .rede-filtros-grid { grid-template-columns:1fr; gap:10px; padding:12px; } #abaRede .rede-filtros-cab { flex-wrap:wrap; } #abaRede .rede-atualizar { width:100%; } }
 </style>
 </head>
 
@@ -1131,15 +1154,18 @@
       </div>
 
     <section id="abaRede" hidden>
-      <div class="form-banner">
-        <p>Vendas concluídas e pedidos de todas as filiais. A filial selecionada aqui não altera a loja de operação das demais abas.</p>
-        <div class="fila-topo">
-          <label>Filial <select id="redeFilialPedidos"><option value="">Todas as filiais</option></select></label>
-          <label>Período <select id="redeDiasPedidos"><option value="0">Todo o histórico</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option></select></label>
-          <label>Pedidos <select id="redeStatusPedidos"><option value="todos">Todos</option><option value="abertos">Em andamento</option><option value="entregue">Concluídos</option><option value="cancelado">Cancelados</option></select></label>
-          <button type="button" id="redeAtualizarPedidos" class="btn-testar-som">Atualizar</button>
+      <div class="form-banner rede-overview">
+        <div class="rede-filtros-cab">
+          <div><h3>Filtros da rede</h3><p>Consulte pedidos e vendas sem alterar a filial de operação.</p></div>
+          <span class="rede-selo">Acesso master</span>
         </div>
-        <p id="redePedidosAviso" role="status"></p>
+        <div class="rede-filtros-grid">
+          <label for="redeFilialPedidos">Filial<select id="redeFilialPedidos"><option value="">Todas as filiais</option></select></label>
+          <label for="redeDiasPedidos">Período<select id="redeDiasPedidos"><option value="0">Todo o histórico</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option></select></label>
+          <label for="redeStatusPedidos">Situação dos pedidos<select id="redeStatusPedidos"><option value="todos">Todos</option><option value="abertos">Em andamento</option><option value="entregue">Concluídos</option><option value="cancelado">Cancelados</option></select></label>
+          <button type="button" id="redeAtualizarPedidos" class="rede-atualizar"><span aria-hidden="true">↻</span> Atualizar</button>
+        </div>
+        <p id="redePedidosAviso" role="status" class="rede-aviso" data-estado="carregando"></p>
         <div id="redePedidosTotais" class="numeros"></div>
         <h2>Resumo por filial</h2>
         <div id="redePedidosFiliais" class="tabela-wrap"></div>
@@ -9467,6 +9493,7 @@ async function carregarRedePedidos(reiniciar = false) {
   if (reiniciar) redePedidosCursores=[null];
   const id=++redePedidosExec;
   const aviso=el("redePedidosAviso"), lista=el("redePedidosLista");
+  aviso.dataset.estado="carregando";
   aviso.textContent="Consultando filiais...";
   lista.textContent="";
   el("redePedidosTotais").textContent="";
@@ -9485,6 +9512,7 @@ async function carregarRedePedidos(reiniciar = false) {
     selecao.value=filial;
     const t=dados.totais;
     const parcial=dados.falhas.length>0;
+    aviso.dataset.estado=parcial?"parcial":"ok";
     aviso.textContent=parcial ? "Resultado parcial: não foi possível consultar "+dados.falhas.map(l=>l.nome).join(", ")+". Totais somente das filiais consultadas." : "Dados consolidados de "+dados.contas.length+" filial(is).";
     el("redePedidosTotais").innerHTML=[
       ["Vendas concluídas",dinheiro(t.vendas)],["Pedidos registrados",t.total],["Concluídos",t.concluidos],["Em andamento",t.abertos],["Cancelados",t.cancelados],["Ticket médio concluído",dinheiro(t.concluidos?t.vendas/t.concluidos:0)]
@@ -9498,7 +9526,7 @@ async function carregarRedePedidos(reiniciar = false) {
     el("redePedidosAnterior").disabled=redePedidosCursores.length<=1;
     el("redePedidosProximo").disabled=!redePedidosProximo;
   } catch(e) {
-    if (id===redePedidosExec) aviso.textContent="Não foi possível consultar a rede. Confira se o Worker de pedidos está atualizado.";
+    if (id===redePedidosExec) { aviso.dataset.estado="erro"; aviso.textContent="Não foi possível consultar a rede. Confira se o Worker de pedidos está atualizado."; }
   }
 }
 for(const id of ["redeFilialPedidos","redeDiasPedidos","redeStatusPedidos"]) el(id).addEventListener("change",()=>carregarRedePedidos(true));
