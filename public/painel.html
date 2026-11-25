@@ -1189,6 +1189,10 @@
       #abaCompras .compras-detalhe-inline>strong{display:block;margin-bottom:10px}
       #abaCompras .compras-detalhe-lista{overflow:auto}
       #abaCompras button.compras-produto-toggle{text-align:left;border:0;padding:4px 0;color:inherit;font-weight:600;white-space:normal}
+      #abaCompras .compras-classe-linha{display:grid;grid-template-columns:minmax(100px,1.3fr) minmax(40px,2fr) minmax(105px,auto);align-items:center;gap:12px;margin:11px 0;font-size:12px}
+      #abaCompras .compras-classe-trilho{height:12px;border-radius:5px;background:rgba(125,125,150,.15);overflow:hidden}
+      #abaCompras .compras-classe-trilho>span{display:block;height:100%;background:var(--marca,#29258c);border-radius:5px}
+      #abaCompras .compras-classe-valor{text-align:right;font-weight:600}
       #abaCompras .compras-orcamento{margin:20px 0}
       #abaCompras .compras-orcamento input{min-width:96px;width:120px}
       #abaCompras .compras-orcamento input[data-meta]{width:85px;min-width:75px}
@@ -1209,11 +1213,12 @@
         <p id="comprasAviso" role="status" class="rede-aviso"></p>
         <progress id="comprasProgresso" max="100" value="0" hidden></progress>
         <div id="comprasTotais" class="numeros"></div>
-        <nav class="compras-tabs" aria-label="Áreas de compras"><button type="button" data-compras-tab="geral" aria-pressed="true">Visão geral</button><button type="button" data-compras-tab="comparativo" aria-pressed="false">Comparativo de custos</button><button type="button" data-compras-tab="fornecedores" aria-pressed="false">Fornecedores</button><button type="button" data-compras-tab="auditoria" aria-pressed="false">Auditoria</button></nav>
+        <nav class="compras-tabs" aria-label="Áreas de compras"><button type="button" data-compras-tab="geral" aria-pressed="true">Visão geral</button><button type="button" data-compras-tab="comparativo" aria-pressed="false">Comparativo de custos</button><button type="button" data-compras-tab="fornecedores" aria-pressed="false">Fornecedores</button><button type="button" data-compras-tab="classes" aria-pressed="false">Compras por classe</button><button type="button" data-compras-tab="auditoria" aria-pressed="false">Auditoria</button></nav>
         <div data-compras-pane="geral"><h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div>
         <div class="compras-orcamento"><h3>Controle de reposição sobre vendas</h3><p class="compras-ajuda">Meta padrão: 60% das vendas. Selecione um mês e informe as vendas reais acumuladas no mesmo período coberto pelas compras de cada filial. Vendas e metas são lançamentos manuais, salvos somente neste navegador; não são vendas extraídas do Farmax.</p><button type="button" id="comprasMesAtual">Selecionar mês atual</button><p id="comprasOrcamentoAviso" class="compras-ajuda" role="status"></p><div id="comprasOrcamento" class="tabela-wrap"></div></div></div>
         <div data-compras-pane="fornecedores" hidden><h3>Fornecedores</h3><div id="comprasFornecedores" class="tabela-wrap"></div></div>
         <div data-compras-pane="comparativo" hidden><h3>Comparativo de custos</h3><p class="compras-ajuda">Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas. Selecione todas as filiais para comparar.</p><div id="comprasComparativo" class="tabela-wrap"></div><div id="comprasDetalhes" class="tabela-wrap"></div></div>
+        <div data-compras-pane="classes" hidden><h3>Compras por classe</h3><p class="compras-ajuda">Categorias atuais do catálogo da própria filial (PDV), vinculadas por EAN ou código interno. Valores dos itens (VL_TOTAL) das notas elegíveis; não equivalem necessariamente ao total das notas, que pode incluir impostos, fretes e descontos adicionais. O filtro de produto não altera esta visão.</p><p id="comprasClasseAviso" role="status" class="compras-ajuda"></p><div id="comprasClasseGrafico"></div><div id="comprasClasseTabela" class="tabela-wrap"></div></div>
         <div data-compras-pane="auditoria" hidden><h3>Qualidade dos registros</h3><div id="comprasAuditoria" class="tabela-wrap"></div></div>
       </div>
     </section>
@@ -2557,7 +2562,7 @@ let lojaNome = "";
    mostrar a aba Lojas — a permissão de verdade é do worker, que recusa
    /lojas para quem não é dono. Esconder botão não é segurança. */
 let souDono = false;
-let comprasExec=0, comprasDados=null;
+let comprasExec=0, comprasDados=null, comprasClasses=null, comprasClassesEstado="";
 const comprasNomes={prudente:"Prudente","jd-silvina":"Jardim Silvina",oliveira:"Oliveira"};
 
 /* Todo pedido ao worker passa por aqui, para nenhum esquecer de dizer em
@@ -9660,9 +9665,9 @@ el("redePedidosLista").addEventListener("toggle",async e=>{
 
 
 function limparCompras(){
- comprasExec++; comprasDados=null;
+ comprasExec++; comprasDados=null;comprasClasses=null;comprasClassesEstado="";
  el("comprasAtualizar").disabled=false;el("comprasProgresso").hidden=true;
- for(const id of ["comprasAviso","comprasTotais","comprasFiliais","comprasFornecedores","comprasComparativo","comprasDetalhes","comprasAuditoria","comprasOrcamento","comprasOrcamentoAviso"]) el(id).textContent="";
+ for(const id of ["comprasAviso","comprasTotais","comprasFiliais","comprasFornecedores","comprasComparativo","comprasDetalhes","comprasAuditoria","comprasOrcamento","comprasOrcamentoAviso","comprasClasseTabela","comprasClasseGrafico","comprasClasseAviso"]) el(id).textContent="";
 }
 function comprasTabela(id,cols,rows,opts={}){
  const alvo=typeof id==="string"?el(id):id;let pagina=0;const limite=20;
@@ -9790,6 +9795,68 @@ function renderOrcamentoCompras(resumos,disponiveis,mes,filial,moeda){
  alvo.append(t);
 }
 el("comprasMesAtual").addEventListener("click",()=>{const d=new Date();el("comprasMes").value=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");renderCompras();});
+async function carregarClassesCompras(){
+ if(!souDono||!comprasDados||comprasClasses!==null||comprasClassesEstado==="carregando")return;
+ const seq=comprasExec,chave=senha;
+ const valido=()=>seq===comprasExec&&souDono&&senha===chave;
+ comprasClassesEstado="carregando";el("comprasClasseAviso").textContent="Consultando os catálogos das filiais...";
+ const mapa=new Map(),falhas=[];
+ let cadastro=[];
+ try{const r=await api("/lojas");cadastro=Array.isArray(r.lojas)?r.lojas:[];}catch{}
+ if(!valido())return;
+ await Promise.all(comprasDados.map(async l=>{
+  try{
+   const nomes={prudente:"prudente","jd-silvina":"silvina",oliveira:"oliveira"};
+   const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+   const candidatos=cadastro.filter(x=>norm(x.slug+" "+x.nome).includes(nomes[l.loja]||l.loja));
+   if(candidatos.length!==1)throw Error("Filial de catálogo não identificada");
+   const {catalogo:url}=await api("/loja?slug="+encodeURIComponent(candidatos[0].slug));
+   if(typeof url!=="string"||!url.startsWith("https://"))throw Error("Catálogo ausente");
+   const resp=await fetch(url,{cache:"no-cache"});if(!resp.ok)throw Error("Catálogo indisponível");
+   const {produtos}=await resp.json();if(!Array.isArray(produtos))throw Error("Catálogo inválido");
+   const eans=new Map(),codigos=new Map();
+   const add=(m,k,v)=>{if(!k)return;if(m.has(k)&&m.get(k)!==v)m.set(k,null);else if(!m.has(k))m.set(k,v);};
+   for(const p of produtos){const classe=String(p.categoria??"").trim().toUpperCase();if(!classe)continue;add(eans,String(p.ean??"").trim(),classe);add(codigos,String(p.codigo??"").trim(),classe);}
+   mapa.set(l.loja,{eans,codigos});
+  }catch{falhas.push(comprasNomes[l.loja]||l.loja);}
+ }));
+ if(!valido())return;
+ comprasClasses=mapa;comprasClassesEstado=falhas.length?"Catálogos indisponíveis: "+falhas.join(", ")+". ":"";
+ renderClassesCompras();
+}
+function renderClassesCompras(){
+ if(!souDono||!comprasDados)return;
+ const aviso=el("comprasClasseAviso"),grafico=el("comprasClasseGrafico");grafico.replaceChildren();
+ if(comprasClasses===null){aviso.textContent=comprasClassesEstado==="carregando"?"Consultando os catálogos das filiais...":"Abra esta subaba para carregar as classes.";return;}
+ const filial=el("comprasFilial").value,mes=el("comprasMes").value;
+ const classes=new Map(),lojas=comprasDados.filter(l=>!filial||filial===l.loja);
+ const moeda=v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+ let total=0,semClasse=0,invalidos=0;
+ for(const l of lojas){
+  const ns=l.notasDados.filter(n=>n.STATUS==="C"&&(!mes||String(n.DT_ENTRADA).slice(0,7)===mes)),chaves=new Map();
+  for(const n of ns)if(n.CHAVENFE)chaves.set(n.CHAVENFE,(chaves.get(n.CHAVENFE)||0)+1);
+  const ids=new Set(ns.filter(n=>!n.CHAVENFE||chaves.get(n.CHAVENFE)===1).map(n=>n.CD_FILIAL+":"+n.CD_COMPRAS));
+  const cat=comprasClasses.get(l.loja);
+  for(const i of l.itensDados){
+   if(!ids.has(i.CD_FILIAL+":"+i.CD_COMPRAS))continue;
+   const v=Number(i.VL_TOTAL);if(i.VL_TOTAL==null||i.VL_TOTAL===""||!Number.isFinite(v)||v<0){invalidos++;continue;}
+   const ean=String(i.CODIGO_BARRAS??"").trim(),codigo=String(i.CD_PRODUTO??"").trim();
+   const porEan=cat?.eans.get(ean),porCodigo=cat?.codigos.get(codigo);
+   const classe=(porEan===null||porCodigo===null||porEan&&porCodigo&&porEan!==porCodigo?null:porEan||porCodigo)||"SEM CLASSIFICAÇÃO";
+   if(classe==="SEM CLASSIFICAÇÃO")semClasse+=v;
+   const r=classes.get(classe)||{classe,v:0,n:0,filiais:new Map()};r.v+=v;r.n++;r.filiais.set(l.loja,(r.filiais.get(l.loja)||0)+v);classes.set(classe,r);total+=v;
+  }
+ }
+ const rows=[...classes.values()].sort((a,b)=>b.v-a.v),pct=v=>total>0?(100*v/total).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%":"—";
+ aviso.textContent=comprasClassesEstado+"Total dos itens: "+moeda(total)+" · Sem classificação: "+moeda(semClasse)+" ("+pct(semClasse)+") · "+invalidos+" itens com valor inválido excluídos. Gráfico: até 12 classes por valor.";
+ for(const r of rows.slice(0,12)){
+  const linha=document.createElement("div");linha.className="compras-classe-linha";
+  const nome=document.createElement("span");nome.textContent=r.classe;
+  const trilho=document.createElement("div"),bar=document.createElement("span");trilho.className="compras-classe-trilho";bar.style.width=(total>0?100*r.v/total:0)+"%";trilho.append(bar);
+  const valor=document.createElement("span");valor.className="compras-classe-valor";valor.textContent=moeda(r.v)+" · "+pct(r.v);linha.append(nome,trilho,valor);grafico.append(linha);
+ }
+ comprasTabela("comprasClasseTabela",["Classe","Prudente","Silvina","Oliveira","Total dos itens","Participação","Linhas de itens"],rows.map(r=>[r.classe,...Object.keys(comprasNomes).map(k=>lojas.some(l=>l.loja===k)?moeda(r.filiais.get(k)||0):"—"),moeda(r.v),pct(r.v),r.n]));
+}
 function renderCompras(){
  if(!souDono||!comprasDados)return;
  const normalizar=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
@@ -9832,6 +9899,7 @@ function renderCompras(){
  const disponiveis=new Map(comprasDados.map(l=>[l.loja,l]));
  comprasTabela("comprasFiliais",["Filial","Última extração","Notas no filtro","Compras"],Object.keys(comprasNomes).map(k=>{const l=disponiveis.get(k),r=resumos.find(x=>x[0]===comprasNomes[k]);return [comprasNomes[k],l?new Date(l.extraido_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Sem sincronização",r?.[1]??"—",r?.[2]??"—"];}));
  renderOrcamentoCompras(resumos,disponiveis,mes,filial,moeda);
+ if(el("abaCompras").querySelector('[data-compras-tab="classes"]').getAttribute("aria-pressed")==="true"){renderClassesCompras();carregarClassesCompras();}
  comprasTabela("comprasFornecedores",["Fornecedor","Notas","Total"],[...fornecedores.values()].sort((a,b)=>b.v-a.v).map(r=>[r.nome,r.q,moeda(r.v)]));
  const divergencias=[];
  for(const g of grupos.values()){
@@ -9858,7 +9926,7 @@ function abrirSubabaCompras(nome){
  for(const pane of el("abaCompras").querySelectorAll("[data-compras-pane]"))pane.hidden=pane.dataset.comprasPane!==nome;
 }
 el("abaCompras").querySelector(".compras-tabs").addEventListener("click",e=>{
- const btn=e.target.closest("[data-compras-tab]");if(btn)abrirSubabaCompras(btn.dataset.comprasTab);
+ const btn=e.target.closest("[data-compras-tab]");if(btn){abrirSubabaCompras(btn.dataset.comprasTab);if(btn.dataset.comprasTab==="classes"){renderClassesCompras();carregarClassesCompras();}}
 });
 el("comprasAtualizar").addEventListener("click",carregarCompras);
 for(const id of ["comprasFilial","comprasMes"])el(id).addEventListener("input",renderCompras);
