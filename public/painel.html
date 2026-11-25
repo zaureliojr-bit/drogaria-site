@@ -953,6 +953,19 @@
   #abas button:hover { background:var(--papel); color:var(--marca); }
   #abas button.ativo { background:var(--marca-clara); border-left-color:var(--marca); color:var(--marca-escura); font-weight:700; }
   #abas .contador { margin-left:auto; }
+  #abas .menu-grupo[hidden],#abas .menu-grupo-itens[hidden]{display:none!important}
+  #abas .menu-grupo{border-bottom:1px solid var(--linha);padding:3px 0}
+  #abas .menu-grupo-toggle{gap:9px;justify-content:flex-start;color:var(--tinta);font-weight:700}
+  #abas .menu-grupo-toggle[aria-expanded="true"]{color:var(--marca);background:var(--papel)}
+  #abas .menu-grupo-icone{width:18px;height:18px;flex:none;color:var(--marca)}
+  #abas .menu-grupo-nome{flex:1}
+  #abas .menu-grupo-seta{width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);margin:0 3px 0 2px;flex:none}
+  #abas .menu-grupo-toggle[aria-expanded="true"] .menu-grupo-seta{transform:rotate(45deg)}
+  #abas .menu-grupo-itens{padding:3px 0 5px 14px}
+  #abas .menu-grupo-itens button{min-height:36px;padding-left:12px;font-size:12.5px}
+  #abas .menu-grupo-toggle[aria-expanded="true"] #contadorGrupoComercial{display:none}
+  @media(max-width:800px){#abas .menu-grupo-itens button{min-height:44px}}
+
   .painel-area { min-width:0; padding:0 0 12px; }
   .painel-area-cabecalho { padding:2px 0 13px; margin-bottom:8px; border-bottom:1px solid var(--linha); }
   .painel-area-cabecalho span { color:var(--tinta-suave); font-size:12px; font-weight:600; }
@@ -1119,38 +1132,32 @@
         <button type="button" id="fecharMenuPainel" class="painel-menu-fechar" aria-label="Fechar menu">×</button>
       </div>
       <nav class="abas" id="abas" aria-label="Módulos">
-      <button data-aba="rede" data-so-dono hidden>Visão geral da rede</button>
-      <button data-aba="fila" class="ativo" aria-current="page">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
-      <button data-aba="promocoes">Promoções</button>
-      <!-- As quatro de quem administra a plataforma: vitrine e campanha.
-
-           Não é hierarquia, é escopo. A farmácia atende — pedido,
-           estoque, preço. Quem instalou o site monta banner, encarte,
-           cupom e anúncio. São telas que a loja não usa no dia a dia e
-           que, mexidas sem querer, aparecem para o cliente: cupom é
-           dinheiro saindo, banner e encarte são propaganda publicada,
-           campanha é verba.
-
-           E esconder o botão NÃO é a permissão. O endereço do worker é
-           público, e qualquer um monta a mesma requisição com a senha
-           da loja. Quem recusa é o worker (ver SO_DO_DONO, lá). Aqui a
-           tela só evita mostrar o que não vai funcionar. -->
-      <button data-aba="cupons"  data-so-dono>Cupons</button>
-      <button data-aba="banners" data-so-dono>Banners</button>
-      <button data-aba="encarte" data-so-dono>Encarte</button>
-      <button data-aba="relatorios">Relatórios</button>
-      <button data-aba="compras" data-so-dono hidden>Gestão de Compras</button>
-      <button data-aba="marketing" data-so-dono>Marketing</button>
-      <button data-aba="estoque">Estoque</button>
-      <button data-aba="reativacao">Reativação</button>
-      <button data-aba="catalogo">Catálogo</button>
-      <button data-aba="duplicidades">Duplicidades</button>
-      <button data-aba="padronizador">Padronizador</button>
-      <!-- Só aparece para quem entrou com a chave de dono da plataforma.
-           Esconder o botão não é a permissão: o worker recusa /lojas a
-           quem não é dono, e é lá que a conta é feita. -->
-      <button data-aba="lojas" id="botaoAbaLojas" hidden>Filiais</button>
-      </nav>
+<button data-aba="rede" data-so-dono hidden>Visão geral da rede</button>
+<div class="menu-grupo" data-menu-grupo="comercial">
+<button type="button" class="menu-grupo-toggle" aria-expanded="true" aria-controls="menu-grupo-comercial"><svg class="menu-grupo-icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h2l2.5 12h11l3-9H6 M9 20h.1 M18 20h.1"/></svg><span class="menu-grupo-nome">Comercial</span><span class="contador" id="contadorGrupoComercial" data-zero="1"></span><span class="menu-grupo-seta" aria-hidden="true"></span></button>
+<div class="menu-grupo-itens" id="menu-grupo-comercial"><button data-aba="fila" class="ativo" aria-current="page">Pedidos<span class="contador" id="contadorFila" data-zero="1"></span></button>
+<button data-aba="promocoes">Promoções</button>
+<button data-aba="cupons"  data-so-dono>Cupons</button></div></div>
+<div class="menu-grupo" data-menu-grupo="gestao">
+<button type="button" class="menu-grupo-toggle" aria-expanded="false" aria-controls="menu-grupo-gestao"><svg class="menu-grupo-icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-5 4 3 6-8"/></svg><span class="menu-grupo-nome">Gestão e inteligência</span><span class="menu-grupo-seta" aria-hidden="true"></span></button>
+<div class="menu-grupo-itens" id="menu-grupo-gestao" hidden><button data-aba="relatorios">Relatórios</button>
+<button data-aba="compras" data-so-dono hidden>Gestão de Compras</button>
+<button data-aba="estoque">Estoque</button></div></div>
+<div class="menu-grupo" data-menu-grupo="marketing">
+<button type="button" class="menu-grupo-toggle" aria-expanded="false" aria-controls="menu-grupo-marketing"><svg class="menu-grupo-icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9v6h4l11 5V4L7 9H3zM7 15l2 6h3l-2-5M21 9v6"/></svg><span class="menu-grupo-nome">Marketing</span><span class="menu-grupo-seta" aria-hidden="true"></span></button>
+<div class="menu-grupo-itens" id="menu-grupo-marketing" hidden><button data-aba="marketing" data-so-dono>Marketing</button>
+<button data-aba="banners" data-so-dono>Banners</button>
+<button data-aba="encarte" data-so-dono>Encarte</button>
+<button data-aba="reativacao">Reativação</button></div></div>
+<div class="menu-grupo" data-menu-grupo="produtos">
+<button type="button" class="menu-grupo-toggle" aria-expanded="false" aria-controls="menu-grupo-produtos"><svg class="menu-grupo-icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 5 9-5M12 12v9"/></svg><span class="menu-grupo-nome">Gestão de produtos</span><span class="menu-grupo-seta" aria-hidden="true"></span></button>
+<div class="menu-grupo-itens" id="menu-grupo-produtos" hidden><button data-aba="catalogo">Catálogo</button>
+<button data-aba="duplicidades">Duplicidades</button>
+<button data-aba="padronizador">Padronizador</button></div></div>
+<div class="menu-grupo" data-menu-grupo="admin" hidden>
+<button type="button" class="menu-grupo-toggle" aria-expanded="false" aria-controls="menu-grupo-admin"><svg class="menu-grupo-icone" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M2 12h4m12 0h4M5 5l3 3m8 8 3 3M19 5l-3 3M8 16l-3 3 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/></svg><span class="menu-grupo-nome">Administração</span><span class="menu-grupo-seta" aria-hidden="true"></span></button>
+<div class="menu-grupo-itens" id="menu-grupo-admin" hidden><button data-aba="lojas" id="botaoAbaLojas" hidden>Filiais</button></div></div>
+</nav>
     </aside>
     <main id="painelArea" class="painel-area">
       <div class="painel-area-cabecalho">
@@ -5313,6 +5320,8 @@ function pintarFila() {
   const contador = el("contadorFila");
   contador.textContent = fila.length || "";
   contador.dataset.zero = fila.length ? "0" : "1";
+  el("contadorGrupoComercial").textContent=novos||"";
+  el("contadorGrupoComercial").dataset.zero=novos?"0":"1";
 
   /* O título da aba é o que o balcão vê quando o painel está atrás de
      outra janela — e é também o que distingue cinco painéis abertos
@@ -7981,6 +7990,7 @@ async function carregarSessao() {
     document.querySelectorAll("#abas [data-so-dono]").forEach((botao) => {
       botao.hidden = !souDono;
     });
+    atualizarGruposMenu();
 
     /* Quem estava numa dessas abas quando a sessão foi reconhecida
        volta para Pedidos — senão fica olhando um formulário que o
@@ -9784,10 +9794,27 @@ el("abaCompras").querySelector(".compras-tabs").addEventListener("click",e=>{
 el("comprasAtualizar").addEventListener("click",carregarCompras);
 for(const id of ["comprasFilial","comprasMes","comprasBusca"])el(id).addEventListener("input",renderCompras);
 
+function gruposMenuSalvos(){
+  try {const v=JSON.parse(localStorage.getItem("drogalinkMenuGrupos")||"null");return Array.isArray(v)?v.filter(x=>typeof x==="string"):["comercial"];}catch{return ["comercial"];}
+}
+function abrirGrupoMenu(grupo,abrir,salvar=true){
+ if(!grupo)return;
+ grupo.querySelector(".menu-grupo-toggle").setAttribute("aria-expanded",String(abrir));
+ grupo.querySelector(".menu-grupo-itens").hidden=!abrir;
+ if(salvar){try{localStorage.setItem("drogalinkMenuGrupos",JSON.stringify([...document.querySelectorAll("#abas .menu-grupo")].filter(g=>g.querySelector(".menu-grupo-toggle").getAttribute("aria-expanded")==="true").map(g=>g.dataset.menuGrupo)));}catch{}}
+}
+function atualizarGruposMenu(){
+ for(const g of document.querySelectorAll("#abas .menu-grupo"))g.hidden=![...g.querySelectorAll("[data-aba]")].some(b=>!b.hidden);
+}
+const menuGruposIniciais=gruposMenuSalvos();
+for(const g of document.querySelectorAll("#abas .menu-grupo"))abrirGrupoMenu(g,menuGruposIniciais.includes(g.dataset.menuGrupo)||!!g.querySelector("[data-aba].ativo"),false);
 el("abas").addEventListener("click", (ev) => {
+  const toggle=ev.target.closest(".menu-grupo-toggle");
+  if(toggle){abrirGrupoMenu(toggle.closest(".menu-grupo"),toggle.getAttribute("aria-expanded")!=="true");return;}
   const btn = ev.target.closest("[data-aba]");
   if (!btn || (btn.hasAttribute("data-so-dono") && !souDono)) return;
-  document.querySelectorAll("#abas button").forEach(b => {
+  abrirGrupoMenu(btn.closest(".menu-grupo"),true);
+  document.querySelectorAll("#abas button[data-aba]").forEach(b => {
     b.classList.toggle("ativo", b === btn);
     if (b === btn) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
   });
