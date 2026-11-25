@@ -9731,7 +9731,9 @@ async function carregarCompras(){
 }
 function renderCompras(){
  if(!souDono||!comprasDados)return;
- const filial=el("comprasFilial").value,mes=el("comprasMes").value,busca=el("comprasBusca").value.trim().toLowerCase();
+ const normalizar=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+ const filial=el("comprasFilial").value,mes=el("comprasMes").value,busca=normalizar(el("comprasBusca").value);
+ const termos=busca.split(/\s+/).filter(Boolean),combina=v=>termos.every(t=>normalizar(v).includes(t));
  const moeda=v=>Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
  const soma=(a,k)=>a.reduce((s,n)=>s+(Number(n[k])||0),0);
  const lojas=comprasDados.filter(l=>!filial||l.loja===filial);
@@ -9746,7 +9748,7 @@ function renderCompras(){
   resumos.push([comprasNomes[l.loja]||l.loja,ns.length,moeda(valor)]);
   for(const n of ns){
    const nome=String(n.FORNECEDOR||"Não informado").trim(), k=n.CNPJ_FORNECEDOR||nome;
-   if(busca&&!nome.toLowerCase().includes(busca))continue;
+   if(busca&&!combina(nome+" "+(n.CNPJ_FORNECEDOR||"")))continue;
    const r=fornecedores.get(k)||{nome,q:0,v:0};r.q++;r.v+=Number(n.TOTAL_NOTA)||0;fornecedores.set(k,r);
   }
   for(const i of l.itensDados){
@@ -9755,9 +9757,9 @@ function renderCompras(){
    if(!Number.isFinite(custo)||custo<=0){invalidos++;continue;}
    const ean=String(i.CODIGO_BARRAS||"").trim();
    if(!/^\d{8,14}$/.test(ean)||Number(i.QT_EMBALAGEM)!==1||!Number.isFinite(q)||q<=0||["BONIFICACAO","TRANSFERENCIA","CONSIGNACAO"].some(k=>n[k]!=="N"))continue;
-   if(busca&&!(String(i.DESCRICAO)+" "+ean+" "+n.FORNECEDOR).toLowerCase().includes(busca))continue;
    const m=String(n.DT_ENTRADA).slice(0,7),k=ean+":"+m;
-   const g=grupos.get(k)||{nome:i.DESCRICAO,ean,m,filiais:new Map(),detalhes:[]};
+   const g=grupos.get(k)||{nome:i.DESCRICAO,ean,m,filiais:new Map(),detalhes:[],termos:new Set()};
+   g.termos.add(String(i.DESCRICAO)+" "+ean+" "+(i.CD_PRODUTO??"")+" "+(n.FORNECEDOR??"")+" "+(n.CNPJ_FORNECEDOR??""));
    g.detalhes.push([comprasNomes[l.loja]||l.loja,String(n.DT_ENTRADA).slice(0,10),n.NOTA_FISCAL,n.FORNECEDOR,q,moeda(custo)]);
    const a=g.filiais.get(l.loja)||{q:0,v:0};a.q+=q;a.v+=q*custo;g.filiais.set(l.loja,a);grupos.set(k,g);
   }
@@ -9769,11 +9771,12 @@ function renderCompras(){
  comprasTabela("comprasFornecedores",["Fornecedor","Notas","Total"],[...fornecedores.values()].sort((a,b)=>b.v-a.v).map(r=>[r.nome,r.q,moeda(r.v)]));
  const divergencias=[];
  for(const g of grupos.values()){
-  if(g.filiais.size<2)continue;
+  if(busca&&![...g.termos].some(combina))continue;
+  if(!busca&&g.filiais.size<2)continue;
   const min=Math.min(...[...g.filiais.values()].map(a=>a.v/a.q));
   const diff=[...g.filiais.values()].reduce((s,a)=>s+Math.max(0,a.v-min*a.q),0);
-  if(diff<0.01)continue;
-  divergencias.push({diff,g,row:[g.nome,g.ean,g.m,...Object.keys(comprasNomes).map(k=>{const a=g.filiais.get(k);return a?moeda(a.v/a.q):"—";}),moeda(diff)]});
+  if(!busca&&diff<0.01)continue;
+  divergencias.push({diff,g,row:[g.nome,g.ean,g.m,...Object.keys(comprasNomes).map(k=>{const a=g.filiais.get(k);return a?moeda(a.v/a.q):"—";}),g.filiais.size<2?"—":moeda(diff)]});
  }
  divergencias.sort((a,b)=>b.diff-a.diff);
  const economia=divergencias.reduce((s,d)=>s+d.diff,0);
@@ -9784,15 +9787,21 @@ function renderCompras(){
  detalhe:(idx,alvo)=>{const g=divergencias[idx].g;comprasTabela(alvo,["Filial","Entrada","Nota","Fornecedor","Quantidade","Custo aplicado"],g.detalhes);}
  });
  comprasTabela("comprasAuditoria",["Ocorrência","Quantidade"],[["Notas com chave repetida excluídas",duplicadas],["Itens com custo inválido ou zerado",invalidos]]);
- el("comprasAviso").textContent=comprasDados.length+" de 3 filiais sincronizadas. Visão dos lotes atuais (janela móvel). Busca afeta tabelas e diferença estimada, não os totais de compras. "+(filial?"Selecione todas as filiais para comparar custos.":"Diferenças não representam prejuízo confirmado.");
+ el("comprasAviso").textContent=comprasDados.length+" de 3 filiais sincronizadas. Visão dos lotes atuais (janela móvel). Busca afeta tabelas e diferença estimada, não os totais de compras. Produtos sem comparação aparecem com diferença —. "+(filial?"Selecione todas as filiais para comparar custos.":"Diferenças não representam prejuízo confirmado.");
+}
+function abrirSubabaCompras(nome){
+ for(const b of el("abaCompras").querySelectorAll("[data-compras-tab]"))b.setAttribute("aria-pressed",String(b.dataset.comprasTab===nome));
+ for(const pane of el("abaCompras").querySelectorAll("[data-compras-pane]"))pane.hidden=pane.dataset.comprasPane!==nome;
 }
 el("abaCompras").querySelector(".compras-tabs").addEventListener("click",e=>{
- const btn=e.target.closest("[data-compras-tab]");if(!btn)return;
- for(const b of el("abaCompras").querySelectorAll("[data-compras-tab]"))b.setAttribute("aria-pressed",String(b===btn));
- for(const pane of el("abaCompras").querySelectorAll("[data-compras-pane]"))pane.hidden=pane.dataset.comprasPane!==btn.dataset.comprasTab;
+ const btn=e.target.closest("[data-compras-tab]");if(btn)abrirSubabaCompras(btn.dataset.comprasTab);
 });
 el("comprasAtualizar").addEventListener("click",carregarCompras);
-for(const id of ["comprasFilial","comprasMes","comprasBusca"])el(id).addEventListener("input",renderCompras);
+for(const id of ["comprasFilial","comprasMes"])el(id).addEventListener("input",renderCompras);
+el("comprasBusca").addEventListener("input",()=>{
+ if(el("comprasBusca").value.trim()&&el("abaCompras").querySelector('[data-compras-tab="fornecedores"]').getAttribute("aria-pressed")!=="true")abrirSubabaCompras("comparativo");
+ renderCompras();
+});
 
 function gruposMenuSalvos(){
   try {const v=JSON.parse(localStorage.getItem("drogalinkMenuGrupos")||"null");return Array.isArray(v)?v.filter(x=>typeof x==="string"):["comercial"];}catch{return ["comercial"];}
@@ -9825,7 +9834,7 @@ el("abas").addEventListener("click", (ev) => {
   if (estavaAberto) el("painelSecaoTitulo").focus({preventScroll:true});
   const aba = btn.dataset.aba;
   el("abaCompras").hidden = aba !== "compras";
-  if (aba === "compras" && souDono) carregarCompras();
+  if (aba === "compras" && souDono && comprasDados===null) carregarCompras();
   el("abaRede").hidden = aba !== "rede";
   if (aba === "rede" && souDono) carregarRedePedidos(true);
   el("abaFila").hidden = aba !== "fila";
