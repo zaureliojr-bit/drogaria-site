@@ -1176,6 +1176,16 @@
       #abaCompras button{font:inherit;cursor:pointer;border:1px solid #a4a9b5;border-radius:7px;padding:8px 12px;background:transparent;color:inherit}
       #abaCompras button:disabled{opacity:.5;cursor:default}
       #abaCompras #comprasAtualizar,#abaCompras .compras-tabs button[aria-pressed="true"]{background:var(--marca,#29258c);border-color:var(--marca,#29258c);color:white}
+      #abaCompras .compras-saude{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:12px 0}
+      #abaCompras .compras-saude-card{border:1px solid #a4a9b55c;border-radius:9px;padding:12px;min-width:0}
+      #abaCompras .compras-saude-card strong{display:block;margin-bottom:8px}
+      #abaCompras .compras-saude-card small{display:block;margin-top:6px;font-size:12px}
+      #abaCompras .compras-saude-status{display:inline-block;border-radius:20px;padding:4px 9px;font-size:12px;font-weight:700;background:#85858520;color:inherit}
+      #abaCompras .compras-saude-status.ok{background:#16804418;color:#168044}
+      #abaCompras .compras-saude-status.atencao{background:#bc840020;color:#9a6800}
+      #abaCompras .compras-saude-status.atraso{background:#c13a3518;color:#c13a35}
+      #abaCompras .compras-saude-topo{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+      #abaCompras .compras-saude-topo h3{margin:0;flex:1}
       #abaCompras .compras-periodos{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:12px 0}
       #abaCompras .compras-periodos button[aria-pressed="true"]{background:var(--marca,#29258c);border-color:var(--marca,#29258c);color:white}
       #abaCompras .compras-periodos button{font-size:12px}
@@ -1222,7 +1232,7 @@
         <progress id="comprasProgresso" max="100" value="0" hidden></progress>
         <div id="comprasTotais" class="numeros"></div>
         <nav class="compras-tabs" aria-label="Áreas de compras"><button type="button" data-compras-tab="geral" aria-pressed="true">Visão geral</button><button type="button" data-compras-tab="comparativo" aria-pressed="false">Comparativo de custos</button><button type="button" data-compras-tab="fornecedores" aria-pressed="false">Fornecedores</button><button type="button" data-compras-tab="classes" aria-pressed="false">Compras por classe</button><button type="button" data-compras-tab="auditoria" aria-pressed="false">Auditoria</button></nav>
-        <div data-compras-pane="geral"><h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div>
+        <div data-compras-pane="geral"><div class="compras-saude-topo"><h3>Monitoramento da sincronização</h3><button type="button" id="comprasSaudeAtualizar">Verificar agora</button></div><p class="compras-ajuda">Rotina esperada: a cada 2 horas. Atenção após 2h30; atraso após 4h. Indicadores baseados na última extração publicada, não no estado do computador.</p><div id="comprasSaude" class="compras-saude"></div><p id="comprasSaudeAviso" class="compras-ajuda" role="status"></p><h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div>
         <div class="compras-orcamento"><h3>Controle de reposição sobre vendas</h3><p class="compras-ajuda">Meta padrão: 60% das vendas. Selecione um mês e informe as vendas reais acumuladas no mesmo período coberto pelas compras de cada filial. Vendas e metas são lançamentos manuais, salvos somente neste navegador; não são vendas extraídas do Farmax.</p><button type="button" id="comprasMesAtual">Selecionar mês atual</button><p id="comprasOrcamentoAviso" class="compras-ajuda" role="status"></p><div id="comprasOrcamento" class="tabela-wrap"></div></div></div>
         <div data-compras-pane="fornecedores" hidden><h3>Fornecedores</h3><div id="comprasFornecedores" class="tabela-wrap"></div></div>
         <div data-compras-pane="comparativo" hidden><h3>Comparativo de custos</h3><p class="compras-ajuda">Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas. Selecione todas as filiais para comparar.</p><div id="comprasComparativo" class="tabela-wrap"></div><div id="comprasDetalhes" class="tabela-wrap"></div></div>
@@ -2572,6 +2582,7 @@ let lojaNome = "";
 let souDono = false;
 let comprasExec=0, comprasDados=null, comprasClasses=null, comprasClassesEstado="";
 let comprasPeriodo="todos", comprasFaixa={inicio:"",fim:""};
+let comprasSaudeDados=null,comprasSaudeConsulta=0,comprasSaudeErro="",comprasSaudeOcupado=false;
 const comprasNomes={prudente:"Prudente","jd-silvina":"Jardim Silvina",oliveira:"Oliveira"};
 
 /* Todo pedido ao worker passa por aqui, para nenhum esquecer de dizer em
@@ -9675,6 +9686,8 @@ el("redePedidosLista").addEventListener("toggle",async e=>{
 
 function limparCompras(){
  comprasExec++; comprasDados=null;comprasClasses=null;comprasClassesEstado="";
+ comprasSaudeDados=null;comprasSaudeConsulta=0;comprasSaudeErro="";comprasSaudeOcupado=false;
+ el("comprasSaudeAtualizar").disabled=false;el("comprasSaude").replaceChildren();el("comprasSaudeAviso").textContent="";
  el("comprasAtualizar").disabled=false;el("comprasProgresso").hidden=true;
  for(const id of ["comprasAviso","comprasTotais","comprasFiliais","comprasFornecedores","comprasComparativo","comprasDetalhes","comprasAuditoria","comprasOrcamento","comprasOrcamentoAviso","comprasClasseTabela","comprasClasseGrafico","comprasClasseAviso"]) el(id).textContent="";
 }
@@ -9747,7 +9760,9 @@ async function carregarCompras(){
   await Promise.all(Array.from({length:4},executar));
   if(!valido())return;
   for(const l of dados)for(const tipo of ["notas","itens"])l[tipo+"Dados"]=l[tipo+"Dados"].flat();
-  comprasDados=dados;renderCompras();
+  comprasDados=dados;
+  if(!comprasSaudeDados){comprasSaudeDados=dados.map(({loja,lote,extraido_em,fonte})=>({loja,lote,extraido_em,fonte}));comprasSaudeConsulta=Date.now();}
+  renderCompras();renderSaudeCompras();
  }catch(e){if(valido()){limparCompras();aviso.textContent="Não foi possível carregar compras: "+e.message;}}
  finally{if(valido()){el("comprasAtualizar").disabled=false;progresso.hidden=true;}}
 }
@@ -9901,6 +9916,49 @@ function renderClassesCompras(){
  }
  comprasTabela("comprasClasseTabela",["Classe","Prudente","Silvina","Oliveira","Total dos itens","Participação","Linhas de itens"],rows.map(r=>[r.classe,...Object.keys(comprasNomes).map(k=>lojas.some(l=>l.loja===k)?moeda(r.filiais.get(k)||0):"—"),moeda(r.v),pct(r.v),r.n]));
 }
+// Monitoramento leve: consulta somente o manifesto publicado, não baixa itens.
+function renderSaudeCompras(){
+ if(!souDono||!comprasSaudeDados)return;
+ const alvo=el("comprasSaude"),aviso=el("comprasSaudeAviso"),agora=Date.now();
+ const mapa=new Map(comprasSaudeDados.map(l=>[l.loja,l]));
+ const formato=t=>new Date(t).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});
+ let novos=0;alvo.replaceChildren();
+ for(const [k,nome] of Object.entries(comprasNomes)){
+  const l=mapa.get(k),t=Date.parse(l?.extraido_em||""),min=Math.floor((agora-t)/60000);
+  let status="Sem sincronização",classe="",tempo="Nenhuma extração publicada";
+  if(l&&Number.isFinite(t)){
+   if(min < -5){status="Horário inconsistente";classe="atencao";tempo="Confira o relógio da filial";}
+   else {const m=Math.max(0,min);status=m>=240?"Atrasada":m>=150?"Atenção":"Em dia";classe=m>=240?"atraso":m>=150?"atencao":"ok";tempo="Há "+Math.floor(m/60)+"h "+(m%60)+"min";}
+  }else if(l){status="Data inválida";classe="atencao";}
+  const card=document.createElement("div");card.className="compras-saude-card";
+  const titulo=document.createElement("strong");titulo.textContent=nome;
+  const selo=document.createElement("span");selo.className="compras-saude-status "+classe;selo.textContent=status;
+  const data=document.createElement("small");data.textContent=Number.isFinite(t)?"Última extração: "+formato(t):"Última extração: —";
+  const idade=document.createElement("small");idade.textContent=tempo;card.append(titulo,selo,data,idade);
+  const carregado=comprasDados?.find(x=>x.loja===k);
+  if(l&&comprasDados&&(!carregado||carregado.lote!==l.lote)){const novo=document.createElement("small");novo.textContent="Dados novos disponíveis";novo.className="custo-menor";card.append(novo);novos++;}
+  alvo.append(card);
+ }
+ aviso.textContent=(comprasSaudeErro?"Falha na última verificação; exibindo a última informação disponível. ":"")+"Verificado em "+formato(comprasSaudeConsulta)+". "+(novos?"Há novos lotes. Use Atualizar para carregar as compras. ":"")+"A verificação de status não recarrega os dados financeiros.";
+}
+async function verificarSaudeCompras(){
+ if(!souDono||comprasSaudeOcupado||el("abaCompras").hidden||el("comprasAtualizar").disabled)return;
+ const seq=comprasExec,chave=senha,valido=()=>seq===comprasExec&&souDono&&senha===chave;
+ comprasSaudeOcupado=true;el("comprasSaudeAtualizar").disabled=true;
+ try{
+  const r=await api("/compras/rede");
+  if(!valido())return;
+  if(!Array.isArray(r.lojas))throw Error("Resposta inválida");
+  comprasSaudeDados=r.lojas;comprasSaudeConsulta=Date.now();comprasSaudeErro="";
+ }catch(e){if(valido()){comprasSaudeErro="falha";if(!comprasSaudeDados)el("comprasSaudeAviso").textContent="Não foi possível consultar o status. Tente novamente.";}}
+ finally{if(valido()){comprasSaudeOcupado=false;el("comprasSaudeAtualizar").disabled=false;renderSaudeCompras();}}
+}
+el("comprasSaudeAtualizar").addEventListener("click",verificarSaudeCompras);
+setInterval(()=>{
+ if(!souDono||el("abaCompras").hidden||document.hidden)return;
+ renderSaudeCompras();
+ if(Date.now()-comprasSaudeConsulta>=300000)verificarSaudeCompras();
+},60000);
 function renderCompras(){
  if(!souDono||!comprasDados)return;
  const normalizar=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
@@ -10011,7 +10069,7 @@ el("abas").addEventListener("click", (ev) => {
   if (estavaAberto) el("painelSecaoTitulo").focus({preventScroll:true});
   const aba = btn.dataset.aba;
   el("abaCompras").hidden = aba !== "compras";
-  if (aba === "compras" && souDono && comprasDados===null) carregarCompras();
+  if (aba === "compras" && souDono) {if(comprasDados===null)carregarCompras();else {renderSaudeCompras();if(Date.now()-comprasSaudeConsulta>=300000)verificarSaudeCompras();}}
   el("abaRede").hidden = aba !== "rede";
   if (aba === "rede" && souDono) carregarRedePedidos(true);
   el("abaFila").hidden = aba !== "fila";
