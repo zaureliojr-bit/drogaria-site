@@ -2509,6 +2509,8 @@ let lojaNome = "";
    mostrar a aba Lojas — a permissão de verdade é do worker, que recusa
    /lojas para quem não é dono. Esconder botão não é segurança. */
 let souDono = false;
+let comprasExec=0, comprasDados=null;
+const comprasNomes={prudente:"Prudente","jd-silvina":"Jardim Silvina",oliveira:"Oliveira"};
 
 /* Todo pedido ao worker passa por aqui, para nenhum esquecer de dizer em
    qual farmácia está. Antes eram doze objetos de cabeçalho soltos pelo
@@ -4761,6 +4763,8 @@ async function tentar() {
 }
 
 el("btnSair").addEventListener("click", () => {
+  limparCompras();
+  souDono=false;
   sessionStorage.removeItem("painelKey");
   sessionStorage.removeItem("painelLoja");
   el("senha").value = "";
@@ -9604,8 +9608,6 @@ el("redePedidosLista").addEventListener("toggle",async e=>{
 },true);
 
 
-let comprasExec=0, comprasDados=null;
-const comprasNomes={prudente:"Prudente","jd-silvina":"Jardim Silvina",oliveira:"Oliveira"};
 function limparCompras(){
  comprasExec++; comprasDados=null;
  for(const id of ["comprasAviso","comprasTotais","comprasFiliais","comprasFornecedores","comprasComparativo"]) el(id).textContent="";
