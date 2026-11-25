@@ -1177,6 +1177,11 @@
       #abaCompras .tabela-wrap{overflow:auto;margin:12px 0}
       #abaCompras table{width:100%;border-collapse:collapse}
       #abaCompras td,#abaCompras th{padding:10px;white-space:nowrap}
+      #abaCompras .compras-linha-detalhe>td{padding:12px 16px;white-space:normal;background:rgba(125,125,150,.07)}
+      #abaCompras .compras-detalhe-inline{border-left:3px solid var(--marca,#29258c);padding:10px 12px;max-width:100%}
+      #abaCompras .compras-detalhe-inline>strong{display:block;margin-bottom:10px}
+      #abaCompras .compras-detalhe-lista{overflow:auto}
+      #abaCompras button.compras-produto-toggle{text-align:left;border:0;padding:4px 0;color:inherit;font-weight:600;white-space:normal}
       #abaCompras .compras-paginacao{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:12px 0;font-size:12px}
       #abaCompras .custo-menor{color:#168044;font-weight:700}#abaCompras .custo-maior{color:#c13a35;font-weight:700}
       #abaCompras progress{width:100%;height:9px;accent-color:var(--marca,#29258c)}
@@ -9642,7 +9647,7 @@ function limparCompras(){
  for(const id of ["comprasAviso","comprasTotais","comprasFiliais","comprasFornecedores","comprasComparativo","comprasDetalhes","comprasAuditoria"]) el(id).textContent="";
 }
 function comprasTabela(id,cols,rows,opts={}){
- const alvo=el(id);let pagina=0;const limite=20;
+ const alvo=typeof id==="string"?el(id):id;let pagina=0;const limite=20;
  function desenhar(){
   alvo.replaceChildren();
   if(!rows.length){alvo.textContent="Sem registros para esta seleção.";return;}
@@ -9654,7 +9659,21 @@ function comprasTabela(id,cols,rows,opts={}){
    for(const [j,value] of row.entries()){
     const td=tr.insertCell();td.textContent=String(value??"—");
     const classe=opts.cor?.(indice,j);if(classe)td.classList.add(classe);
-    if(j===0&&opts.detalhe){const btn=document.createElement("button");btn.type="button";btn.textContent=td.textContent;btn.addEventListener("click",()=>opts.detalhe(indice));td.replaceChildren(btn);}
+    if(j===0&&opts.detalhe){
+     const btn=document.createElement("button");btn.type="button";btn.className="compras-produto-toggle";btn.textContent="▸ "+td.textContent;btn.setAttribute("aria-expanded","false");td.replaceChildren(btn);
+     btn.addEventListener("click",()=>{
+      const aberta=tr.nextElementSibling?.classList.contains("compras-linha-detalhe");
+      for(const antiga of body.querySelectorAll(":scope > .compras-linha-detalhe"))antiga.remove();
+      for(const outro of body.querySelectorAll(":scope > tr > td > .compras-produto-toggle")){outro.setAttribute("aria-expanded","false");outro.textContent="▸ "+outro.textContent.slice(2);}
+      if(aberta)return;
+      const detalhe=document.createElement("tr");detalhe.className="compras-linha-detalhe";
+      const celula=detalhe.insertCell();celula.colSpan=cols.length;
+      const painel=document.createElement("div");painel.className="compras-detalhe-inline";
+      const titulo=document.createElement("strong");titulo.textContent="Histórico de compras · "+row[0];
+      const lista=document.createElement("div");lista.className="compras-detalhe-lista";painel.append(titulo,lista);celula.append(painel);tr.after(detalhe);
+      btn.setAttribute("aria-expanded","true");btn.textContent="▾ "+btn.textContent.slice(2);opts.detalhe(indice,lista);
+     });
+    }
    }
   }
   alvo.append(t);
@@ -9752,7 +9771,7 @@ function renderCompras(){
  el("comprasDetalhes").replaceChildren();
  comprasTabela("comprasComparativo",["Produto","EAN","Mês","Prudente","Silvina","Oliveira","Diferença estimada"],divergencias.map(d=>d.row),{
  cor:(idx,j)=>{if(j<3||j>5)return "";const g=divergencias[idx].g,a=g.filiais.get(Object.keys(comprasNomes)[j-3]);if(!a)return "";const valores=[...g.filiais.values()].map(x=>x.v/x.q),v=a.v/a.q,min=Math.min(...valores),max=Math.max(...valores);return max-min<0.005?"":Math.abs(v-min)<0.000001?"custo-menor":Math.abs(v-max)<0.000001?"custo-maior":"";},
- detalhe:idx=>{const g=divergencias[idx].g;comprasTabela("comprasDetalhes",["Filial","Entrada","Nota","Fornecedor","Quantidade","Custo aplicado"],g.detalhes);el("comprasDetalhes").scrollIntoView({block:"nearest"});}
+ detalhe:(idx,alvo)=>{const g=divergencias[idx].g;comprasTabela(alvo,["Filial","Entrada","Nota","Fornecedor","Quantidade","Custo aplicado"],g.detalhes);}
  });
  comprasTabela("comprasAuditoria",["Ocorrência","Quantidade"],[["Notas com chave repetida excluídas",duplicadas],["Itens com custo inválido ou zerado",invalidos]]);
  el("comprasAviso").textContent=comprasDados.length+" de 3 filiais sincronizadas. Visão dos lotes atuais (janela móvel). Busca afeta tabelas e diferença estimada, não os totais de compras. "+(filial?"Selecione todas as filiais para comparar custos.":"Diferenças não representam prejuízo confirmado.");
