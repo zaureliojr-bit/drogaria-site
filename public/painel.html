@@ -1139,6 +1139,7 @@
       <button data-aba="banners" data-so-dono>Banners</button>
       <button data-aba="encarte" data-so-dono>Encarte</button>
       <button data-aba="relatorios">Relatórios</button>
+      <button data-aba="compras" data-so-dono hidden>Gestão de Compras</button>
       <button data-aba="marketing" data-so-dono>Marketing</button>
       <button data-aba="estoque">Estoque</button>
       <button data-aba="reativacao">Reativação</button>
@@ -1157,6 +1158,17 @@
         <h2 id="painelSecaoTitulo" tabindex="-1">Pedidos</h2>
       </div>
 
+    <section id="abaCompras" hidden>
+      <div class="form-banner rede-overview">
+        <div class="rede-filtros-cab"><div><h3>Gestão de Compras</h3><p>Compras registradas no Farmax. Acesso exclusivo do master.</p></div><span class="rede-selo">Acesso master</span></div>
+        <div class="rede-filtros"><label>Filial<select id="comprasFilial"><option value="">Todas as filiais</option><option value="prudente">Prudente</option><option value="jd-silvina">Jardim Silvina</option><option value="oliveira">Oliveira</option></select></label><label>Mês<input id="comprasMes" type="month"></label><label>Produto / EAN / fornecedor<input id="comprasBusca" type="search"></label><button type="button" id="comprasAtualizar" class="rede-atualizar">Atualizar</button></div>
+        <p id="comprasAviso" role="status" class="rede-aviso"></p>
+        <div id="comprasTotais" class="numeros"></div>
+        <h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div>
+        <h3>Fornecedores</h3><div id="comprasFornecedores" class="tabela-wrap"></div>
+        <h3>Comparativo de custos</h3><p>Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas.</p><div id="comprasComparativo" class="tabela-wrap"></div>
+      </div>
+    </section>
     <section id="abaRede" hidden>
       <div class="form-banner rede-overview">
         <div class="rede-filtros-cab">
@@ -2832,6 +2844,7 @@ async function api(rota) {
 }
 
 function mostrarLogin(mensagem) {
+  limparCompras();
   mostrarHistoricoPedidos(false);
   el("login").style.display = "";
   el("conteudo").style.display = "none";
@@ -9590,6 +9603,99 @@ el("redePedidosLista").addEventListener("toggle",async e=>{
   }catch{if(card.isConnected && id===redePedidosExec) alvo.textContent="Não foi possível consultar os itens. Feche e abra novamente.";}
 },true);
 
+
+let comprasExec=0, comprasDados=null;
+const comprasNomes={prudente:"Prudente","jd-silvina":"Jardim Silvina",oliveira:"Oliveira"};
+function limparCompras(){
+ comprasExec++; comprasDados=null;
+ for(const id of ["comprasAviso","comprasTotais","comprasFiliais","comprasFornecedores","comprasComparativo"]) el(id).textContent="";
+}
+function comprasTabela(id,cols,rows){
+ const alvo=el(id);alvo.replaceChildren();
+ if(!rows.length){alvo.textContent="Sem registros para esta seleção.";return;}
+ const t=document.createElement("table"),head=t.createTHead().insertRow();
+ for(const col of cols){const th=document.createElement("th");th.textContent=col;head.append(th);}
+ const body=t.createTBody();
+ for(const row of rows){const tr=body.insertRow();for(const value of row)tr.insertCell().textContent=String(value??"—");}
+ alvo.append(t);
+}
+async function carregarCompras(){
+ if(!souDono)return;
+ limparCompras();const seq=comprasExec, chave=senha;
+ const valido=()=>seq===comprasExec&&souDono&&senha===chave;
+ el("comprasAviso").textContent="Carregando lotes completos...";
+ try{
+  const {lojas=[]}=await api("/compras/rede");
+  const dados=[];
+  for(const l of lojas){
+   if(!valido())return;
+   const snapshot={...l,notasDados:[],itensDados:[]};
+   for(const [tipo,dest] of [["notas",snapshot.notasDados],["itens",snapshot.itensDados]]){
+    for(let pos=0;pos<Math.ceil(l[tipo]/100);pos++){
+     if(!valido())return;
+     const params=new URLSearchParams({loja:l.loja,lote:l.lote,tipo,pos:String(pos)});
+     const parte=await api("/compras/rede/parte?"+params);
+     if(!Array.isArray(parte.dados)||parte.dados.length!==Math.min(100,l[tipo]-pos*100))throw Error("Parte incompleta");
+     dest.push(...parte.dados);
+    }
+   }
+   dados.push(snapshot);
+  }
+  if(!valido())return;
+  comprasDados=dados;renderCompras();
+ }catch(e){if(valido()){limparCompras();el("comprasAviso").textContent="Não foi possível carregar compras: "+e.message;}}
+}
+function renderCompras(){
+ if(!souDono||!comprasDados)return;
+ const filial=el("comprasFilial").value,mes=el("comprasMes").value,busca=el("comprasBusca").value.trim().toLowerCase();
+ const moeda=v=>Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+ const soma=(a,k)=>a.reduce((s,n)=>s+(Number(n[k])||0),0);
+ const lojas=comprasDados.filter(l=>!filial||l.loja===filial);
+ const fornecedores=new Map(),grupos=new Map(),resumos=[];
+ let total=0,descontos=0,notas=0,invalidos=0,duplicadas=0;
+ for(const l of lojas){
+  const elegiveis=l.notasDados.filter(n=>n.STATUS==="C"&&(!mes||String(n.DT_ENTRADA).slice(0,7)===mes));
+  const chaves=new Map();for(const n of elegiveis){if(n.CHAVENFE)chaves.set(n.CHAVENFE,(chaves.get(n.CHAVENFE)||0)+1);}
+  const ns=elegiveis.filter(n=>{if(n.CHAVENFE&&chaves.get(n.CHAVENFE)>1){duplicadas++;return false;}return true;});
+  const mapa=new Map(ns.map(n=>[n.CD_FILIAL+":"+n.CD_COMPRAS,n]));
+  const valor=soma(ns,"TOTAL_NOTA");total+=valor;descontos+=soma(ns,"VL_DESCONTO_NOTA");notas+=ns.length;
+  resumos.push([comprasNomes[l.loja]||l.loja,ns.length,moeda(valor)]);
+  for(const n of ns){
+   const nome=String(n.FORNECEDOR||"Não informado").trim(), k=n.CNPJ_FORNECEDOR||nome;
+   if(busca&&!nome.toLowerCase().includes(busca))continue;
+   const r=fornecedores.get(k)||{nome,q:0,v:0};r.q++;r.v+=Number(n.TOTAL_NOTA)||0;fornecedores.set(k,r);
+  }
+  for(const i of l.itensDados){
+   const n=mapa.get(i.CD_FILIAL+":"+i.CD_COMPRAS);if(!n)continue;
+   const custo=Number(i.CUSTO_APLICADO),q=Number(i.QUANTIDADE);
+   if(!Number.isFinite(custo)||custo<=0){invalidos++;continue;}
+   const ean=String(i.CODIGO_BARRAS||"").trim();
+   if(!/^\d{8,14}$/.test(ean)||Number(i.QT_EMBALAGEM)!==1||!Number.isFinite(q)||q<=0||["BONIFICACAO","TRANSFERENCIA","CONSIGNACAO"].some(k=>n[k]!=="N"))continue;
+   if(busca&&!(String(i.DESCRICAO)+" "+ean+" "+n.FORNECEDOR).toLowerCase().includes(busca))continue;
+   const m=String(n.DT_ENTRADA).slice(0,7),k=ean+":"+m;
+   const g=grupos.get(k)||{nome:i.DESCRICAO,ean,m,filiais:new Map()};
+   const a=g.filiais.get(l.loja)||{q:0,v:0};a.q+=q;a.v+=q*custo;g.filiais.set(l.loja,a);grupos.set(k,g);
+  }
+ }
+ const cards=[["Compras (status C)",moeda(total)],["Notas elegíveis",notas],["Descontos registrados",moeda(descontos)]];
+ const container=el("comprasTotais");container.replaceChildren();for(const [label,val] of cards){const div=document.createElement("div"),b=document.createElement("strong"),p=document.createElement("div");b.textContent=val;p.textContent=label;div.append(b,p);container.append(div);}
+ const disponiveis=new Map(comprasDados.map(l=>[l.loja,l]));
+ comprasTabela("comprasFiliais",["Filial","Última extração","Notas no filtro","Compras"],Object.keys(comprasNomes).map(k=>{const l=disponiveis.get(k),r=resumos.find(x=>x[0]===comprasNomes[k]);return [comprasNomes[k],l?new Date(l.extraido_em).toLocaleString("pt-BR"):"Sem sincronização",r?.[1]??"—",r?.[2]??"—"];}));
+ comprasTabela("comprasFornecedores",["Fornecedor","Notas","Total"],[...fornecedores.values()].sort((a,b)=>b.v-a.v).slice(0,100).map(r=>[r.nome,r.q,moeda(r.v)]));
+ const divergencias=[];
+ for(const g of grupos.values()){
+  if(g.filiais.size<2)continue;
+  const min=Math.min(...[...g.filiais.values()].map(a=>a.v/a.q));
+  const diff=[...g.filiais.values()].reduce((s,a)=>s+Math.max(0,a.v-min*a.q),0);
+  if(diff<0.01)continue;
+  divergencias.push({diff,row:[g.nome,g.ean,g.m,...Object.keys(comprasNomes).map(k=>{const a=g.filiais.get(k);return a?moeda(a.v/a.q):"—";}),moeda(diff)]});
+ }
+ comprasTabela("comprasComparativo",["Produto","EAN","Mês","Prudente","Silvina","Oliveira","Diferença estimada"],divergencias.sort((a,b)=>b.diff-a.diff).slice(0,200).map(d=>d.row));
+ el("comprasAviso").textContent=comprasDados.length+" de 3 filiais sincronizadas. "+duplicadas+" notas com chave repetida excluídas do cálculo; "+invalidos+" itens com custo inválido no filtro. Visão dos lotes atuais (janela móvel); filtro de busca apenas nas tabelas. Comparativo requer todas as filiais selecionadas. Top 100 fornecedores e 200 divergências.";
+}
+el("comprasAtualizar").addEventListener("click",carregarCompras);
+for(const id of ["comprasFilial","comprasMes","comprasBusca"])el(id).addEventListener("input",renderCompras);
+
 el("abas").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-aba]");
   if (!btn || (btn.hasAttribute("data-so-dono") && !souDono)) return;
@@ -9603,6 +9709,8 @@ el("abas").addEventListener("click", (ev) => {
   fecharMenuLateral(false);
   if (estavaAberto) el("painelSecaoTitulo").focus({preventScroll:true});
   const aba = btn.dataset.aba;
+  el("abaCompras").hidden = aba !== "compras";
+  if (aba === "compras" && souDono) carregarCompras();
   el("abaRede").hidden = aba !== "rede";
   if (aba === "rede" && souDono) carregarRedePedidos(true);
   el("abaFila").hidden = aba !== "fila";
