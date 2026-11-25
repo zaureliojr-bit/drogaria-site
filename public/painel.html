@@ -1159,14 +1159,42 @@
       </div>
 
     <section id="abaCompras" hidden>
+      <style>
+      #abaCompras .rede-filtros-cab{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+      #abaCompras .rede-filtros-cab p,#abaCompras .compras-ajuda{font-size:12px;color:var(--texto-secundario,#687080);margin:5px 0 12px}
+      #abaCompras .rede-selo{border:1px solid currentColor;color:var(--marca,#29258c);border-radius:16px;padding:5px 10px;font-size:11px;white-space:nowrap}
+      #abaCompras .rede-filtros{display:grid;grid-template-columns:repeat(2,minmax(130px,1fr)) minmax(180px,2fr) auto;gap:12px;align-items:end}
+      #abaCompras .rede-filtros label{display:grid;gap:5px;font-size:12px;font-weight:600;min-width:0}
+      #abaCompras input,#abaCompras select{width:100%;min-height:38px;border:1px solid #a4a9b5;border-radius:7px;padding:8px;font:inherit;background:transparent;color:inherit;box-sizing:border-box}
+      #abaCompras button{font:inherit;cursor:pointer;border:1px solid #a4a9b5;border-radius:7px;padding:8px 12px;background:transparent;color:inherit}
+      #abaCompras button:disabled{opacity:.5;cursor:default}
+      #abaCompras #comprasAtualizar,#abaCompras .compras-tabs button[aria-pressed="true"]{background:var(--marca,#29258c);border-color:var(--marca,#29258c);color:white}
+      #abaCompras .compras-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+      #abaCompras .numeros{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin:16px 0}
+      #abaCompras .numeros>div{border:1px solid #a4a9b55c;border-radius:10px;padding:15px;min-width:0}
+      #abaCompras .numeros strong{display:block;font-size:clamp(17px,2vw,23px);font-weight:750;margin-bottom:6px}
+      #abaCompras .numeros>div>div{font-size:12px}
+      #abaCompras .tabela-wrap{overflow:auto;margin:12px 0}
+      #abaCompras table{width:100%;border-collapse:collapse}
+      #abaCompras td,#abaCompras th{padding:10px;white-space:nowrap}
+      #abaCompras .compras-paginacao{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:12px 0;font-size:12px}
+      #abaCompras .custo-menor{color:#168044;font-weight:700}#abaCompras .custo-maior{color:#c13a35;font-weight:700}
+      #abaCompras progress{width:100%;height:9px;accent-color:var(--marca,#29258c)}
+      #abaCompras .rede-aviso{font-size:12px;line-height:1.5;margin:12px 0}
+      #abaCompras [hidden]{display:none!important}
+      @media(max-width:700px){#abaCompras .rede-filtros{grid-template-columns:repeat(2,minmax(0,1fr))}#abaCompras .rede-filtros label:nth-child(3){grid-column:1/-1}}
+      </style>
       <div class="form-banner rede-overview">
         <div class="rede-filtros-cab"><div><h3>Gestão de Compras</h3><p>Compras registradas no Farmax. Acesso exclusivo do master.</p></div><span class="rede-selo">Acesso master</span></div>
         <div class="rede-filtros"><label>Filial<select id="comprasFilial"><option value="">Todas as filiais</option><option value="prudente">Prudente</option><option value="jd-silvina">Jardim Silvina</option><option value="oliveira">Oliveira</option></select></label><label>Mês<input id="comprasMes" type="month"></label><label>Produto / EAN / fornecedor<input id="comprasBusca" type="search"></label><button type="button" id="comprasAtualizar" class="rede-atualizar">Atualizar</button></div>
         <p id="comprasAviso" role="status" class="rede-aviso"></p>
+        <progress id="comprasProgresso" max="100" value="0" hidden></progress>
         <div id="comprasTotais" class="numeros"></div>
-        <h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div>
-        <h3>Fornecedores</h3><div id="comprasFornecedores" class="tabela-wrap"></div>
-        <h3>Comparativo de custos</h3><p>Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas.</p><div id="comprasComparativo" class="tabela-wrap"></div>
+        <nav class="compras-tabs" aria-label="Áreas de compras"><button type="button" data-compras-tab="geral" aria-pressed="true">Visão geral</button><button type="button" data-compras-tab="comparativo" aria-pressed="false">Comparativo de custos</button><button type="button" data-compras-tab="fornecedores" aria-pressed="false">Fornecedores</button><button type="button" data-compras-tab="auditoria" aria-pressed="false">Auditoria</button></nav>
+        <div data-compras-pane="geral"><h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div></div>
+        <div data-compras-pane="fornecedores" hidden><h3>Fornecedores</h3><div id="comprasFornecedores" class="tabela-wrap"></div></div>
+        <div data-compras-pane="comparativo" hidden><h3>Comparativo de custos</h3><p class="compras-ajuda">Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas. Selecione todas as filiais para comparar.</p><div id="comprasComparativo" class="tabela-wrap"></div><div id="comprasDetalhes" class="tabela-wrap"></div></div>
+        <div data-compras-pane="auditoria" hidden><h3>Qualidade dos registros</h3><div id="comprasAuditoria" class="tabela-wrap"></div></div>
       </div>
     </section>
     <section id="abaRede" hidden>
@@ -9610,42 +9638,67 @@ el("redePedidosLista").addEventListener("toggle",async e=>{
 
 function limparCompras(){
  comprasExec++; comprasDados=null;
- for(const id of ["comprasAviso","comprasTotais","comprasFiliais","comprasFornecedores","comprasComparativo"]) el(id).textContent="";
+ el("comprasAtualizar").disabled=false;el("comprasProgresso").hidden=true;
+ for(const id of ["comprasAviso","comprasTotais","comprasFiliais","comprasFornecedores","comprasComparativo","comprasDetalhes","comprasAuditoria"]) el(id).textContent="";
 }
-function comprasTabela(id,cols,rows){
- const alvo=el(id);alvo.replaceChildren();
- if(!rows.length){alvo.textContent="Sem registros para esta seleção.";return;}
- const t=document.createElement("table"),head=t.createTHead().insertRow();
- for(const col of cols){const th=document.createElement("th");th.textContent=col;head.append(th);}
- const body=t.createTBody();
- for(const row of rows){const tr=body.insertRow();for(const value of row)tr.insertCell().textContent=String(value??"—");}
- alvo.append(t);
+function comprasTabela(id,cols,rows,opts={}){
+ const alvo=el(id);let pagina=0;const limite=20;
+ function desenhar(){
+  alvo.replaceChildren();
+  if(!rows.length){alvo.textContent="Sem registros para esta seleção.";return;}
+  const t=document.createElement("table"),head=t.createTHead().insertRow();
+  for(const col of cols){const th=document.createElement("th");th.textContent=col;head.append(th);}
+  const body=t.createTBody();
+  for(const [idx,row] of rows.slice(pagina*limite,(pagina+1)*limite).entries()){
+   const tr=body.insertRow(),indice=pagina*limite+idx;
+   for(const [j,value] of row.entries()){
+    const td=tr.insertCell();td.textContent=String(value??"—");
+    const classe=opts.cor?.(indice,j);if(classe)td.classList.add(classe);
+    if(j===0&&opts.detalhe){const btn=document.createElement("button");btn.type="button";btn.textContent=td.textContent;btn.addEventListener("click",()=>opts.detalhe(indice));td.replaceChildren(btn);}
+   }
+  }
+  alvo.append(t);
+  if(rows.length>limite){const nav=document.createElement("div");nav.className="compras-paginacao";const anterior=document.createElement("button"),proximo=document.createElement("button"),info=document.createElement("span");
+   anterior.textContent="Anterior";proximo.textContent="Próxima";anterior.type=proximo.type="button";anterior.disabled=pagina===0;proximo.disabled=(pagina+1)*limite>=rows.length;
+   info.textContent=(pagina+1)+" / "+Math.ceil(rows.length/limite)+" · "+rows.length+" registros";
+   anterior.onclick=()=>{pagina--;desenhar()};proximo.onclick=()=>{pagina++;desenhar()};nav.append(anterior,info,proximo);alvo.append(nav);}
+ }
+ desenhar();
 }
 async function carregarCompras(){
- if(!souDono)return;
- limparCompras();const seq=comprasExec, chave=senha;
+ if(!souDono||el("comprasAtualizar").disabled)return;
+ limparCompras();const seq=comprasExec,chave=senha;
  const valido=()=>seq===comprasExec&&souDono&&senha===chave;
- el("comprasAviso").textContent="Carregando lotes completos...";
+ const aviso=el("comprasAviso"),progresso=el("comprasProgresso");
+ el("comprasAtualizar").disabled=true;progresso.hidden=false;progresso.value=0;
+ aviso.textContent="Consultando filiais...";
  try{
   const {lojas=[]}=await api("/compras/rede");
-  const dados=[];
-  for(const l of lojas){
-   if(!valido())return;
-   const snapshot={...l,notasDados:[],itensDados:[]};
-   for(const [tipo,dest] of [["notas",snapshot.notasDados],["itens",snapshot.itensDados]]){
-    for(let pos=0;pos<Math.ceil(l[tipo]/100);pos++){
-     if(!valido())return;
+  if(!valido())return;
+  const dados=lojas.map(l=>({...l,notasDados:[],itensDados:[]}));
+  const tarefas=[];
+  for(const l of dados)for(const tipo of ["notas","itens"])for(let pos=0;pos<Math.ceil(l[tipo]/100);pos++)tarefas.push({l,tipo,pos});
+  let cursor=0,feitas=0,falha=false;
+  async function executar(){
+   while(valido()&&!falha&&cursor<tarefas.length){
+    const {l,tipo,pos}=tarefas[cursor++];
+    try{
      const params=new URLSearchParams({loja:l.loja,lote:l.lote,tipo,pos:String(pos)});
      const parte=await api("/compras/rede/parte?"+params);
+     if(!valido()||falha)return;
      if(!Array.isArray(parte.dados)||parte.dados.length!==Math.min(100,l[tipo]-pos*100))throw Error("Parte incompleta");
-     dest.push(...parte.dados);
-    }
+     l[tipo+"Dados"][pos]=parte.dados;feitas++;
+     progresso.value=100*feitas/Math.max(1,tarefas.length);
+     aviso.textContent="Carregando compras: "+feitas+" de "+tarefas.length+" partes ("+Math.round(progresso.value)+"%)";
+    }catch(e){falha=true;throw e;}
    }
-   dados.push(snapshot);
   }
+  await Promise.all(Array.from({length:4},executar));
   if(!valido())return;
+  for(const l of dados)for(const tipo of ["notas","itens"])l[tipo+"Dados"]=l[tipo+"Dados"].flat();
   comprasDados=dados;renderCompras();
- }catch(e){if(valido()){limparCompras();el("comprasAviso").textContent="Não foi possível carregar compras: "+e.message;}}
+ }catch(e){if(valido()){limparCompras();aviso.textContent="Não foi possível carregar compras: "+e.message;}}
+ finally{if(valido()){el("comprasAtualizar").disabled=false;progresso.hidden=true;}}
 }
 function renderCompras(){
  if(!souDono||!comprasDados)return;
@@ -9675,7 +9728,8 @@ function renderCompras(){
    if(!/^\d{8,14}$/.test(ean)||Number(i.QT_EMBALAGEM)!==1||!Number.isFinite(q)||q<=0||["BONIFICACAO","TRANSFERENCIA","CONSIGNACAO"].some(k=>n[k]!=="N"))continue;
    if(busca&&!(String(i.DESCRICAO)+" "+ean+" "+n.FORNECEDOR).toLowerCase().includes(busca))continue;
    const m=String(n.DT_ENTRADA).slice(0,7),k=ean+":"+m;
-   const g=grupos.get(k)||{nome:i.DESCRICAO,ean,m,filiais:new Map()};
+   const g=grupos.get(k)||{nome:i.DESCRICAO,ean,m,filiais:new Map(),detalhes:[]};
+   g.detalhes.push([comprasNomes[l.loja]||l.loja,String(n.DT_ENTRADA).slice(0,10),n.NOTA_FISCAL,n.FORNECEDOR,q,moeda(custo)]);
    const a=g.filiais.get(l.loja)||{q:0,v:0};a.q+=q;a.v+=q*custo;g.filiais.set(l.loja,a);grupos.set(k,g);
   }
  }
@@ -9683,18 +9737,31 @@ function renderCompras(){
  const container=el("comprasTotais");container.replaceChildren();for(const [label,val] of cards){const div=document.createElement("div"),b=document.createElement("strong"),p=document.createElement("div");b.textContent=val;p.textContent=label;div.append(b,p);container.append(div);}
  const disponiveis=new Map(comprasDados.map(l=>[l.loja,l]));
  comprasTabela("comprasFiliais",["Filial","Última extração","Notas no filtro","Compras"],Object.keys(comprasNomes).map(k=>{const l=disponiveis.get(k),r=resumos.find(x=>x[0]===comprasNomes[k]);return [comprasNomes[k],l?new Date(l.extraido_em).toLocaleString("pt-BR"):"Sem sincronização",r?.[1]??"—",r?.[2]??"—"];}));
- comprasTabela("comprasFornecedores",["Fornecedor","Notas","Total"],[...fornecedores.values()].sort((a,b)=>b.v-a.v).slice(0,100).map(r=>[r.nome,r.q,moeda(r.v)]));
+ comprasTabela("comprasFornecedores",["Fornecedor","Notas","Total"],[...fornecedores.values()].sort((a,b)=>b.v-a.v).map(r=>[r.nome,r.q,moeda(r.v)]));
  const divergencias=[];
  for(const g of grupos.values()){
   if(g.filiais.size<2)continue;
   const min=Math.min(...[...g.filiais.values()].map(a=>a.v/a.q));
   const diff=[...g.filiais.values()].reduce((s,a)=>s+Math.max(0,a.v-min*a.q),0);
   if(diff<0.01)continue;
-  divergencias.push({diff,row:[g.nome,g.ean,g.m,...Object.keys(comprasNomes).map(k=>{const a=g.filiais.get(k);return a?moeda(a.v/a.q):"—";}),moeda(diff)]});
+  divergencias.push({diff,g,row:[g.nome,g.ean,g.m,...Object.keys(comprasNomes).map(k=>{const a=g.filiais.get(k);return a?moeda(a.v/a.q):"—";}),moeda(diff)]});
  }
- comprasTabela("comprasComparativo",["Produto","EAN","Mês","Prudente","Silvina","Oliveira","Diferença estimada"],divergencias.sort((a,b)=>b.diff-a.diff).slice(0,200).map(d=>d.row));
- el("comprasAviso").textContent=comprasDados.length+" de 3 filiais sincronizadas. "+duplicadas+" notas com chave repetida excluídas do cálculo; "+invalidos+" itens com custo inválido no filtro. Visão dos lotes atuais (janela móvel); filtro de busca apenas nas tabelas. Comparativo requer todas as filiais selecionadas. Top 100 fornecedores e 200 divergências.";
+ divergencias.sort((a,b)=>b.diff-a.diff);
+ const economia=divergencias.reduce((s,d)=>s+d.diff,0);
+ const ec=document.createElement("div"),eb=document.createElement("strong"),ep=document.createElement("div");eb.textContent=filial?"—":moeda(economia);ep.textContent="Diferença estimada (filtros do comparativo)";ec.append(eb,ep);container.append(ec);
+ el("comprasDetalhes").replaceChildren();
+ comprasTabela("comprasComparativo",["Produto","EAN","Mês","Prudente","Silvina","Oliveira","Diferença estimada"],divergencias.map(d=>d.row),{
+ cor:(idx,j)=>{if(j<3||j>5)return "";const g=divergencias[idx].g,a=g.filiais.get(Object.keys(comprasNomes)[j-3]);if(!a)return "";const valores=[...g.filiais.values()].map(x=>x.v/x.q),v=a.v/a.q,min=Math.min(...valores),max=Math.max(...valores);return max-min<0.005?"":Math.abs(v-min)<0.000001?"custo-menor":Math.abs(v-max)<0.000001?"custo-maior":"";},
+ detalhe:idx=>{const g=divergencias[idx].g;comprasTabela("comprasDetalhes",["Filial","Entrada","Nota","Fornecedor","Quantidade","Custo aplicado"],g.detalhes);el("comprasDetalhes").scrollIntoView({block:"nearest"});}
+ });
+ comprasTabela("comprasAuditoria",["Ocorrência","Quantidade"],[["Notas com chave repetida excluídas",duplicadas],["Itens com custo inválido ou zerado",invalidos]]);
+ el("comprasAviso").textContent=comprasDados.length+" de 3 filiais sincronizadas. Visão dos lotes atuais (janela móvel). Busca afeta tabelas e diferença estimada, não os totais de compras. "+(filial?"Selecione todas as filiais para comparar custos.":"Diferenças não representam prejuízo confirmado.");
 }
+el("abaCompras").querySelector(".compras-tabs").addEventListener("click",e=>{
+ const btn=e.target.closest("[data-compras-tab]");if(!btn)return;
+ for(const b of el("abaCompras").querySelectorAll("[data-compras-tab]"))b.setAttribute("aria-pressed",String(b===btn));
+ for(const pane of el("abaCompras").querySelectorAll("[data-compras-pane]"))pane.hidden=pane.dataset.comprasPane!==btn.dataset.comprasTab;
+});
 el("comprasAtualizar").addEventListener("click",carregarCompras);
 for(const id of ["comprasFilial","comprasMes","comprasBusca"])el(id).addEventListener("input",renderCompras);
 
