@@ -9734,6 +9734,8 @@ function renderCompras(){
  const normalizar=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
  const filial=el("comprasFilial").value,mes=el("comprasMes").value,busca=normalizar(el("comprasBusca").value);
  const termos=busca.split(/\s+/).filter(Boolean),combina=v=>termos.every(t=>normalizar(v).includes(t));
+ const dataBr=v=>{const m=String(v??"").match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+"/"+m[2]+"/"+m[1].slice(-2):"—";};
+ const mesBr=v=>{const m=String(v??"").match(/^(\d{4})-(\d{2})$/);return m?m[2]+"/"+m[1].slice(-2):"—";};
  const moeda=v=>Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
  const soma=(a,k)=>a.reduce((s,n)=>s+(Number(n[k])||0),0);
  const lojas=comprasDados.filter(l=>!filial||l.loja===filial);
@@ -9760,14 +9762,14 @@ function renderCompras(){
    const m=String(n.DT_ENTRADA).slice(0,7),k=ean+":"+m;
    const g=grupos.get(k)||{nome:i.DESCRICAO,ean,m,filiais:new Map(),detalhes:[],termos:new Set()};
    g.termos.add(String(i.DESCRICAO)+" "+ean+" "+(i.CD_PRODUTO??"")+" "+(n.FORNECEDOR??"")+" "+(n.CNPJ_FORNECEDOR??""));
-   g.detalhes.push([comprasNomes[l.loja]||l.loja,String(n.DT_ENTRADA).slice(0,10),n.NOTA_FISCAL,n.FORNECEDOR,q,moeda(custo)]);
+   g.detalhes.push([comprasNomes[l.loja]||l.loja,dataBr(n.DT_ENTRADA),n.NOTA_FISCAL,n.FORNECEDOR,q,moeda(custo)]);
    const a=g.filiais.get(l.loja)||{q:0,v:0};a.q+=q;a.v+=q*custo;g.filiais.set(l.loja,a);grupos.set(k,g);
   }
  }
  const cards=[["Compras (status C)",moeda(total)],["Notas elegíveis",notas],["Descontos registrados",moeda(descontos)]];
  const container=el("comprasTotais");container.replaceChildren();for(const [label,val] of cards){const div=document.createElement("div"),b=document.createElement("strong"),p=document.createElement("div");b.textContent=val;p.textContent=label;div.append(b,p);container.append(div);}
  const disponiveis=new Map(comprasDados.map(l=>[l.loja,l]));
- comprasTabela("comprasFiliais",["Filial","Última extração","Notas no filtro","Compras"],Object.keys(comprasNomes).map(k=>{const l=disponiveis.get(k),r=resumos.find(x=>x[0]===comprasNomes[k]);return [comprasNomes[k],l?new Date(l.extraido_em).toLocaleString("pt-BR"):"Sem sincronização",r?.[1]??"—",r?.[2]??"—"];}));
+ comprasTabela("comprasFiliais",["Filial","Última extração","Notas no filtro","Compras"],Object.keys(comprasNomes).map(k=>{const l=disponiveis.get(k),r=resumos.find(x=>x[0]===comprasNomes[k]);return [comprasNomes[k],l?new Date(l.extraido_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Sem sincronização",r?.[1]??"—",r?.[2]??"—"];}));
  comprasTabela("comprasFornecedores",["Fornecedor","Notas","Total"],[...fornecedores.values()].sort((a,b)=>b.v-a.v).map(r=>[r.nome,r.q,moeda(r.v)]));
  const divergencias=[];
  for(const g of grupos.values()){
@@ -9776,7 +9778,7 @@ function renderCompras(){
   const min=Math.min(...[...g.filiais.values()].map(a=>a.v/a.q));
   const diff=[...g.filiais.values()].reduce((s,a)=>s+Math.max(0,a.v-min*a.q),0);
   if(!busca&&diff<0.01)continue;
-  divergencias.push({diff,g,row:[g.nome,g.ean,g.m,...Object.keys(comprasNomes).map(k=>{const a=g.filiais.get(k);return a?moeda(a.v/a.q):"—";}),g.filiais.size<2?"—":moeda(diff)]});
+  divergencias.push({diff,g,row:[g.nome,g.ean,mesBr(g.m),...Object.keys(comprasNomes).map(k=>{const a=g.filiais.get(k);return a?moeda(a.v/a.q):"—";}),g.filiais.size<2?"—":moeda(diff)]});
  }
  divergencias.sort((a,b)=>b.diff-a.diff);
  const economia=divergencias.reduce((s,d)=>s+d.diff,0);
