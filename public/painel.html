@@ -1189,6 +1189,13 @@
       #abaCompras .compras-detalhe-inline>strong{display:block;margin-bottom:10px}
       #abaCompras .compras-detalhe-lista{overflow:auto}
       #abaCompras button.compras-produto-toggle{text-align:left;border:0;padding:4px 0;color:inherit;font-weight:600;white-space:normal}
+      #abaCompras .compras-orcamento{margin:20px 0}
+      #abaCompras .compras-orcamento input{min-width:96px;width:120px}
+      #abaCompras .compras-orcamento input[data-meta]{width:85px;min-width:75px}
+      #abaCompras .compras-orcamento td{vertical-align:middle}
+      #abaCompras .compras-orcamento .compras-barra{display:block;width:100%;min-width:80px;height:6px;background:rgba(125,125,150,.18);border-radius:6px;margin-top:5px;overflow:hidden}
+      #abaCompras .compras-orcamento .compras-barra>span{display:block;height:100%;background:#168044}
+      #abaCompras .compras-orcamento .compras-barra.excesso>span{background:#c13a35}
       #abaCompras .compras-paginacao{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:12px 0;font-size:12px}
       #abaCompras .custo-menor{color:#168044;font-weight:700}#abaCompras .custo-maior{color:#c13a35;font-weight:700}
       #abaCompras progress{width:100%;height:9px;accent-color:var(--marca,#29258c)}
@@ -1203,7 +1210,8 @@
         <progress id="comprasProgresso" max="100" value="0" hidden></progress>
         <div id="comprasTotais" class="numeros"></div>
         <nav class="compras-tabs" aria-label="Áreas de compras"><button type="button" data-compras-tab="geral" aria-pressed="true">Visão geral</button><button type="button" data-compras-tab="comparativo" aria-pressed="false">Comparativo de custos</button><button type="button" data-compras-tab="fornecedores" aria-pressed="false">Fornecedores</button><button type="button" data-compras-tab="auditoria" aria-pressed="false">Auditoria</button></nav>
-        <div data-compras-pane="geral"><h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div></div>
+        <div data-compras-pane="geral"><h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div>
+        <div class="compras-orcamento"><h3>Controle de reposição sobre vendas</h3><p class="compras-ajuda">Meta padrão: 60% das vendas. Selecione um mês e informe as vendas reais acumuladas no mesmo período coberto pelas compras de cada filial. Vendas e metas são lançamentos manuais, salvos somente neste navegador; não são vendas extraídas do Farmax.</p><button type="button" id="comprasMesAtual">Selecionar mês atual</button><p id="comprasOrcamentoAviso" class="compras-ajuda" role="status"></p><div id="comprasOrcamento" class="tabela-wrap"></div></div></div>
         <div data-compras-pane="fornecedores" hidden><h3>Fornecedores</h3><div id="comprasFornecedores" class="tabela-wrap"></div></div>
         <div data-compras-pane="comparativo" hidden><h3>Comparativo de custos</h3><p class="compras-ajuda">Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas. Selecione todas as filiais para comparar.</p><div id="comprasComparativo" class="tabela-wrap"></div><div id="comprasDetalhes" class="tabela-wrap"></div></div>
         <div data-compras-pane="auditoria" hidden><h3>Qualidade dos registros</h3><div id="comprasAuditoria" class="tabela-wrap"></div></div>
@@ -9654,7 +9662,7 @@ el("redePedidosLista").addEventListener("toggle",async e=>{
 function limparCompras(){
  comprasExec++; comprasDados=null;
  el("comprasAtualizar").disabled=false;el("comprasProgresso").hidden=true;
- for(const id of ["comprasAviso","comprasTotais","comprasFiliais","comprasFornecedores","comprasComparativo","comprasDetalhes","comprasAuditoria"]) el(id).textContent="";
+ for(const id of ["comprasAviso","comprasTotais","comprasFiliais","comprasFornecedores","comprasComparativo","comprasDetalhes","comprasAuditoria","comprasOrcamento","comprasOrcamentoAviso"]) el(id).textContent="";
 }
 function comprasTabela(id,cols,rows,opts={}){
  const alvo=typeof id==="string"?el(id):id;let pagina=0;const limite=20;
@@ -9729,6 +9737,59 @@ async function carregarCompras(){
  }catch(e){if(valido()){limparCompras();aviso.textContent="Não foi possível carregar compras: "+e.message;}}
  finally{if(valido()){el("comprasAtualizar").disabled=false;progresso.hidden=true;}}
 }
+// Controle mensal provisório: nenhuma venda da vitrine é tratada como venda Farmax.
+function lerOrcamentoCompras(){
+ try{const v=JSON.parse(localStorage.getItem("drogalink.compras.orcamento.v1")||"{}");return {metas:v?.metas||{},vendas:v?.vendas||{}};}catch{return {metas:{},vendas:{}};}
+}
+function renderOrcamentoCompras(resumos,disponiveis,mes,filial,moeda){
+ const alvo=el("comprasOrcamento"),aviso=el("comprasOrcamentoAviso");
+ alvo.replaceChildren();
+ if(!mes){aviso.textContent="Selecione um mês para comparar compras e vendas do mesmo período.";return;}
+ const cfg=lerOrcamentoCompras(),t=document.createElement("table"),h=t.createTHead().insertRow();
+ for(const nome of ["Filial","Vendas (R$)","Meta (%)","Compras registradas","Compra / venda","Limite de compras","Saldo disponível","Situação"]){const th=document.createElement("th");th.textContent=nome;h.append(th);}
+ const body=t.createTBody(),formatoPct=v=>v.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%";
+ let erroSalvar=false;
+ const agora=new Date(),mesAtual=agora.getFullYear()+"-"+String(agora.getMonth()+1).padStart(2,"0");
+ aviso.textContent="Período "+mes.slice(5)+"/"+mes.slice(2,4)+". "+(mes===mesAtual?"Use vendas acumuladas até a última extração de cada loja. ":"Confirme que o lote cobre o mês inteiro antes de usar como fechamento. ")+"Saldo negativo indica compras acima da meta. Não é controle de caixa nem CMV.";
+ for(const k of Object.keys(comprasNomes).filter(k=>!filial||k===filial)){
+  const l=disponiveis.get(k),r=resumos.find(x=>x[4]===k),tr=body.insertRow(),chave=mes+":"+k;
+  tr.insertCell().textContent=comprasNomes[k];
+  const venda=document.createElement("input");venda.type="number";venda.min="0";venda.step="0.01";venda.placeholder="Informe";venda.setAttribute("aria-label","Vendas de "+comprasNomes[k]+" no mês");
+  if(typeof cfg.vendas[chave]==="number"&&Number.isFinite(cfg.vendas[chave])&&cfg.vendas[chave]>=0)venda.value=String(cfg.vendas[chave]);
+  tr.insertCell().append(venda);
+  const meta=document.createElement("input");meta.type="number";meta.min="0";meta.max="100";meta.step="0.01";meta.dataset.meta="1";meta.setAttribute("aria-label","Meta de reposição de "+comprasNomes[k]);
+  const salva=cfg.metas[k];meta.value=String(typeof salva==="number"&&Number.isFinite(salva)&&salva>=0&&salva<=100?salva:60);tr.insertCell().append(meta);
+  const compras=tr.insertCell(),pct=tr.insertCell(),limite=tr.insertCell(),saldo=tr.insertCell(),situacao=tr.insertCell();
+  const ultimo=l?new Date(l.extraido_em):null;
+  const ultimoMes=ultimo&&Number.isFinite(ultimo.getTime())?ultimo.getFullYear()+"-"+String(ultimo.getMonth()+1).padStart(2,"0"):"";
+  // O piloto não registra a janela exata: não interpretar ausência de notas como zero confirmado.
+  const valor=l&&r&&r[1]>0&&mes<=ultimoMes?r[3]:null;
+  compras.textContent=valor===null?"—":moeda(valor);
+  function calcular(){
+   const v=venda.value===""?null:venda.valueAsNumber,m=meta.valueAsNumber;
+   for(const cell of [pct,limite,saldo,situacao]){cell.replaceChildren();cell.className="";}
+   if(v===null||!Number.isFinite(v)||v<0||!Number.isFinite(m)||m<0||m>100){pct.textContent=limite.textContent=saldo.textContent="—";situacao.textContent="Informe vendas e meta";return;}
+   const teto=v*m/100;limite.textContent=moeda(teto);
+   if(valor===null){pct.textContent=saldo.textContent="—";situacao.textContent="Sem compras verificáveis";return;}
+   const p=v>0?valor/v*100:null,d=teto-valor;
+   pct.textContent=p===null?"—":formatoPct(p);
+   saldo.textContent=moeda(d);saldo.className=d<-.005?"custo-maior":"custo-menor";
+   situacao.textContent=d<-.005?"Acima da meta":"Dentro da meta";situacao.className=saldo.className;
+   if(p!==null){const barra=document.createElement("span"),fill=document.createElement("span");barra.className="compras-barra"+(d<-.005?" excesso":"");fill.style.width=Math.min(100,Math.max(0,m>0?p/m*100:p>0?100:0))+"%";barra.append(fill);pct.append(barra);}
+  }
+  function salvar(){
+   const m=meta.valueAsNumber,v=venda.valueAsNumber;
+   if(!meta.checkValidity()||!Number.isFinite(m)||m<0||m>100||!venda.checkValidity())return;
+   const atual=lerOrcamentoCompras();atual.metas[k]=m;
+   if(venda.value==="")delete atual.vendas[chave];else if(Number.isFinite(v)&&v>=0)atual.vendas[chave]=v;
+   try{localStorage.setItem("drogalink.compras.orcamento.v1",JSON.stringify(atual));}catch{if(!erroSalvar){aviso.textContent+=" Não foi possível salvar neste navegador.";erroSalvar=true;}}
+  }
+  for(const input of [venda,meta]){input.addEventListener("input",calcular);input.addEventListener("change",salvar);}
+  calcular();
+ }
+ alvo.append(t);
+}
+el("comprasMesAtual").addEventListener("click",()=>{const d=new Date();el("comprasMes").value=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");renderCompras();});
 function renderCompras(){
  if(!souDono||!comprasDados)return;
  const normalizar=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
@@ -9747,7 +9808,7 @@ function renderCompras(){
   const ns=elegiveis.filter(n=>{if(n.CHAVENFE&&chaves.get(n.CHAVENFE)>1){duplicadas++;return false;}return true;});
   const mapa=new Map(ns.map(n=>[n.CD_FILIAL+":"+n.CD_COMPRAS,n]));
   const valor=soma(ns,"TOTAL_NOTA");total+=valor;descontos+=soma(ns,"VL_DESCONTO_NOTA");notas+=ns.length;
-  resumos.push([comprasNomes[l.loja]||l.loja,ns.length,moeda(valor)]);
+  resumos.push([comprasNomes[l.loja]||l.loja,ns.length,moeda(valor),valor,l.loja]);
   for(const n of ns){
    const nome=String(n.FORNECEDOR||"Não informado").trim(), k=n.CNPJ_FORNECEDOR||nome;
    if(busca&&!combina(nome+" "+(n.CNPJ_FORNECEDOR||"")))continue;
@@ -9770,6 +9831,7 @@ function renderCompras(){
  const container=el("comprasTotais");container.replaceChildren();for(const [label,val] of cards){const div=document.createElement("div"),b=document.createElement("strong"),p=document.createElement("div");b.textContent=val;p.textContent=label;div.append(b,p);container.append(div);}
  const disponiveis=new Map(comprasDados.map(l=>[l.loja,l]));
  comprasTabela("comprasFiliais",["Filial","Última extração","Notas no filtro","Compras"],Object.keys(comprasNomes).map(k=>{const l=disponiveis.get(k),r=resumos.find(x=>x[0]===comprasNomes[k]);return [comprasNomes[k],l?new Date(l.extraido_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Sem sincronização",r?.[1]??"—",r?.[2]??"—"];}));
+ renderOrcamentoCompras(resumos,disponiveis,mes,filial,moeda);
  comprasTabela("comprasFornecedores",["Fornecedor","Notas","Total"],[...fornecedores.values()].sort((a,b)=>b.v-a.v).map(r=>[r.nome,r.q,moeda(r.v)]));
  const divergencias=[];
  for(const g of grupos.values()){
