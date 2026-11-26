@@ -3018,6 +3018,29 @@ async function enviarPublicacao(rota, corpo, slug) {
   return dados;
 }
 
+// Cache somente de relatórios master, limitado à sessão e aos parâmetros exatos.
+const cacheRelatoriosRede=new Map();
+let escopoRelatoriosRede=null;
+function limparCacheRelatoriosRede(prefixo=""){
+ for(const rota of cacheRelatoriosRede.keys())if(!prefixo||rota.startsWith(prefixo))cacheRelatoriosRede.delete(rota);
+}
+function consultarRelatorioRede(rota){
+ if(!souDono)return api(rota);
+ if(!escopoRelatoriosRede||escopoRelatoriosRede.senha!==senha||escopoRelatoriosRede.loja!==lojaAtual){
+  limparCacheRelatoriosRede();escopoRelatoriosRede={senha,loja:lojaAtual};
+ }
+ const ttl=rota==="/vendas/rede/status"?300000:3600000;
+ const anterior=cacheRelatoriosRede.get(rota);
+ if(anterior&&(!anterior.time||Date.now()-anterior.time<ttl))return anterior.promise;
+ const entrada={time:0,promise:null};
+ entrada.promise=api(rota).then(dados=>{
+  if(!dados?.ok)throw Error("Resposta incompleta do relatório");
+  entrada.time=Date.now();return dados;
+ }).catch(e=>{if(cacheRelatoriosRede.get(rota)===entrada)cacheRelatoriosRede.delete(rota);throw e;});
+ cacheRelatoriosRede.delete(rota);cacheRelatoriosRede.set(rota,entrada);
+ if(cacheRelatoriosRede.size>24)cacheRelatoriosRede.delete(cacheRelatoriosRede.keys().next().value);
+ return entrada.promise;
+}
 async function api(rota) {
   const r = await fetch(`${API.replace(/\/+$/, "")}${rota}`, { headers: cabecalhos() });
   if (r.status === 401) throw new Error("SENHA");
@@ -9811,6 +9834,7 @@ el("redePedidosLista").addEventListener("toggle",async e=>{
 
 
 function limparCompras(){
+ limparCacheRelatoriosRede();escopoRelatoriosRede=null;
  comprasCacheGeracao++;comprasUltimaVerificacao=0;
  limparCmv();
  comprasExec++; comprasDados=null;comprasClasses=null;comprasClassesEstado="";
@@ -9940,7 +9964,7 @@ async function renderOrcamentoCompras(resumos,disponiveis,mes,filial,moeda){
  if(fim<inicio){aviso.textContent="Mês futuro: sem faturamento realizado.";return;}
  aviso.textContent="Consultando faturamento e metas do Farmax...";
  try{
- const params=new URLSearchParams({inicio,fim}),[vendas,metas,status,classes]=await Promise.all([api("/vendas/rede?"+params),api("/vendas/rede/metas?ano="+ano+"&mes="+numero),api("/vendas/rede/status"),api("/vendas/rede/classes?"+params)]);
+ const params=new URLSearchParams({inicio,fim}),[vendas,metas,status,classes]=await Promise.all([consultarRelatorioRede("/vendas/rede?"+params),consultarRelatorioRede("/vendas/rede/metas?ano="+ano+"&mes="+numero),consultarRelatorioRede("/vendas/rede/status"),consultarRelatorioRede("/vendas/rede/classes?"+params)]);
  if(!valido())return;
  if(![vendas,metas,status,classes].every(x=>x?.ok)||!Array.isArray(vendas.registros)||!Array.isArray(metas.metas)||!Array.isArray(status.filiais)||!Array.isArray(classes.registros))throw Error("Resposta incompleta");
  const ids={prudente:1,"jd-silvina":2,oliveira:3},selecionadas=Object.keys(comprasNomes).filter(k=>!filial||k===filial);
@@ -9992,6 +10016,7 @@ async function renderOrcamentoCompras(resumos,disponiveis,mes,filial,moeda){
    try{
     const resp=await fetch(API.replace(/\/+$/,"")+"/vendas/rede/metas",{method:"POST",headers:cabecalhos({"Content-Type":"application/json"}),body:JSON.stringify({filial:id,ano,mes:numero,percentual_compras:m})});
     const data=await resp.json();if(!resp.ok||!data.ok)throw Error("Meta não salva");
+    limparCacheRelatoriosRede("/vendas/rede/metas?");
     if(!valido())return;salva=m;calcular();meta.title="Meta salva no D1";
    }catch{if(valido()){meta.value=String(salva);aviso.textContent+=" Não foi possível salvar a meta de "+comprasNomes[k]+".";}}
    finally{if(valido())meta.disabled=false;}
@@ -10289,15 +10314,16 @@ async function carregarCmv(force=false){
  el("cmvFilial").value=el("comprasFilial").value;
  const aviso=el("cmvAviso"),key=JSON.stringify([inicio,fim,f||0,exec]);
  if(!inicio||!fim||inicio>fim||(Date.parse(fim)-Date.parse(inicio))/86400000>92){limparCmv();aviso.textContent="Selecione um período válido de até 93 dias.";return;}
- if(!force&&cmvCache?.key===key&&Date.now()-cmvCache.time<120000){return;}
+ if(!force&&cmvCache?.key===key&&Date.now()-cmvCache.time<3600000){return;}
  if(cmvPendente===key)return;
- cmvPendente=key;const seq=++cmvSeq;
+ cmvPendente=key;cmvCache=null;const seq=++cmvSeq;
  const valido=()=>seq===cmvSeq&&exec===comprasExec&&souDono&&senha===cred&&cmvAtiva();
  for(const id of ["cmvKpis","cmvFiliais","cmvClasses","cmvAuditoria"])el(id).replaceChildren();cmvAuditoriaDados=[];cmvGruposDados=[];cmvFiliaisDados=[];
  aviso.textContent="Consultando CMV da matriz...";
  try{
  const params=new URLSearchParams({inicio,fim});if(f)params.set("filial",f);
- const d=await api("/cmv/rede?"+params);if(!valido())return;
+ if(force)limparCacheRelatoriosRede("/cmv/rede?");
+ const d=await consultarRelatorioRede("/cmv/rede?"+params);if(!valido())return;
  if(!d.ok||!Array.isArray(d.grupos)||!Array.isArray(d.alertas)||!Array.isArray(d.cobertura))throw Error("Resposta incompleta");
  const ids=f?[f]:[1,2,3],dias=Math.round((Date.parse(fim)-Date.parse(inicio))/86400000)+1;
  const completos=ids.every(id=>new Set(d.cobertura.filter(x=>Number(x.filial)===id).map(x=>x.dia)).size===dias);
@@ -10322,12 +10348,12 @@ function abrirSubabaCompras(nome){
  kpisCmv.hidden=nome!=="cmv";el("comprasTotais").hidden=nome==="cmv";
  for(const b of el("abaCompras").querySelectorAll("[data-compras-tab]"))b.setAttribute("aria-pressed",String(b.dataset.comprasTab===nome));
  for(const pane of el("abaCompras").querySelectorAll("[data-compras-pane]"))pane.hidden=pane.dataset.comprasPane!==nome;
- if(nome==="cmv"){cmvCache=null;carregarCmv();}else{cmvSeq++;cmvPendente=null;cmvCache=null;}
+ if(nome==="cmv"){carregarCmv();}else{cmvSeq++;cmvPendente=null;}
 }
 el("abaCompras").querySelector(".compras-tabs").addEventListener("click",e=>{
  const btn=e.target.closest("[data-compras-tab]");if(btn){abrirSubabaCompras(btn.dataset.comprasTab);if(btn.dataset.comprasTab==="classes"){renderClassesCompras();carregarClassesCompras();}}
 });
-el("comprasAtualizar").addEventListener("click",()=>{if(cmvAtiva()){carregarCmv(true);return;}carregarCompras();});
+el("comprasAtualizar").addEventListener("click",()=>{limparCacheRelatoriosRede();if(cmvAtiva()){carregarCmv(true);return;}carregarCompras();});
 el("comprasFilial").addEventListener("input",renderCompras);
 el("comprasOrdenacao").addEventListener("change",renderCompras);
 el("comprasMes").addEventListener("input",()=>comprasSelecionarPeriodo(el("comprasMes").value?"mes":"todos"));
