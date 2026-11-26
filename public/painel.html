@@ -10073,7 +10073,7 @@ function renderCompras(){
  const ec=document.createElement("div"),eb=document.createElement("strong"),ep=document.createElement("div");eb.textContent=filial?"—":moeda(economia);ep.textContent="Diferença estimada (filtros do comparativo)";ec.append(eb,ep);container.append(ec);
  el("comprasDetalhes").replaceChildren();
  comprasTabela("comprasComparativo",["Produto","EAN","Mês","Prudente","Silvina","Oliveira","Diferença estimada"],divergencias.map(d=>d.row),{
- cor:(idx,j)=>{if(j<3||j>5)return "";const g=divergencias[idx].g,a=g.filiais.get(Object.keys(comprasNomes)[j-3]);if(!a)return "";const valores=[...g.filiais.values()].map(x=>x.v/x.q),v=a.v/a.q,min=Math.min(...valores),max=Math.max(...valores);return max-min<0.005?"":Math.abs(v-min)<0.000001?"custo-menor":Math.abs(v-max)<0.000001?"custo-maior":"";},
+ cor:(idx,j)=>{if(j<3||j>5)return "";const g=divergencias[idx].g,a=g.filiais.get(Object.keys(comprasNomes)[j-3]);if(!a)return "";const valores=[...g.filiais.values()].map(x=>x.v/x.q),v=a.v/a.q,min=Math.min(...valores),max=Math.max(...valores);return max-min<0.005?"":Math.abs(v-min)<0.000001?"custo-menor":"custo-maior";},
  detalhe:(idx,alvo)=>{const g=divergencias[idx].g;comprasTabela(alvo,["Filial","Entrada","Nota","Fornecedor","Quantidade","Custo aplicado"],g.detalhes);}
  });
  comprasTabela("comprasAuditoria",["Ocorrência","Quantidade"],[["Notas com chave repetida excluídas",duplicadas],["Itens com custo inválido ou zerado",invalidos]]);
