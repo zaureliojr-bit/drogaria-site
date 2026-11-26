@@ -1225,7 +1225,7 @@
       <div class="form-banner rede-overview">
         <div class="rede-filtros-cab"><div><h3>Gestão de Compras</h3><p>Compras registradas no Farmax. Acesso exclusivo do master.</p></div><span class="rede-selo">Acesso master</span></div>
         <div class="rede-filtros"><label>Filial<select id="comprasFilial"><option value="">Todas as filiais</option><option value="prudente">Prudente</option><option value="jd-silvina">Jardim Silvina</option><option value="oliveira">Oliveira</option></select></label><label>Mês<input id="comprasMes" type="month"></label><label>Produto / EAN / fornecedor<input id="comprasBusca" type="search"></label><button type="button" id="comprasAtualizar" class="rede-atualizar">Atualizar</button></div>
-        <div class="compras-periodos" role="group" aria-label="Período das compras"><button type="button" data-compras-periodo="todos" aria-pressed="true">Todo o histórico</button><button type="button" data-compras-periodo="7" aria-pressed="false">Últimos 7 dias</button><button type="button" data-compras-periodo="30" aria-pressed="false">Últimos 30 dias</button><button type="button" data-compras-periodo="90" aria-pressed="false">Últimos 90 dias</button><button type="button" data-compras-periodo="personalizado" aria-pressed="false">Personalizado</button></div>
+        <div class="compras-periodos" role="group" aria-label="Período das compras"><button type="button" data-compras-periodo="todos" aria-pressed="false">Todo o histórico</button><button type="button" data-compras-periodo="7" aria-pressed="false">Últimos 7 dias</button><button type="button" data-compras-periodo="30" aria-pressed="false">Últimos 30 dias</button><button type="button" data-compras-periodo="90" aria-pressed="false">Últimos 90 dias</button><button type="button" data-compras-periodo="personalizado" aria-pressed="false">Personalizado</button></div>
         <div class="compras-intervalo" id="comprasIntervalo" hidden><label>De<input type="date" id="comprasInicio"></label><label>Até<input type="date" id="comprasFim"></label><button type="button" id="comprasAplicarPeriodo">Aplicar</button></div>
         <p id="comprasPeriodoAviso" role="status" class="compras-ajuda"></p>
         <p id="comprasAviso" role="status" class="rede-aviso"></p>
@@ -2581,7 +2581,7 @@ let lojaNome = "";
    /lojas para quem não é dono. Esconder botão não é segurança. */
 let souDono = false;
 let comprasExec=0, comprasDados=null, comprasClasses=null, comprasClassesEstado="";
-let comprasPeriodo="todos", comprasFaixa={inicio:"",fim:""};
+let comprasPeriodo="mes", comprasFaixa={inicio:"",fim:""};
 let comprasSaudeDados=null,comprasSaudeConsulta=0,comprasSaudeErro="",comprasSaudeOcupado=false;
 const comprasNomes={prudente:"Prudente","jd-silvina":"Jardim Silvina",oliveira:"Oliveira"};
 
@@ -9731,6 +9731,7 @@ function comprasTabela(id,cols,rows,opts={}){
 }
 async function carregarCompras(){
  if(!souDono||el("comprasAtualizar").disabled)return;
+ if(comprasPeriodo==="mes"&&!el("comprasMes").value){el("comprasMes").value=comprasHojeISO().slice(0,7);comprasSelecionarPeriodo("mes");}
  limparCompras();const seq=comprasExec,chave=senha;
  const valido=()=>seq===comprasExec&&souDono&&senha===chave;
  const aviso=el("comprasAviso"),progresso=el("comprasProgresso");
