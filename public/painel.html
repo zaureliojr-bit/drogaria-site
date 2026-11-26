@@ -1257,7 +1257,10 @@
         <div data-compras-pane="classes" hidden><h3>Compras por classe</h3><p class="compras-ajuda">Categorias atuais do catálogo da própria filial (PDV), vinculadas por EAN ou código interno. Valores dos itens (VL_TOTAL) das notas elegíveis; não equivalem necessariamente ao total das notas, que pode incluir impostos, fretes e descontos adicionais. O filtro de produto não altera esta visão.</p><p id="comprasClasseAviso" role="status" class="compras-ajuda"></p><div id="comprasClasseGrafico"></div><div id="comprasClasseTabela" class="tabela-wrap"></div></div>
         <div data-compras-pane="auditoria" hidden><h3>Qualidade dos registros</h3><div id="comprasAuditoria" class="tabela-wrap"></div></div><div data-compras-pane="cmv" hidden>
 <style>
-#abaCompras .cmv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:12px;margin:14px 0}
+#abaCompras .cmv-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin:14px 0}
+#abaCompras .cmv-secao>summary{cursor:pointer;font-weight:700;line-height:1.5}
+#abaCompras .cmv-secao>summary:focus-visible{outline:2px solid currentColor;outline-offset:4px;border-radius:3px}
+#abaCompras .cmv-secao[open]>summary{margin-bottom:12px}
 #abaCompras .cmv-card{border:1px solid #a4a9b55c;border-radius:10px;padding:12px;min-width:0}
 #abaCompras .cmv-card h3{margin:0 0 10px}
 #abaCompras #cmvKpis{grid-template-columns:repeat(auto-fit,minmax(min(100%,195px),1fr))}
@@ -1276,8 +1279,10 @@
 <h3>CMV e Rentabilidade</h3><p class="compras-ajuda" id="cmvAviso" role="status"></p>
 <div class="cmv-toolbar cmv-filtros"><label>Produto / código<input id="cmvBusca" placeholder="Buscar produto ou código"></label><label>Filial<select id="cmvFilial"><option value="">Todas as filiais</option><option value="prudente">Prudente</option><option value="jd-silvina">Jardim Silvina</option><option value="oliveira">Oliveira</option></select></label><label>Classe<select id="cmvClasse"><option value="">Todas as classes</option></select></label><label>Tipo de alerta<select id="cmvTipo"><option value="">Todos os alertas</option><option value="SUSPEITO">Custo suspeito</option><option value="INVALIDO">Custo ou dado inválido</option><option value="SEM_ALERTA">Outros alertas de rentabilidade</option></select></label><button type="button" id="cmvLimpar">Limpar filtros</button></div><p class="compras-ajuda">Filial e classe: todos os indicadores. Produto e tipo de alerta: somente auditoria.</p><div id="cmvKpis" class="numeros"></div>
 <div class="cmv-card"><h3>Comparativo por filial</h3><div id="cmvFiliais" class="tabela-wrap"></div></div>
-<div class="cmv-grid"><div class="cmv-card"><h3>CMV por classe · Farmax</h3><div id="cmvClasses" class="tabela-wrap"></div></div>
-<div class="cmv-card"><h3>Auditoria de custos</h3><div id="cmvAuditoria" class="tabela-wrap"></div></div></div>
+<div class="cmv-grid">
+<details class="cmv-card cmv-secao"><summary>CMV por classe · Farmax</summary><div id="cmvClasses" class="tabela-wrap"></div></details>
+<details class="cmv-card cmv-secao"><summary>Auditoria de custos</summary><div id="cmvAuditoria" class="tabela-wrap"></div></details>
+</div>
 <div class="cmv-card"><h3>Observações</h3><p class="compras-ajuda">CMV gerencial: custo médio × quantidade, apenas saídas tipo V. O indicador auxiliar exclui suspeitos e inválidos de ambos os lados da razão; não é custo corrigido nem auditado contabilmente. Valores negativos, devoluções, embalagens e custos devem ser conciliados no Farmax. Alertas não comprovam erro cadastral ou prejuízo. Os filtros de produto e tipo de alerta afetam somente a auditoria.</p></div>
 </div>
       </div>
