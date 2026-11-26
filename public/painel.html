@@ -1219,6 +1219,20 @@
       #abaCompras .custo-menor{color:#168044;font-weight:700}#abaCompras .custo-maior{color:#c13a35;font-weight:700}
       #abaCompras progress{width:100%;height:9px;accent-color:var(--marca,#29258c)}
       #abaCompras .rede-aviso{font-size:12px;line-height:1.5;margin:12px 0}
+
+      #abaCompras #comprasPeriodoAviso:not(:empty){display:table;margin:14px 0 10px;padding:7px 12px;border-radius:8px;background:color-mix(in srgb,var(--marca,#29258c) 7%,transparent);border:1px solid color-mix(in srgb,var(--marca,#29258c) 18%,transparent);color:inherit;font-size:12px;font-weight:600;line-height:1.5}
+      #abaCompras .compras-status:has(#comprasAviso:not(:empty)){margin:10px 0 20px;padding:16px 18px;border:1px solid #a4a9b54d;border-left:4px solid var(--marca,#29258c);border-radius:12px;background:color-mix(in srgb,var(--marca,#29258c) 3%,transparent)}
+      #abaCompras .compras-status .rede-aviso{margin:0;font-size:13px;line-height:1.65;overflow-wrap:anywhere}
+      #abaCompras .compras-status strong{display:block;margin-bottom:5px;font-size:14px;font-weight:700}
+      #abaCompras .compras-status small{display:block;font-size:12px;line-height:1.65;opacity:.8}
+      #abaCompras .compras-status:has(progress:not([hidden])) .rede-aviso{display:flex;align-items:center;gap:10px;font-weight:600}
+      #abaCompras .compras-status:has(progress:not([hidden])) .rede-aviso::before{content:"";flex:0 0 14px;width:14px;height:14px;border:2px solid #a4a9b555;border-top-color:var(--marca,#29258c);border-radius:50%;animation:compras-carregando .8s linear infinite}
+      #abaCompras .compras-status progress{display:block;margin-top:14px;height:8px;border:0;border-radius:10px;overflow:hidden;background:#a4a9b52b}
+      #abaCompras .compras-status progress::-webkit-progress-bar{background:#a4a9b52b;border-radius:10px}
+      #abaCompras .compras-status progress::-webkit-progress-value{background:var(--marca,#29258c);border-radius:10px}
+      #abaCompras .compras-status progress::-moz-progress-bar{background:var(--marca,#29258c);border-radius:10px}
+      @keyframes compras-carregando{to{transform:rotate(360deg)}}
+      @media(prefers-reduced-motion:reduce){#abaCompras .compras-status .rede-aviso::before{animation:none}}
       #abaCompras [hidden]{display:none!important}
       @media(max-width:700px){#abaCompras .rede-filtros{grid-template-columns:repeat(2,minmax(0,1fr))}#abaCompras .rede-filtros label:nth-child(3){grid-column:1/-1}}
       </style>
@@ -1228,8 +1242,10 @@
         <div class="compras-periodos" role="group" aria-label="Período das compras"><button type="button" data-compras-periodo="todos" aria-pressed="false">Todo o histórico</button><button type="button" data-compras-periodo="7" aria-pressed="false">Últimos 7 dias</button><button type="button" data-compras-periodo="30" aria-pressed="false">Últimos 30 dias</button><button type="button" data-compras-periodo="90" aria-pressed="false">Últimos 90 dias</button><button type="button" data-compras-periodo="personalizado" aria-pressed="false">Personalizado</button></div>
         <div class="compras-intervalo" id="comprasIntervalo" hidden><label>De<input type="date" id="comprasInicio"></label><label>Até<input type="date" id="comprasFim"></label><button type="button" id="comprasAplicarPeriodo">Aplicar</button></div>
         <p id="comprasPeriodoAviso" role="status" class="compras-ajuda"></p>
-        <p id="comprasAviso" role="status" class="rede-aviso"></p>
-        <progress id="comprasProgresso" max="100" value="0" hidden></progress>
+        <div class="compras-status">
+          <p id="comprasAviso" role="status" class="rede-aviso"></p>
+          <progress id="comprasProgresso" aria-label="Carregamento das compras" max="100" value="0" hidden></progress>
+        </div>
         <div id="comprasTotais" class="numeros"></div>
         <nav class="compras-tabs" aria-label="Áreas de compras"><button type="button" data-compras-tab="geral" aria-pressed="true">Visão geral</button><button type="button" data-compras-tab="comparativo" aria-pressed="false">Comparativo de custos</button><button type="button" data-compras-tab="fornecedores" aria-pressed="false">Fornecedores</button><button type="button" data-compras-tab="classes" aria-pressed="false">Compras por classe</button><button type="button" data-compras-tab="auditoria" aria-pressed="false">Auditoria</button></nav>
         <div data-compras-pane="geral"><div class="compras-saude-topo"><h3>Monitoramento da sincronização</h3><button type="button" id="comprasSaudeAtualizar">Verificar agora</button></div><p class="compras-ajuda">Rotina esperada: a cada 2 horas. Atenção após 2h30; atraso após 4h. Indicadores baseados na última extração publicada, não no estado do computador.</p><div id="comprasSaude" class="compras-saude"></div><p id="comprasSaudeAviso" class="compras-ajuda" role="status"></p><h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div>
@@ -10061,7 +10077,10 @@ function renderCompras(){
  detalhe:(idx,alvo)=>{const g=divergencias[idx].g;comprasTabela(alvo,["Filial","Entrada","Nota","Fornecedor","Quantidade","Custo aplicado"],g.detalhes);}
  });
  comprasTabela("comprasAuditoria",["Ocorrência","Quantidade"],[["Notas com chave repetida excluídas",duplicadas],["Itens com custo inválido ou zerado",invalidos]]);
- el("comprasAviso").textContent=comprasDados.length+" de 3 filiais sincronizadas. Histórico disponível das extrações publicadas. Busca afeta tabelas e diferença estimada, não os totais de compras. Produtos sem comparação aparecem com diferença —. "+(filial?"Selecione todas as filiais para comparar custos.":"Diferenças não representam prejuízo confirmado.");
+ const resumoAviso=document.createElement("strong"),detalheAviso=document.createElement("small");
+ resumoAviso.textContent=comprasDados.length+" de 3 filiais sincronizadas";
+ detalheAviso.textContent="Histórico das extrações publicadas. A busca filtra as tabelas e a diferença estimada. Os totais de compras consideram o período e a filial. Produtos sem comparação exibem —. "+(filial?"Selecione todas as filiais para comparar custos.":"Diferenças estimadas precisam de conferência antes de qualquer conclusão sobre prejuízo.");
+ el("comprasAviso").replaceChildren(resumoAviso,detalheAviso);
 }
 function abrirSubabaCompras(nome){
  for(const b of el("abaCompras").querySelectorAll("[data-compras-tab]"))b.setAttribute("aria-pressed",String(b.dataset.comprasTab===nome));
