@@ -4882,8 +4882,10 @@ async function tentar() {
   }
 }
 
-el("btnSair").addEventListener("click", () => {
+el("btnSair").addEventListener("click", async () => {
   limparCompras();
+  souDono=false;
+  try{await comprasCacheIO("delete",comprasCacheId());}catch{}
   souDono=false;
   sessionStorage.removeItem("painelKey");
   sessionStorage.removeItem("painelLoja");
@@ -9732,6 +9734,7 @@ el("redePedidosLista").addEventListener("toggle",async e=>{
 
 
 function limparCompras(){
+ comprasCacheGeracao++;comprasUltimaVerificacao=0;
  limparCmv();
  comprasExec++; comprasDados=null;comprasClasses=null;comprasClassesEstado="";
  comprasSaudeDados=null;comprasSaudeConsulta=0;comprasSaudeErro="";comprasSaudeOcupado=false;
@@ -9777,42 +9780,75 @@ function comprasTabela(id,cols,rows,opts={}){
  }
  desenhar();
 }
+// Cache persistente cifrado, vinculado à chave master; nunca guarda a chave no IndexedDB.
+let comprasCacheGeracao=0,comprasUltimaVerificacao=0;
+function comprasCacheDB(){
+ return new Promise((resolve,reject)=>{const r=indexedDB.open("drogalink-compras-cache-v1",1);r.onupgradeneeded=()=>r.result.createObjectStore("snapshots");r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+}
+async function comprasCacheIO(modo,key,valor){
+ const db=await comprasCacheDB();
+ try{return await new Promise((resolve,reject)=>{const tx=db.transaction("snapshots",modo==="get"?"readonly":"readwrite"),s=tx.objectStore("snapshots"),r=modo==="get"?s.get(key):modo==="delete"?s.delete(key):s.put(valor,key);tx.oncomplete=()=>resolve(r.result);tx.onabort=tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+}
+async function comprasCacheChave(cred,salt){
+ const enc=new TextEncoder(),base=await crypto.subtle.importKey("raw",enc.encode(cred),"PBKDF2",false,["deriveKey"]);
+ return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:210000,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+}
+const comprasCacheId=()=>String(API).replace(/\/+$/,"");
+async function comprasCacheLer(cred){
+ const obj=await comprasCacheIO("get",comprasCacheId());if(!obj||Date.now()-obj.time>86400000*7)return null;
+ const key=await comprasCacheChave(cred,obj.salt),raw=await crypto.subtle.decrypt({name:"AES-GCM",iv:obj.iv},key,obj.data);
+ const dados=JSON.parse(new TextDecoder().decode(raw));
+ return Array.isArray(dados)&&dados.every(l=>l.lote&&Array.isArray(l.notasDados)&&Array.isArray(l.itensDados)&&l.notasDados.length===l.notas&&l.itensDados.length===l.itens)?dados:null;
+}
+async function comprasCacheSalvar(cred,dados,geracao){
+ const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),key=await comprasCacheChave(cred,salt);
+ const data=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(JSON.stringify(dados)));
+ if(geracao!==comprasCacheGeracao||!souDono||senha!==cred)return;
+ await comprasCacheIO("put",comprasCacheId(),{salt,iv,data,time:Date.now()});
+}
 async function carregarCompras(){
  if(!souDono||el("comprasAtualizar").disabled)return;
  if(comprasPeriodo==="mes"&&!el("comprasMes").value){el("comprasMes").value=comprasHojeISO().slice(0,7);comprasSelecionarPeriodo("mes");}
- limparCompras();const seq=comprasExec,chave=senha;
+ const seq=comprasExec,chave=senha,geracao=comprasCacheGeracao;
  const valido=()=>seq===comprasExec&&souDono&&senha===chave;
  const aviso=el("comprasAviso"),progresso=el("comprasProgresso");
- el("comprasAtualizar").disabled=true;progresso.hidden=false;progresso.value=0;
- aviso.textContent="Consultando filiais...";
+ el("comprasAtualizar").disabled=true;
  try{
-  const {lojas=[]}=await api("/compras/rede");
+  // Autoriza novamente e obtém somente os identificadores dos lotes antes de mostrar cache.
+  const {lojas}=await api("/compras/rede");
   if(!valido())return;
-  const dados=lojas.map(l=>({...l,notasDados:[],itensDados:[]}));
-  const tarefas=[];
-  for(const l of dados)for(const tipo of ["notas","itens"])for(let pos=0;pos<Math.ceil(l[tipo]/100);pos++)tarefas.push({l,tipo,pos});
+  if(!Array.isArray(lojas)||!lojas.length||new Set(lojas.map(l=>l.loja)).size!==lojas.length||lojas.some(l=>!l.lote||!Number.isSafeInteger(l.notas)||l.notas<0||!Number.isSafeInteger(l.itens)||l.itens<0))throw Error("Metadados incompletos");
+  comprasUltimaVerificacao=Date.now();comprasSaudeDados=lojas;comprasSaudeConsulta=Date.now();comprasSaudeErro="";
+  let anterior=comprasDados;
+  if(!anterior){try{anterior=await comprasCacheLer(chave);}catch{}}
+  if(!valido())return;
+  const iguais=(x,l)=>x&&x.loja===l.loja&&x.lote===l.lote&&x.notas===l.notas&&x.itens===l.itens&&x.notasDados.length===l.notas&&x.itensDados.length===l.itens;
+  const antigos=new Map((anterior||[]).map(l=>[l.loja,l]));
+  if(!comprasDados&&anterior&&lojas.every(l=>antigos.has(l.loja))){comprasDados=anterior.filter(l=>lojas.some(x=>x.loja===l.loja));renderCompras();aviso.append(document.createTextNode(" · Dados em cache; verificando novos lotes."));}
+  const dados=lojas.map(l=>{const old=antigos.get(l.loja);return iguais(old,l)?{...l,notasDados:old.notasDados,itensDados:old.itensDados}:{...l,notasDados:[],itensDados:[]};});
+  const tarefas=[],novos=dados.filter(l=>!iguais(antigos.get(l.loja),l));
+  for(const l of novos)for(const tipo of ["notas","itens"])for(let pos=0;pos<Math.ceil(l[tipo]/100);pos++)tarefas.push({l,tipo,pos});
+  if(tarefas.length){progresso.hidden=false;progresso.value=0;aviso.textContent="Atualizando apenas filiais com novos lotes...";}
   let cursor=0,feitas=0,falha=false;
   async function executar(){
    while(valido()&&!falha&&cursor<tarefas.length){
     const {l,tipo,pos}=tarefas[cursor++];
     try{
-     const params=new URLSearchParams({loja:l.loja,lote:l.lote,tipo,pos:String(pos)});
-     const parte=await api("/compras/rede/parte?"+params);
+     const params=new URLSearchParams({loja:l.loja,lote:l.lote,tipo,pos:String(pos)}),parte=await api("/compras/rede/parte?"+params);
      if(!valido()||falha)return;
      if(!Array.isArray(parte.dados)||parte.dados.length!==Math.min(100,l[tipo]-pos*100))throw Error("Parte incompleta");
-     l[tipo+"Dados"][pos]=parte.dados;feitas++;
-     progresso.value=100*feitas/Math.max(1,tarefas.length);
-     aviso.textContent="Carregando compras: "+feitas+" de "+tarefas.length+" partes ("+Math.round(progresso.value)+"%)";
+     l[tipo+"Dados"][pos]=parte.dados;feitas++;progresso.value=100*feitas/tarefas.length;
+     aviso.textContent="Atualizando compras: "+feitas+" de "+tarefas.length+" partes ("+Math.round(progresso.value)+"%)";
     }catch(e){falha=true;throw e;}
    }
   }
-  await Promise.all(Array.from({length:4},executar));
+  await Promise.all(Array.from({length:Math.min(4,tarefas.length)},executar));
   if(!valido())return;
-  for(const l of dados)for(const tipo of ["notas","itens"])l[tipo+"Dados"]=l[tipo+"Dados"].flat();
-  comprasDados=dados;
-  if(!comprasSaudeDados){comprasSaudeDados=dados.map(({loja,lote,extraido_em,fonte})=>({loja,lote,extraido_em,fonte}));comprasSaudeConsulta=Date.now();}
-  renderCompras();renderSaudeCompras();
- }catch(e){if(valido()){limparCompras();aviso.textContent="Não foi possível carregar compras: "+e.message;}}
+  for(const l of novos)for(const tipo of ["notas","itens"])l[tipo+"Dados"]=l[tipo+"Dados"].flat();
+  comprasDados=dados;renderCompras();renderSaudeCompras();
+  aviso.append(document.createTextNode(tarefas.length?" · Novos lotes atualizados.":" · Dados reaproveitados; nenhuma parte baixada."));
+  if(novos.length||!anterior)comprasCacheSalvar(chave,dados,geracao).catch(()=>{if(valido())aviso.append(document.createTextNode(" · Cache persistente indisponível neste navegador."));});
+ }catch(e){if(valido()){aviso.textContent="Não foi possível verificar/atualizar compras: "+e.message+(comprasDados?". Dados anteriores mantidos; podem estar desatualizados.":"");}}
  finally{if(valido()){el("comprasAtualizar").disabled=false;progresso.hidden=true;}}
 }
 // Orçamento mensal com faturamento gerencial da matriz, sem fallback manual.
@@ -10045,7 +10081,8 @@ el("comprasSaudeAtualizar").addEventListener("click",verificarSaudeCompras);
 setInterval(()=>{
  if(!souDono||el("abaCompras").hidden||document.hidden)return;
  renderSaudeCompras();
- if(Date.now()-comprasSaudeConsulta>=300000)verificarSaudeCompras();
+ if(Date.now()-comprasUltimaVerificacao>=3600000)carregarCompras();
+ else if(Date.now()-comprasSaudeConsulta>=300000)verificarSaudeCompras();
 },60000);
 function renderCompras(){
  if(cmvAtiva())carregarCmv();
@@ -10234,7 +10271,7 @@ el("abas").addEventListener("click", (ev) => {
   if (estavaAberto) el("painelSecaoTitulo").focus({preventScroll:true});
   const aba = btn.dataset.aba;
   el("abaCompras").hidden = aba !== "compras";
-  if (aba === "compras" && souDono) {if(comprasDados===null)carregarCompras();else {renderSaudeCompras();if(Date.now()-comprasSaudeConsulta>=300000)verificarSaudeCompras();}}
+  if (aba === "compras" && souDono) {if(comprasDados===null||Date.now()-comprasUltimaVerificacao>=3600000)carregarCompras();else {renderSaudeCompras();if(Date.now()-comprasSaudeConsulta>=300000)verificarSaudeCompras();}}
   el("abaRede").hidden = aba !== "rede";
   if (aba === "rede" && souDono) carregarRedePedidos(true);
   el("abaFila").hidden = aba !== "fila";
