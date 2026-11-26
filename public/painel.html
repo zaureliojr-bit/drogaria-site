@@ -1233,6 +1233,8 @@
       #abaCompras .compras-status progress::-moz-progress-bar{background:var(--marca,#29258c);border-radius:10px}
       @keyframes compras-carregando{to{transform:rotate(360deg)}}
       @media(prefers-reduced-motion:reduce){#abaCompras .compras-status .rede-aviso::before{animation:none}}
+      #abaCompras .compras-ordenacao{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0;font-size:13px;font-weight:600}
+      #abaCompras .compras-ordenacao select{font:inherit;color:inherit;background:transparent;border:1px solid #a4a9b57d;border-radius:8px;padding:9px 12px;max-width:100%}
       #abaCompras [hidden]{display:none!important}
       @media(max-width:700px){#abaCompras .rede-filtros{grid-template-columns:repeat(2,minmax(0,1fr))}#abaCompras .rede-filtros label:nth-child(3){grid-column:1/-1}}
       </style>
@@ -1251,7 +1253,7 @@
         <div data-compras-pane="geral"><div class="compras-saude-topo"><h3>Monitoramento da sincronização</h3><button type="button" id="comprasSaudeAtualizar">Verificar agora</button></div><p class="compras-ajuda">Rotina esperada: a cada 2 horas. Atenção após 2h30; atraso após 4h. Indicadores baseados na última extração publicada, não no estado do computador.</p><div id="comprasSaude" class="compras-saude"></div><p id="comprasSaudeAviso" class="compras-ajuda" role="status"></p><h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div>
         <div class="compras-orcamento"><h3>Controle de reposição sobre vendas</h3><p class="compras-ajuda">Meta padrão: 60% das vendas gerenciais do Farmax. Selecione um mês para consultar o faturamento da matriz e as compras registradas. As metas são salvas por filial e mês no D1.</p><button type="button" id="comprasMesAtual">Selecionar mês atual</button><p id="comprasOrcamentoAviso" class="compras-ajuda" role="status"></p><div id="comprasOrcamento" class="tabela-wrap"></div></div></div>
         <div data-compras-pane="fornecedores" hidden><h3>Fornecedores</h3><div id="comprasFornecedores" class="tabela-wrap"></div></div>
-        <div data-compras-pane="comparativo" hidden><h3>Comparativo de custos</h3><p class="compras-ajuda">Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas. Selecione todas as filiais para comparar.</p><div id="comprasComparativo" class="tabela-wrap"></div><div id="comprasDetalhes" class="tabela-wrap"></div></div>
+        <div data-compras-pane="comparativo" hidden><h3>Comparativo de custos</h3><p class="compras-ajuda">Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas. Selecione todas as filiais para comparar.</p><label class="compras-ordenacao">Ordenar por<select id="comprasOrdenacao"><option value="desc">Maior diferença → menor diferença</option><option value="asc">Menor diferença → maior diferença</option></select></label><div id="comprasComparativo" class="tabela-wrap"></div><div id="comprasDetalhes" class="tabela-wrap"></div></div>
         <div data-compras-pane="classes" hidden><h3>Compras por classe</h3><p class="compras-ajuda">Categorias atuais do catálogo da própria filial (PDV), vinculadas por EAN ou código interno. Valores dos itens (VL_TOTAL) das notas elegíveis; não equivalem necessariamente ao total das notas, que pode incluir impostos, fretes e descontos adicionais. O filtro de produto não altera esta visão.</p><p id="comprasClasseAviso" role="status" class="compras-ajuda"></p><div id="comprasClasseGrafico"></div><div id="comprasClasseTabela" class="tabela-wrap"></div></div>
         <div data-compras-pane="auditoria" hidden><h3>Qualidade dos registros</h3><div id="comprasAuditoria" class="tabela-wrap"></div></div>
       </div>
@@ -10068,7 +10070,8 @@ function renderCompras(){
   if(!busca&&diff<0.01)continue;
   divergencias.push({diff,g,row:[g.nome,g.ean,mesBr(g.m),...Object.keys(comprasNomes).map(k=>{const a=g.filiais.get(k);return a?moeda(a.v/a.q):"—";}),g.filiais.size<2?"—":moeda(diff)]});
  }
- divergencias.sort((a,b)=>b.diff-a.diff);
+ const sentido=el("comprasOrdenacao").value==="asc"?1:-1;
+ divergencias.sort((a,b)=>Number(b.g.filiais.size>=2)-Number(a.g.filiais.size>=2)||sentido*(a.diff-b.diff)||a.g.nome.localeCompare(b.g.nome,"pt-BR"));
  const economia=divergencias.reduce((s,d)=>s+d.diff,0);
  const ec=document.createElement("div"),eb=document.createElement("strong"),ep=document.createElement("div");eb.textContent=filial?"—":moeda(economia);ep.textContent="Diferença estimada (filtros do comparativo)";ec.append(eb,ep);container.append(ec);
  el("comprasDetalhes").replaceChildren();
@@ -10091,6 +10094,7 @@ el("abaCompras").querySelector(".compras-tabs").addEventListener("click",e=>{
 });
 el("comprasAtualizar").addEventListener("click",carregarCompras);
 el("comprasFilial").addEventListener("input",renderCompras);
+el("comprasOrdenacao").addEventListener("change",renderCompras);
 el("comprasMes").addEventListener("input",()=>comprasSelecionarPeriodo(el("comprasMes").value?"mes":"todos"));
 el("comprasBusca").addEventListener("input",()=>{
  if(el("comprasBusca").value.trim()&&el("abaCompras").querySelector('[data-compras-tab="fornecedores"]').getAttribute("aria-pressed")!=="true")abrirSubabaCompras("comparativo");
