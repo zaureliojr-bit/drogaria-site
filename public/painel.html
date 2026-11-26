@@ -996,7 +996,12 @@
   .painel-filial-topo { display:flex; align-items:center; gap:7px; min-width:0; max-width:100%; font-size:12px; font-weight:700; }
   .painel-filial-topo[hidden] { display:none !important; }
   .painel-filial-topo select { min-height:36px; max-width:260px; min-width:0; padding:7px 10px; border:1px solid rgba(255,255,255,.55); border-radius:var(--raio-sm); font:inherit; color:var(--marca-escura); background:var(--branco); text-overflow:ellipsis; cursor:pointer; }
-  @media(max-width:800px) { .painel-filial-topo { flex:1 1 100%; } .painel-filial-topo select { flex:1; max-width:none; } .painel-topo-acoes { width:100%; gap:8px; } }
+  @media(max-width:800px) {
+    .painel-topo { position:sticky; top:0; z-index:1100; box-shadow:0 3px 10px rgba(0,0,0,.12); }
+    .painel-filial-topo { flex:1 1 100%; }
+    .painel-filial-topo select { flex:1; max-width:none; }
+    .painel-topo-acoes { width:100%; gap:8px; }
+  }
 
   /* Visão consolidada: filtros e estados de consulta. */
   #abaRede .rede-overview { padding:clamp(14px,2vw,22px); }
