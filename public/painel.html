@@ -9839,7 +9839,21 @@ async function renderOrcamentoCompras(resumos,disponiveis,mes,filial,moeda){
  body.append(totais);alvo.append(t);atualizarTotal();
  const titulo=document.createElement("h3");titulo.textContent="Vendas por classe · Farmax";alvo.append(titulo);
  const destino=document.createElement("div");alvo.append(destino);
- comprasTabela(destino,["Filial","Classe","Vendas"],classes.registros.filter(x=>selecionadas.some(k=>ids[k]===Number(x.filial))).sort((a,b)=>Number(a.filial)-Number(b.filial)||b.vendas-a.vendas).map(x=>[comprasNomes[Object.keys(ids).find(k=>ids[k]===Number(x.filial))]||String(x.filial),x.classe,moeda(x.vendas)]));
+ const classesAgrupadas=new Map();
+ for(const registro of classes.registros){
+  const loja=selecionadas.find(k=>ids[k]===Number(registro.filial));
+  if(!loja||registro.vendas==null||!Number.isFinite(Number(registro.vendas)))continue;
+  const nome=String(registro.classe||"Sem classe").trim();
+  const chave=nome.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
+  if(!classesAgrupadas.has(chave))classesAgrupadas.set(chave,{nome,valores:new Map(),total:0});
+  const grupo=classesAgrupadas.get(chave),valor=Number(registro.vendas);
+  grupo.valores.set(loja,(grupo.valores.get(loja)||0)+valor);
+  grupo.total+=valor;
+ }
+ const linhasClasses=[...classesAgrupadas.values()].sort((a,b)=>b.total-a.total||a.nome.localeCompare(b.nome,"pt-BR"));
+ comprasTabela(destino,["Classe",...selecionadas.map(k=>comprasNomes[k]),"Total"],linhasClasses.map(grupo=>[
+  grupo.nome,...selecionadas.map(k=>grupo.valores.has(k)?moeda(grupo.valores.get(k)):"—"),moeda(grupo.total)
+ ]));
  if(selecionadas.some(k=>vendasPorFilial.get(k)?.v===null))aviso.textContent+=" Período incompleto: valores ausentes não são tratados como zero.";
  aviso.textContent+=" Cobertura integral das compras ainda depende da janela de extração de cada loja; saldos são gerenciais e provisórios.";
  }catch(e){if(valido()){alvo.replaceChildren();aviso.textContent="Faturamento automático indisponível: "+e.message+". Confira a integração VENDAS_SERVICE e atualize as compras. Nenhum valor manual foi utilizado.";}}
