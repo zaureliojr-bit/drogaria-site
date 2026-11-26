@@ -1249,13 +1249,30 @@
           <progress id="comprasProgresso" aria-label="Carregamento das compras" max="100" value="0" hidden></progress>
         </div>
         <div id="comprasTotais" class="numeros"></div>
-        <nav class="compras-tabs" aria-label="Áreas de compras"><button type="button" data-compras-tab="geral" aria-pressed="true">Visão geral</button><button type="button" data-compras-tab="comparativo" aria-pressed="false">Comparativo de custos</button><button type="button" data-compras-tab="fornecedores" aria-pressed="false">Fornecedores</button><button type="button" data-compras-tab="classes" aria-pressed="false">Compras por classe</button><button type="button" data-compras-tab="auditoria" aria-pressed="false">Auditoria</button></nav>
+        <nav class="compras-tabs" aria-label="Áreas de compras"><button type="button" data-compras-tab="geral" aria-pressed="true">Visão geral</button><button type="button" data-compras-tab="comparativo" aria-pressed="false">Comparativo de custos</button><button type="button" data-compras-tab="fornecedores" aria-pressed="false">Fornecedores</button><button type="button" data-compras-tab="classes" aria-pressed="false">Compras por classe</button><button type="button" data-compras-tab="auditoria" aria-pressed="false">Auditoria</button><button type="button" data-compras-tab="cmv" aria-pressed="false">CMV e Rentabilidade</button></nav>
         <div data-compras-pane="geral"><div class="compras-saude-topo"><h3>Monitoramento da sincronização</h3><button type="button" id="comprasSaudeAtualizar">Verificar agora</button></div><p class="compras-ajuda">Rotina esperada: a cada 2 horas. Atenção após 2h30; atraso após 4h. Indicadores baseados na última extração publicada, não no estado do computador.</p><div id="comprasSaude" class="compras-saude"></div><p id="comprasSaudeAviso" class="compras-ajuda" role="status"></p><h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div>
         <div class="compras-orcamento"><h3>Controle de reposição sobre vendas</h3><p class="compras-ajuda">Meta padrão: 60% das vendas gerenciais do Farmax. Selecione um mês para consultar o faturamento da matriz e as compras registradas. As metas são salvas por filial e mês no D1.</p><button type="button" id="comprasMesAtual">Selecionar mês atual</button><p id="comprasOrcamentoAviso" class="compras-ajuda" role="status"></p><div id="comprasOrcamento" class="tabela-wrap"></div></div></div>
         <div data-compras-pane="fornecedores" hidden><h3>Fornecedores</h3><div id="comprasFornecedores" class="tabela-wrap"></div></div>
         <div data-compras-pane="comparativo" hidden><h3>Comparativo de custos</h3><p class="compras-ajuda">Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas. Selecione todas as filiais para comparar.</p><label class="compras-ordenacao">Ordenar por<select id="comprasOrdenacao"><option value="desc">Maior diferença → menor diferença</option><option value="asc">Menor diferença → maior diferença</option></select></label><div id="comprasComparativo" class="tabela-wrap"></div><div id="comprasDetalhes" class="tabela-wrap"></div></div>
         <div data-compras-pane="classes" hidden><h3>Compras por classe</h3><p class="compras-ajuda">Categorias atuais do catálogo da própria filial (PDV), vinculadas por EAN ou código interno. Valores dos itens (VL_TOTAL) das notas elegíveis; não equivalem necessariamente ao total das notas, que pode incluir impostos, fretes e descontos adicionais. O filtro de produto não altera esta visão.</p><p id="comprasClasseAviso" role="status" class="compras-ajuda"></p><div id="comprasClasseGrafico"></div><div id="comprasClasseTabela" class="tabela-wrap"></div></div>
-        <div data-compras-pane="auditoria" hidden><h3>Qualidade dos registros</h3><div id="comprasAuditoria" class="tabela-wrap"></div></div>
+        <div data-compras-pane="auditoria" hidden><h3>Qualidade dos registros</h3><div id="comprasAuditoria" class="tabela-wrap"></div></div><div data-compras-pane="cmv" hidden>
+<style>
+#abaCompras .cmv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:12px;margin:14px 0}
+#abaCompras .cmv-card{border:1px solid #a4a9b55c;border-radius:10px;padding:12px;min-width:0}
+#abaCompras .cmv-card h3{margin:0 0 10px}
+#abaCompras .cmv-kpi strong{font-size:clamp(17px,2vw,24px);display:block;overflow-wrap:anywhere}
+#abaCompras .cmv-kpi small{display:block;margin-top:5px}
+#abaCompras .cmv-card .tabela-wrap{overflow-x:auto}
+#abaCompras .cmv-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+#abaCompras .cmv-toolbar input,#abaCompras .cmv-toolbar select{flex:1;min-width:130px}
+</style>
+<h3>CMV e Rentabilidade</h3><p class="compras-ajuda" id="cmvAviso" role="status"></p>
+<div id="cmvKpis" class="numeros"></div>
+<div class="cmv-card"><h3>Comparativo por filial</h3><div id="cmvFiliais" class="tabela-wrap"></div></div>
+<div class="cmv-grid"><div class="cmv-card"><h3>CMV por classe · Farmax</h3><div id="cmvClasses" class="tabela-wrap"></div></div>
+<div class="cmv-card"><h3>Auditoria de custos</h3><div class="cmv-toolbar"><input id="cmvBusca" placeholder="Produto ou código" aria-label="Buscar produto na auditoria"><select id="cmvTipo" aria-label="Tipo de alerta"><option value="">Todos os alertas</option><option value="SUSPEITO">Custo suspeito</option><option value="INVALIDO">Custo ou dado inválido</option><option value="SEM_ALERTA">Outros alertas de rentabilidade</option></select></div><div id="cmvAuditoria" class="tabela-wrap"></div></div></div>
+<div class="cmv-card"><h3>Observações</h3><p class="compras-ajuda">CMV gerencial: custo médio × quantidade, apenas saídas tipo V. O indicador auxiliar exclui suspeitos e inválidos de ambos os lados da razão; não é custo corrigido nem auditado contabilmente. Valores negativos, devoluções, embalagens e custos devem ser conciliados no Farmax. Alertas não comprovam erro cadastral ou prejuízo. O filtro de produto afeta somente a auditoria.</p></div>
+</div>
       </div>
     </section>
     <section id="abaRede" hidden>
@@ -9703,6 +9720,7 @@ el("redePedidosLista").addEventListener("toggle",async e=>{
 
 
 function limparCompras(){
+ limparCmv();
  comprasExec++; comprasDados=null;comprasClasses=null;comprasClassesEstado="";
  comprasSaudeDados=null;comprasSaudeConsulta=0;comprasSaudeErro="";comprasSaudeOcupado=false;
  el("comprasSaudeAtualizar").disabled=false;el("comprasSaude").replaceChildren();el("comprasSaudeAviso").textContent="";
@@ -10018,6 +10036,7 @@ setInterval(()=>{
  if(Date.now()-comprasSaudeConsulta>=300000)verificarSaudeCompras();
 },60000);
 function renderCompras(){
+ if(cmvAtiva())carregarCmv();
  if(!souDono||!comprasDados)return;
  const normalizar=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
  const filial=el("comprasFilial").value,mes=el("comprasMes").value,busca=normalizar(el("comprasBusca").value);
@@ -10085,18 +10104,72 @@ function renderCompras(){
  detalheAviso.textContent="Histórico das extrações publicadas. A busca filtra as tabelas e a diferença estimada. Os totais de compras consideram o período e a filial. Produtos sem comparação exibem —. "+(filial?"Selecione todas as filiais para comparar custos.":"Diferenças estimadas precisam de conferência antes de qualquer conclusão sobre prejuízo.");
  el("comprasAviso").replaceChildren(resumoAviso,detalheAviso);
 }
+let cmvSeq=0,cmvCache=null,cmvPendente=null,cmvAuditoriaDados=[];
+const cmvAtiva=()=>el("abaCompras").querySelector('[data-compras-tab="cmv"]').getAttribute("aria-pressed")==="true";
+const cmvIds={prudente:1,"jd-silvina":2,oliveira:3};
+const cmvNome=f=>comprasNomes[Object.keys(cmvIds).find(k=>cmvIds[k]===Number(f))]||String(f);
+const cmvMoeda=v=>Number.isFinite(v)?v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}):"—";
+const cmvPct=(c,v)=>v>0&&Number.isFinite(c)?(100*c/v).toLocaleString("pt-BR",{maximumFractionDigits:2,minimumFractionDigits:2})+"%":"—";
+function cmvSomar(rows){return rows.reduce((s,r)=>{s.v+=r.VENDAS;s.c+=r.CMV;s.n+=r.REGISTROS;if(r.FAIXA==="SEM_ALERTA"){s.va+=r.VENDAS;s.ca+=r.CMV;}else{s.alertas+=r.REGISTROS;}return s;},{v:0,c:0,n:0,va:0,ca:0,alertas:0});}
+function limparCmv(){cmvSeq++;cmvCache=null;cmvPendente=null;cmvAuditoriaDados=[];for(const id of ["cmvAviso","cmvKpis","cmvFiliais","cmvClasses","cmvAuditoria"])el(id).replaceChildren();el("cmvBusca").value="";el("cmvTipo").value="";}
+function renderCmvAuditoria(){
+ const term=el("cmvBusca").value.trim().toLocaleLowerCase("pt-BR"),tipo=el("cmvTipo").value;
+ const rows=cmvAuditoriaDados.filter(r=>(!tipo||r.FAIXA===tipo)&&(!term||String(r.CD_PRODUTO+" "+r.PRODUTO).toLocaleLowerCase("pt-BR").includes(term))).sort((a,b)=>(b.CMV-b.VENDAS)-(a.CMV-a.VENDAS));
+ comprasTabela("cmvAuditoria",["Produto / código","Filial","Tipo","Registros","Vendas","Custo registrado"],rows.map(r=>[String(r.PRODUTO??"Sem descrição")+" · "+String(r.CD_PRODUTO??"—"),cmvNome(r.FILIAL),r.FAIXA==="SUSPEITO"?"Custo > 2× venda":r.FAIXA==="INVALIDO"?"Dado inválido":"Custo > venda / receita não positiva",r.REGISTROS,cmvMoeda(r.VENDAS),cmvMoeda(r.CMV)]));
+}
+el("cmvBusca").addEventListener("input",renderCmvAuditoria);el("cmvTipo").addEventListener("change",renderCmvAuditoria);
+async function carregarCmv(force=false){
+ if(!souDono||!cmvAtiva())return;
+ const hoje=comprasHojeISO(),mes=el("comprasMes").value,f=cmvIds[el("comprasFilial").value],exec=comprasExec,cred=senha;
+ let inicio,fim;
+ if(comprasPeriodo==="mes"&&mes){inicio=mes+"-01";fim=new Date(Date.UTC(Number(mes.slice(0,4)),Number(mes.slice(5)),0)).toISOString().slice(0,10);if(fim>hoje)fim=hoje;}
+ else if(comprasPeriodo==="todos"){inicio=comprasDiasAtras(89);fim=hoje;}
+ else {inicio=comprasFaixa.inicio;fim=comprasFaixa.fim;}
+ const aviso=el("cmvAviso"),key=JSON.stringify([inicio,fim,f||0,exec]);
+ if(!inicio||!fim||inicio>fim||(Date.parse(fim)-Date.parse(inicio))/86400000>92){limparCmv();aviso.textContent="Selecione um período válido de até 93 dias.";return;}
+ if(!force&&cmvCache?.key===key&&Date.now()-cmvCache.time<120000){return;}
+ if(cmvPendente===key)return;
+ cmvPendente=key;const seq=++cmvSeq;
+ const valido=()=>seq===cmvSeq&&exec===comprasExec&&souDono&&senha===cred&&cmvAtiva();
+ for(const id of ["cmvKpis","cmvFiliais","cmvClasses","cmvAuditoria"])el(id).replaceChildren();cmvAuditoriaDados=[];
+ aviso.textContent="Consultando CMV da matriz...";
+ try{
+ const params=new URLSearchParams({inicio,fim});if(f)params.set("filial",f);
+ const d=await api("/cmv/rede?"+params);if(!valido())return;
+ if(!d.ok||!Array.isArray(d.grupos)||!Array.isArray(d.alertas)||!Array.isArray(d.cobertura))throw Error("Resposta incompleta");
+ const ids=f?[f]:[1,2,3],dias=Math.round((Date.parse(fim)-Date.parse(inicio))/86400000)+1;
+ const completos=ids.every(id=>new Set(d.cobertura.filter(x=>Number(x.filial)===id).map(x=>x.dia)).size===dias);
+ const rows=d.grupos.filter(r=>ids.includes(Number(r.FILIAL)));
+ if(rows.some(r=>!Number.isFinite(r.VENDAS)||!Number.isFinite(r.CMV)||!Number.isSafeInteger(r.REGISTROS)))throw Error("Valores inválidos");
+ const s=cmvSomar(rows),stamp=new Date(d.ultimo?.extraido_em||""),idade=Date.now()-stamp.getTime();
+ aviso.textContent="Farmax matriz · "+comprasRotuloData(inicio)+" a "+comprasRotuloData(fim)+" · "+(Number.isFinite(idade)?"Última extração: "+stamp.toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"}):"Sem confirmação de extração")+(idade>9000000?" · Dados desatualizados.":"")+(completos?"":" · Cobertura incompleta: valores correspondem somente aos dias disponíveis.")+(comprasPeriodo==="todos"?" · Histórico limitado aos últimos 90 dias nesta consulta.":"")+" Indicadores provisórios.";
+ if(!rows.length){aviso.textContent+=" Nenhum dado de CMV no período.";return;}
+ const kpis=[["Vendas tipo V",cmvMoeda(s.v)],["CMV registrado",cmvMoeda(s.c)],["Resultado bruto estimado",cmvMoeda(s.v-s.c)],["Margem estimada",cmvPct(s.v-s.c,s.v)],["CMV sem suspeitos/ inválidos",cmvPct(s.ca,s.va)],["Lançamentos suspeitos/ inválidos",String(s.alertas)]];
+ for(const [label,val] of kpis){const card=document.createElement("div");card.className="cmv-card cmv-kpi";const strong=document.createElement("strong"),small=document.createElement("small");strong.textContent=val;small.textContent=label;card.append(strong,small);el("cmvKpis").append(card);}
+ const linha=(nome,a)=>[nome,cmvMoeda(a.v),cmvMoeda(a.c),cmvPct(a.c,a.v),cmvMoeda(a.v-a.c),cmvPct(a.v-a.c,a.v),cmvPct(a.ca,a.va),a.alertas];
+ const fil=ids.filter(id=>rows.some(r=>Number(r.FILIAL)===id)).map(id=>[cmvNome(id),cmvSomar(rows.filter(r=>Number(r.FILIAL)===id))]).sort((a,b)=>(a[1].v>0?a[1].c/a[1].v:Infinity)-(b[1].v>0?b[1].c/b[1].v:Infinity));
+ comprasTabela("cmvFiliais",["Filial","Vendas tipo V","CMV (R$)","CMV %","Resultado bruto","Margem %","CMV auxiliar %","Registros sinalizados"],[...fil.map(([n,a])=>linha(n,a)),linha("Total disponível",s)]);
+ const m=new Map();for(const r of rows){const k=JSON.stringify([r.FILIAL,r.CD_CLASSE]);if(!m.has(k))m.set(k,[]);m.get(k).push(r);}
+ comprasTabela("cmvClasses",["Filial","Classe","Vendas","CMV","CMV %","CMV auxiliar %"],[...m.values()].map(a=>{const x=cmvSomar(a);return [cmvNome(a[0].FILIAL),a[0].CLASSE||"Sem classe",cmvMoeda(x.v),cmvMoeda(x.c),cmvPct(x.c,x.v),cmvPct(x.ca,x.va)];}));
+ cmvAuditoriaDados=d.alertas.filter(r=>ids.includes(Number(r.FILIAL)));renderCmvAuditoria();cmvCache={key,time:Date.now()};
+ }catch(e){if(valido())aviso.textContent="CMV indisponível: "+e.message+". Confira o Worker administrativo e tente Atualizar.";}
+ finally{if(seq===cmvSeq)cmvPendente=null;}
+}
+
 function abrirSubabaCompras(nome){
  for(const b of el("abaCompras").querySelectorAll("[data-compras-tab]"))b.setAttribute("aria-pressed",String(b.dataset.comprasTab===nome));
  for(const pane of el("abaCompras").querySelectorAll("[data-compras-pane]"))pane.hidden=pane.dataset.comprasPane!==nome;
+ if(nome==="cmv"){cmvCache=null;carregarCmv();}else{cmvSeq++;cmvPendente=null;cmvCache=null;}
 }
 el("abaCompras").querySelector(".compras-tabs").addEventListener("click",e=>{
  const btn=e.target.closest("[data-compras-tab]");if(btn){abrirSubabaCompras(btn.dataset.comprasTab);if(btn.dataset.comprasTab==="classes"){renderClassesCompras();carregarClassesCompras();}}
 });
-el("comprasAtualizar").addEventListener("click",carregarCompras);
+el("comprasAtualizar").addEventListener("click",()=>{if(cmvAtiva()){carregarCmv(true);return;}carregarCompras();});
 el("comprasFilial").addEventListener("input",renderCompras);
 el("comprasOrdenacao").addEventListener("change",renderCompras);
 el("comprasMes").addEventListener("input",()=>comprasSelecionarPeriodo(el("comprasMes").value?"mes":"todos"));
 el("comprasBusca").addEventListener("input",()=>{
+ if(cmvAtiva()){el("cmvBusca").value=el("comprasBusca").value;renderCmvAuditoria();return;}
  if(el("comprasBusca").value.trim()&&el("abaCompras").querySelector('[data-compras-tab="fornecedores"]').getAttribute("aria-pressed")!=="true")abrirSubabaCompras("comparativo");
  renderCompras();
 });
