@@ -1257,7 +1257,7 @@
         <nav class="compras-tabs" aria-label="Áreas de compras"><button type="button" data-compras-tab="geral" aria-pressed="true">Visão geral</button><button type="button" data-compras-tab="comparativo" aria-pressed="false">Comparativo de custos</button><button type="button" data-compras-tab="fornecedores" aria-pressed="false">Fornecedores</button><button type="button" data-compras-tab="classes" aria-pressed="false">Compras por classe</button><button type="button" data-compras-tab="auditoria" aria-pressed="false">Auditoria</button><button type="button" data-compras-tab="cmv" aria-pressed="false">CMV e Rentabilidade</button></nav>
         <div data-compras-pane="geral"><div class="compras-saude-topo"><h3>Monitoramento da sincronização</h3><button type="button" id="comprasSaudeAtualizar">Verificar agora</button></div><p class="compras-ajuda">Rotina esperada: a cada 2 horas. Atenção após 2h30; atraso após 4h. Indicadores baseados na última extração publicada, não no estado do computador.</p><div id="comprasSaude" class="compras-saude"></div><p id="comprasSaudeAviso" class="compras-ajuda" role="status"></p><h3>Sincronização por filial</h3><div id="comprasFiliais" class="tabela-wrap"></div>
         <div class="compras-orcamento"><h3>Controle de reposição sobre vendas</h3><p class="compras-ajuda">Meta padrão: 60% das vendas gerenciais do Farmax. Selecione um mês para consultar o faturamento da matriz e as compras registradas. As metas são salvas por filial e mês no D1.</p><button type="button" id="comprasMesAtual">Selecionar mês atual</button><p id="comprasOrcamentoAviso" class="compras-ajuda" role="status"></p><div id="comprasOrcamento" class="tabela-wrap"></div></div></div>
-        <div data-compras-pane="fornecedores" hidden><h3>Fornecedores</h3><div id="comprasFornecedores" class="tabela-wrap"></div></div>
+        <div data-compras-pane="fornecedores" hidden><h3>Fornecedores</h3><p class="compras-ajuda">Clique em um fornecedor para ver a distribuição das compras por filial, dentro dos filtros selecionados.</p><div id="comprasFornecedores" class="tabela-wrap"></div></div>
         <div data-compras-pane="comparativo" hidden><h3>Comparativo de custos</h3><p class="compras-ajuda">Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas. Selecione todas as filiais para comparar.</p><label class="compras-ordenacao">Ordenar por<select id="comprasOrdenacao"><option value="desc">Maior diferença → menor diferença</option><option value="asc">Menor diferença → maior diferença</option></select></label><div id="comprasComparativo" class="tabela-wrap"></div><div id="comprasDetalhes" class="tabela-wrap"></div></div>
         <div data-compras-pane="classes" hidden><h3>Compras por classe</h3><p class="compras-ajuda">Categorias atuais do catálogo da própria filial (PDV), vinculadas por EAN ou código interno. Valores dos itens (VL_TOTAL) das notas elegíveis; não equivalem necessariamente ao total das notas, que pode incluir impostos, fretes e descontos adicionais. O filtro de produto não altera esta visão.</p><p id="comprasClasseAviso" role="status" class="compras-ajuda"></p><div id="comprasClasseGrafico"></div><div id="comprasClasseTabela" class="tabela-wrap"></div></div>
         <div data-compras-pane="auditoria" hidden><h3>Qualidade dos registros</h3><div id="comprasAuditoria" class="tabela-wrap"></div></div><div data-compras-pane="cmv" hidden>
@@ -9873,7 +9873,7 @@ function comprasTabela(id,cols,rows,opts={}){
       const detalhe=document.createElement("tr");detalhe.className="compras-linha-detalhe";
       const celula=detalhe.insertCell();celula.colSpan=cols.length;
       const painel=document.createElement("div");painel.className="compras-detalhe-inline";
-      const titulo=document.createElement("strong");titulo.textContent="Histórico de compras · "+row[0];
+      const titulo=document.createElement("strong");titulo.textContent=(opts.detalheTitulo||"Histórico de compras")+" · "+row[0];
       const lista=document.createElement("div");lista.className="compras-detalhe-lista";painel.append(titulo,lista);celula.append(painel);tr.after(detalhe);
       btn.setAttribute("aria-expanded","true");btn.textContent="▾ "+btn.textContent.slice(2);opts.detalhe(indice,lista);
      });
@@ -10216,7 +10216,8 @@ function renderCompras(){
   for(const n of ns){
    const nome=String(n.FORNECEDOR||"Não informado").trim(), k=n.CNPJ_FORNECEDOR||nome;
    if(busca&&!combina(nome+" "+(n.CNPJ_FORNECEDOR||"")))continue;
-   const r=fornecedores.get(k)||{nome,q:0,v:0};r.q++;r.v+=Number(n.TOTAL_NOTA)||0;fornecedores.set(k,r);
+   const r=fornecedores.get(k)||{nome,q:0,v:0,filiais:new Map()},valorNota=Number(n.TOTAL_NOTA)||0;
+   r.q++;r.v+=valorNota;const f=r.filiais.get(l.loja)||{q:0,v:0};f.q++;f.v+=valorNota;r.filiais.set(l.loja,f);fornecedores.set(k,r);
   }
   for(const i of l.itensDados){
    const n=mapa.get(i.CD_FILIAL+":"+i.CD_COMPRAS);if(!n)continue;
@@ -10237,7 +10238,17 @@ function renderCompras(){
  comprasTabela("comprasFiliais",["Filial","Última extração","Notas no filtro","Compras"],Object.keys(comprasNomes).map(k=>{const l=disponiveis.get(k),r=resumos.find(x=>x[0]===comprasNomes[k]);return [comprasNomes[k],l?new Date(l.extraido_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Sem sincronização",r?.[1]??"—",r?.[2]??"—"];}));
  renderOrcamentoCompras(resumos,disponiveis,comprasPeriodo==="mes"?mes:"",filial,moeda);
  if(el("abaCompras").querySelector('[data-compras-tab="classes"]').getAttribute("aria-pressed")==="true"){renderClassesCompras();carregarClassesCompras();}
- comprasTabela("comprasFornecedores",["Fornecedor","Notas","Total"],[...fornecedores.values()].sort((a,b)=>b.v-a.v).map(r=>[r.nome,r.q,moeda(r.v)]));
+ const listaFornecedores=[...fornecedores.values()].sort((a,b)=>b.v-a.v);
+ const filiaisFornecedores=[...new Set(lojas.map(l=>l.loja))].sort((a,b)=>Object.keys(comprasNomes).indexOf(a)-Object.keys(comprasNomes).indexOf(b));
+ comprasTabela("comprasFornecedores",["Fornecedor","Notas","Total"],listaFornecedores.map(r=>[r.nome,r.q,moeda(r.v)]),{
+  detalheTitulo:"Compras por filial",
+  detalhe:(idx,lista)=>{
+   const r=listaFornecedores[idx],pct=v=>r.v>0?(100*v/r.v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%":"—";
+   const linhas=filiaisFornecedores.map(k=>{const f=r.filiais.get(k)||{q:0,v:0};return [comprasNomes[k]||k,f.q,moeda(f.v),pct(f.v)];});
+   linhas.push(["Total da seleção",r.q,moeda(r.v),pct(r.v)]);
+   comprasTabela(lista,["Filial","Notas","Total comprado","Participação"],linhas);
+  }
+ });
  const divergencias=[];
  for(const g of grupos.values()){
   if(busca&&![...g.termos].some(combina))continue;
