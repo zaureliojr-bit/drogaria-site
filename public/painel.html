@@ -1259,7 +1259,7 @@
         <div class="compras-orcamento"><h3>Controle de reposição sobre vendas</h3><p class="compras-ajuda">Meta padrão: 60% das vendas gerenciais do Farmax. Selecione um mês para consultar o faturamento da matriz e as compras registradas. As metas são salvas por filial e mês no D1.</p><button type="button" id="comprasMesAtual">Selecionar mês atual</button><p id="comprasOrcamentoAviso" class="compras-ajuda" role="status"></p><div id="comprasOrcamento" class="tabela-wrap"></div></div></div>
         <div data-compras-pane="fornecedores" hidden><h3>Fornecedores</h3><p class="compras-ajuda">Clique em um fornecedor para ver a distribuição das compras por filial, dentro dos filtros selecionados.</p><div id="comprasFornecedores" class="tabela-wrap"></div></div>
         <div data-compras-pane="comparativo" hidden><h3>Comparativo de custos</h3><p class="compras-ajuda">Mesmo EAN e mês, embalagem unitária, custo positivo. Menor custo médio ponderado entre filiais disponíveis. Diferenças são oportunidades de investigação, não perdas confirmadas. Selecione todas as filiais para comparar.</p><label class="compras-ordenacao">Ordenar por<select id="comprasOrdenacao"><option value="desc">Maior diferença → menor diferença</option><option value="asc">Menor diferença → maior diferença</option></select></label><div id="comprasComparativo" class="tabela-wrap"></div><div id="comprasDetalhes" class="tabela-wrap"></div></div>
-        <div data-compras-pane="classes" hidden><h3>Compras por classe</h3><p class="compras-ajuda">Categorias atuais do catálogo da própria filial (PDV), vinculadas por EAN ou código interno. Valores dos itens (VL_TOTAL) das notas elegíveis; não equivalem necessariamente ao total das notas, que pode incluir impostos, fretes e descontos adicionais. O filtro de produto não altera esta visão.</p><p id="comprasClasseAviso" role="status" class="compras-ajuda"></p><div id="comprasClasseGrafico"></div><div id="comprasClasseTabela" class="tabela-wrap"></div></div>
+        <div data-compras-pane="classes" hidden><h3>Compras por classe</h3><p class="compras-ajuda">Classes do cadastro do Farmax, vinculadas diretamente ao identificador do produto durante a extração dos itens de compra. Não utiliza grupos nem categorias do catálogo. Valores dos itens (VL_TOTAL) das notas elegíveis; não equivalem necessariamente ao total das notas, que pode incluir impostos, fretes e descontos adicionais. O filtro de produto não altera esta visão.</p><p id="comprasClasseAviso" role="status" class="compras-ajuda"></p><div id="comprasClasseGrafico"></div><div id="comprasClasseTabela" class="tabela-wrap"></div></div>
         <div data-compras-pane="auditoria" hidden><h3>Qualidade dos registros</h3><div id="comprasAuditoria" class="tabela-wrap"></div></div><div data-compras-pane="cmv" hidden>
 <style>
 #abaCompras .cmv-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin:14px 0}
@@ -2710,7 +2710,7 @@ let lojaNome = "";
    mostrar a aba Lojas — a permissão de verdade é do worker, que recusa
    /lojas para quem não é dono. Esconder botão não é segurança. */
 let souDono = false;
-let comprasExec=0, comprasDados=null, comprasClasses=null, comprasClassesEstado="";
+let comprasExec=0, comprasDados=null;
 let comprasPeriodo="mes", comprasFaixa={inicio:"",fim:""};
 let comprasSaudeDados=null,comprasSaudeConsulta=0,comprasSaudeErro="",comprasSaudeOcupado=false;
 const comprasNomes={prudente:"Prudente","jd-silvina":"Menezes",oliveira:"Oliveira"};
@@ -9843,7 +9843,7 @@ function limparCompras(){
  limparCacheRelatoriosRede();escopoRelatoriosRede=null;
  comprasCacheGeracao++;comprasUltimaVerificacao=0;
  limparCmv();
- comprasExec++; comprasDados=null;comprasClasses=null;comprasClassesEstado="";
+ comprasExec++; comprasDados=null;
  comprasSaudeDados=null;comprasSaudeConsulta=0;comprasSaudeErro="";comprasSaudeOcupado=false;
  el("comprasSaudeAtualizar").disabled=false;el("comprasSaude").replaceChildren();el("comprasSaudeAviso").textContent="";
  el("comprasAtualizar").disabled=false;el("comprasProgresso").hidden=true;
@@ -10087,60 +10087,28 @@ el("comprasAplicarPeriodo").addEventListener("click",()=>{
  comprasFaixa={inicio,fim};comprasSelecionarPeriodo("personalizado");
 });
 el("comprasMesAtual").addEventListener("click",()=>{el("comprasMes").value=comprasHojeISO().slice(0,7);comprasSelecionarPeriodo("mes");});
-async function carregarClassesCompras(){
- if(!souDono||!comprasDados||comprasClasses!==null||comprasClassesEstado==="carregando")return;
- const seq=comprasExec,chave=senha;
- const valido=()=>seq===comprasExec&&souDono&&senha===chave;
- comprasClassesEstado="carregando";el("comprasClasseAviso").textContent="Consultando os catálogos das filiais...";
- const mapa=new Map(),falhas=[];
- let cadastro=[];
- try{const r=await api("/lojas");cadastro=Array.isArray(r.lojas)?r.lojas:[];}catch{}
- if(!valido())return;
- await Promise.all(comprasDados.map(async l=>{
-  try{
-   const nomes={prudente:"prudente","jd-silvina":"silvina",oliveira:"oliveira"};
-   const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
-   const candidatos=cadastro.filter(x=>norm(x.slug+" "+x.nome).includes(nomes[l.loja]||l.loja));
-   if(candidatos.length!==1)throw Error("Filial de catálogo não identificada");
-   const {catalogo:url}=await api("/loja?slug="+encodeURIComponent(candidatos[0].slug));
-   if(typeof url!=="string"||!url.startsWith("https://"))throw Error("Catálogo ausente");
-   const resp=await fetch(url,{cache:"no-cache"});if(!resp.ok)throw Error("Catálogo indisponível");
-   const {produtos}=await resp.json();if(!Array.isArray(produtos))throw Error("Catálogo inválido");
-   const eans=new Map(),codigos=new Map();
-   const add=(m,k,v)=>{if(!k)return;if(m.has(k)&&m.get(k)!==v)m.set(k,null);else if(!m.has(k))m.set(k,v);};
-   for(const p of produtos){const classe=String(p.categoria??"").trim().toUpperCase();if(!classe)continue;add(eans,String(p.ean??"").trim(),classe);add(codigos,String(p.codigo??"").trim(),classe);}
-   mapa.set(l.loja,{eans,codigos});
-  }catch{falhas.push(comprasNomes[l.loja]||l.loja);}
- }));
- if(!valido())return;
- comprasClasses=mapa;comprasClassesEstado=falhas.length?"Catálogos indisponíveis: "+falhas.join(", ")+". ":"";
- renderClassesCompras();
-}
 function renderClassesCompras(){
  if(!souDono||!comprasDados)return;
  const aviso=el("comprasClasseAviso"),grafico=el("comprasClasseGrafico");grafico.replaceChildren();
- if(comprasClasses===null){aviso.textContent=comprasClassesEstado==="carregando"?"Consultando os catálogos das filiais...":"Abra esta subaba para carregar as classes.";return;}
  const filial=el("comprasFilial").value,mes=el("comprasMes").value;
  const classes=new Map(),lojas=comprasDados.filter(l=>!filial||filial===l.loja);
  const moeda=v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
- let total=0,semClasse=0,invalidos=0;
+ let total=0,semClasse=0,invalidos=0,semCampo=0;const filiaisSemCampo=new Set();
  for(const l of lojas){
   const ns=l.notasDados.filter(n=>n.STATUS==="C"&&comprasDataFiltro(n.DT_ENTRADA)),chaves=new Map();
   for(const n of ns)if(n.CHAVENFE)chaves.set(n.CHAVENFE,(chaves.get(n.CHAVENFE)||0)+1);
   const ids=new Set(ns.filter(n=>!n.CHAVENFE||chaves.get(n.CHAVENFE)===1).map(n=>n.CD_FILIAL+":"+n.CD_COMPRAS));
-  const cat=comprasClasses.get(l.loja);
   for(const i of l.itensDados){
    if(!ids.has(i.CD_FILIAL+":"+i.CD_COMPRAS))continue;
    const v=Number(i.VL_TOTAL);if(i.VL_TOTAL==null||i.VL_TOTAL===""||!Number.isFinite(v)||v<0){invalidos++;continue;}
-   const ean=String(i.CODIGO_BARRAS??"").trim(),codigo=String(i.CD_PRODUTO??"").trim();
-   const porEan=cat?.eans.get(ean),porCodigo=cat?.codigos.get(codigo);
-   const classe=(porEan===null||porCodigo===null||porEan&&porCodigo&&porEan!==porCodigo?null:porEan||porCodigo)||"SEM CLASSIFICAÇÃO";
+   if(!Object.hasOwn(i,"CLASSE")){semCampo++;filiaisSemCampo.add(comprasNomes[l.loja]||l.loja);}
+   const classe=(i.CD_CLASSE!=null?String(i.CLASSE??"").trim().toUpperCase():"")||"SEM CLASSIFICAÇÃO";
    if(classe==="SEM CLASSIFICAÇÃO")semClasse+=v;
    const r=classes.get(classe)||{classe,v:0,n:0,filiais:new Map()};r.v+=v;r.n++;r.filiais.set(l.loja,(r.filiais.get(l.loja)||0)+v);classes.set(classe,r);total+=v;
   }
  }
  const rows=[...classes.values()].sort((a,b)=>b.v-a.v),pct=v=>total>0?(100*v/total).toLocaleString("pt-BR",{maximumFractionDigits:2})+"%":"—";
- aviso.textContent=comprasClassesEstado+"Total dos itens: "+moeda(total)+" · Sem classificação: "+moeda(semClasse)+" ("+pct(semClasse)+") · "+invalidos+" itens com valor inválido excluídos. Gráfico: até 12 classes por valor.";
+ aviso.textContent=(semCampo?"Aguardando reextração com classes Farmax: "+[...filiaisSemCampo].join(", ")+" ("+semCampo+" itens antigos). ":"")+"Total dos itens: "+moeda(total)+" · Sem classificação: "+moeda(semClasse)+" ("+pct(semClasse)+") · "+invalidos+" itens com valor inválido excluídos. Gráfico: até 12 classes por valor.";
  for(const r of rows.slice(0,12)){
   const linha=document.createElement("div");linha.className="compras-classe-linha";
   const nome=document.createElement("span");nome.textContent=r.classe;
@@ -10237,7 +10205,7 @@ function renderCompras(){
  const disponiveis=new Map(comprasDados.map(l=>[l.loja,l]));
  comprasTabela("comprasFiliais",["Filial","Última extração","Notas no filtro","Compras"],Object.keys(comprasNomes).map(k=>{const l=disponiveis.get(k),r=resumos.find(x=>x[0]===comprasNomes[k]);return [comprasNomes[k],l?new Date(l.extraido_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Sem sincronização",r?.[1]??"—",r?.[2]??"—"];}));
  renderOrcamentoCompras(resumos,disponiveis,comprasPeriodo==="mes"?mes:"",filial,moeda);
- if(el("abaCompras").querySelector('[data-compras-tab="classes"]').getAttribute("aria-pressed")==="true"){renderClassesCompras();carregarClassesCompras();}
+ if(el("abaCompras").querySelector('[data-compras-tab="classes"]').getAttribute("aria-pressed")==="true"){renderClassesCompras();}
  const listaFornecedores=[...fornecedores.values()].sort((a,b)=>b.v-a.v);
  const filiaisFornecedores=[...new Set(lojas.map(l=>l.loja))].sort((a,b)=>Object.keys(comprasNomes).indexOf(a)-Object.keys(comprasNomes).indexOf(b));
  comprasTabela("comprasFornecedores",["Fornecedor","Notas","Total"],listaFornecedores.map(r=>[r.nome,r.q,moeda(r.v)]),{
@@ -10434,7 +10402,7 @@ function abrirSubabaCompras(nome){
  if(nome==="cmv"){carregarCmv();}else{cmvSeq++;cmvPendente=null;}
 }
 el("abaCompras").querySelector(".compras-tabs").addEventListener("click",e=>{
- const btn=e.target.closest("[data-compras-tab]");if(btn){abrirSubabaCompras(btn.dataset.comprasTab);if(btn.dataset.comprasTab==="classes"){renderClassesCompras();carregarClassesCompras();}}
+ const btn=e.target.closest("[data-compras-tab]");if(btn){abrirSubabaCompras(btn.dataset.comprasTab);if(btn.dataset.comprasTab==="classes"){renderClassesCompras();}}
 });
 el("comprasAtualizar").addEventListener("click",()=>{limparCacheRelatoriosRede();if(cmvAtiva()){carregarCmv(true);return;}carregarCompras();});
 el("comprasFilial").addEventListener("input",renderCompras);
