@@ -1313,6 +1313,9 @@
 #abaCompras .cmv-auditoria-filtros{margin:12px 16px 0;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}
 #abaCompras .cmv-auditoria-filtros input,#abaCompras .cmv-auditoria-filtros select{width:100%;min-width:0;box-sizing:border-box}
 #abaCompras .cmv-auditoria-resumo{margin:10px 16px}
+#abaCompras .cmv-revisao{display:grid;gap:5px;min-width:130px}
+#abaCompras .cmv-revisao select{min-width:130px;padding:5px;font-size:12px}
+#abaCompras .cmv-revisao small{font-size:11px;opacity:.8}
 #abaCompras .cmv-medidor{display:grid;gap:5px;min-width:100px;font-variant-numeric:tabular-nums}
 #abaCompras .cmv-trilho{display:block;height:5px;border-radius:10px;background:rgba(130,130,160,.28);overflow:hidden}
 #abaCompras .cmv-trilho>span{display:block;height:100%;border-radius:inherit;background:var(--cmv-cor)}
@@ -1361,7 +1364,7 @@
 <div class="cmv-card"><h3>Comparativo por filial</h3><div id="cmvFiliais" class="tabela-wrap"></div></div>
 <div class="cmv-grid">
 <details class="cmv-card cmv-secao"><summary>CMV por classe · Farmax</summary><div class="cmv-classes-filtros"><label for="cmvClassesFilial">Filial<select id="cmvClassesFilial"><option value="">Todas as filiais disponíveis</option></select></label><small>Filtra somente esta tabela, dentro do período e dos filtros gerais selecionados.</small></div><div id="cmvClasses" class="tabela-wrap"></div></details>
-<details class="cmv-card cmv-secao"><summary>Auditoria de custos</summary><div class="cmv-filtros cmv-auditoria-filtros"><label>Filial<select id="cmvAudFilial"><option value="">Todas as filiais disponíveis</option></select></label><label>Classe<select id="cmvAudClasse"><option value="">Todas as classes disponíveis</option></select></label><label>Produto / código<input id="cmvBusca" placeholder="Buscar produto ou código"></label><label>Tipo de alerta<select id="cmvTipo"><option value="">Todos os alertas</option><option value="SUSPEITO">Custo suspeito</option><option value="INVALIDO">Custo ou dado inválido</option><option value="SEM_ALERTA">Outros alertas de rentabilidade</option></select></label><button type="button" id="cmvAudLimpar">Limpar filtros da auditoria</button></div><p id="cmvAudResumo" class="compras-ajuda cmv-auditoria-resumo" role="status">Filtra somente esta tabela, dentro do período e dos filtros gerais.</p><div id="cmvAuditoria" class="tabela-wrap"></div></details>
+<details class="cmv-card cmv-secao"><summary>Auditoria de custos</summary><div class="cmv-filtros cmv-auditoria-filtros"><label>Filial<select id="cmvAudFilial"><option value="">Todas as filiais disponíveis</option></select></label><label>Classe<select id="cmvAudClasse"><option value="">Todas as classes disponíveis</option></select></label><label>Produto / código<input id="cmvBusca" placeholder="Buscar produto ou código"></label><label>Tipo de alerta<select id="cmvTipo"><option value="">Todos os alertas</option><option value="SUSPEITO">Custo suspeito</option><option value="INVALIDO">Custo ou dado inválido</option><option value="SEM_ALERTA">Outros alertas de rentabilidade</option></select></label><label>Status<select id="cmvAudStatus" disabled><option value="">Todos os status</option><option value="PENDENTE">Pendente</option><option value="EM_ANALISE">Em análise</option><option value="CORRIGIDO">Corrigido</option></select></label><button type="button" id="cmvAudLimpar">Limpar filtros da auditoria</button></div><p id="cmvAudResumo" class="compras-ajuda cmv-auditoria-resumo" role="status">Filtra somente esta tabela, dentro do período e dos filtros gerais.</p><p id="cmvAudRevisaoAviso" class="compras-ajuda cmv-auditoria-resumo" role="status">Status: aguardando carregamento. Marcar como corrigido não altera o custo histórico.</p><div id="cmvAuditoria" class="tabela-wrap"></div></details>
 </div>
 <aside class="cmv-card cmv-observacoes"><h3>ⓘ Observações</h3><ul><li>Indicadores gerenciais: vendas líquidas de devoluções e arredondamentos; custo médio × quantidade, deduzindo o custo das devoluções. Resultado e margem bruta ainda não descontam as despesas da loja.</li><li>Cores do CMV: verde até 60%, amarelo acima de 60% até 70%, vermelho acima de 70%. Faixas visuais de referência, sem validar a saúde financeira da filial.</li><li>CMV sem registros suspeitos exclui suas vendas e custos do cálculo. É uma comparação auxiliar, sem corrigir o cadastro.</li><li>Use a auditoria para investigar custos. Alertas não comprovam erro ou prejuízo; devoluções, embalagens e valores negativos precisam ser conciliados no Farmax.</li></ul></aside>
 </div>
@@ -10260,6 +10263,8 @@ function renderCompras(){
  el("comprasAviso").replaceChildren(resumoAviso,detalheAviso);
 }
 let cmvSeq=0,cmvCache=null,cmvPendente=null,cmvAuditoriaDados=[],cmvGruposDados=[],cmvFiliaisDados=[];
+let cmvRevSeq=0,cmvRevEstado="idle",cmvRevisoes=new Map();const cmvRevBusy=new Set();
+const cmvStatusNomes={PENDENTE:"Pendente",EM_ANALISE:"Em análise",CORRIGIDO:"Corrigido"};
 const cmvAtiva=()=>el("abaCompras").querySelector('[data-compras-tab="cmv"]').getAttribute("aria-pressed")==="true";
 const cmvIds={prudente:1,"jd-silvina":2,oliveira:3};
 const cmvNome=f=>comprasNomes[Object.keys(cmvIds).find(k=>cmvIds[k]===Number(f))]||String(f);
@@ -10269,11 +10274,58 @@ function cmvFaixa(c,v){const p=v>0&&Number.isFinite(c)?100*c/v:NaN;return {p,cor
 function cmvBarra(c,v){const f=cmvFaixa(c,v),box=document.createElement("span"),label=document.createElement("span");box.className="cmv-medidor "+f.cor;label.textContent=cmvPct(c,v);box.append(label);if(f.cor){const trilho=document.createElement("span"),fill=document.createElement("span");trilho.className="cmv-trilho";trilho.setAttribute("aria-hidden","true");fill.style.width=Math.max(0,Math.min(100,f.p))+"%";trilho.append(fill);box.append(trilho);}return box;}
 function cmvSelo(texto,cor){const span=document.createElement("span");span.className="cmv-selo "+cor;span.textContent=texto;return span;}
 function cmvSomar(rows){return rows.reduce((s,r)=>{s.v+=r.VENDAS;s.c+=r.CMV;s.n+=r.REGISTROS;if(r.FAIXA==="SEM_ALERTA"){s.va+=r.VENDAS;s.ca+=r.CMV;}else{s.alertas+=r.REGISTROS;}return s;},{v:0,c:0,n:0,va:0,ca:0,alertas:0});}
-function limparCmv(){limparFiltrosCmvAuditoria();cmvAudOpcoes("cmvAudFilial","Todas as filiais disponíveis",[]);cmvAudOpcoes("cmvAudClasse","Todas as classes disponíveis",[]);el("cmvAudResumo").textContent="Filtra somente esta tabela, dentro do período e dos filtros gerais.";el("cmvClassesFilial").replaceChildren(new Option("Todas as filiais disponíveis",""));cmvSeq++;cmvCache=null;cmvPendente=null;cmvAuditoriaDados=[];cmvGruposDados=[];cmvFiliaisDados=[];for(const id of ["cmvAviso","cmvKpis","cmvFiliais","cmvClasses","cmvAuditoria"])el(id).replaceChildren();el("cmvBusca").value="";el("cmvTipo").value="";el("cmvFilial").value="";el("cmvClasse").replaceChildren(new Option("Todas as classes",""));}
+function limparCmv(){cmvRevReset();limparFiltrosCmvAuditoria();cmvAudOpcoes("cmvAudFilial","Todas as filiais disponíveis",[]);cmvAudOpcoes("cmvAudClasse","Todas as classes disponíveis",[]);el("cmvAudResumo").textContent="Filtra somente esta tabela, dentro do período e dos filtros gerais.";el("cmvClassesFilial").replaceChildren(new Option("Todas as filiais disponíveis",""));cmvSeq++;cmvCache=null;cmvPendente=null;cmvAuditoriaDados=[];cmvGruposDados=[];cmvFiliaisDados=[];for(const id of ["cmvAviso","cmvKpis","cmvFiliais","cmvClasses","cmvAuditoria"])el(id).replaceChildren();el("cmvBusca").value="";el("cmvTipo").value="";el("cmvFilial").value="";el("cmvClasse").replaceChildren(new Option("Todas as classes",""));}
 function cmvAudOpcoes(id,titulo,opcoes){
  const select=el(id),anterior=select.value;
  select.replaceChildren(new Option(titulo,""),...opcoes.map(([v,n])=>new Option(n,v)));
  select.value=opcoes.some(([v])=>v===anterior)?anterior:"";
+}
+function cmvProdutoRevisao(r){
+ const id=String(r.ID_PRODUTO??"").trim(),codigo=String(r.CD_PRODUTO??"").trim();
+ const valor=id&&id!=="0"?"id:"+id:codigo?"codigo:"+codigo:"";
+ return valor&&valor.length<=107?valor:"";
+}
+const cmvRevChave=(filial,produto)=>JSON.stringify([Number(filial),produto]);
+function cmvRevAtual(r){return cmvRevisoes.get(cmvRevChave(r.FILIAL,cmvProdutoRevisao(r)))||{status:"PENDENTE"};}
+function cmvRevAviso(texto){el("cmvAudRevisaoAviso").textContent=texto+" Marcar como corrigido não altera o custo histórico.";}
+function cmvRevReset(){cmvRevSeq++;cmvRevEstado="idle";cmvRevisoes.clear();cmvRevBusy.clear();el("cmvAudStatus").disabled=true;cmvRevAviso("Status: aguardando carregamento.");}
+async function carregarCmvRevisoes(){
+ if(!souDono||!cmvAtiva()||cmvRevBusy.size)return;
+ const seq=++cmvRevSeq,cred=senha,loja=lojaAtual;
+ const valido=()=>seq===cmvRevSeq&&souDono&&senha===cred&&lojaAtual===loja;
+ cmvRevEstado="loading";el("cmvAudStatus").disabled=true;cmvRevAviso("Carregando status de revisão...");renderCmvAuditoria();
+ try{
+  const d=await api("/cmv/rede/revisoes");if(!valido())return;
+  if(!d.ok||!Array.isArray(d.revisoes))throw Error("Resposta inválida");
+  cmvRevisoes=new Map(d.revisoes.filter(r=>[1,2,3].includes(Number(r.filial))&&typeof r.produto==="string"&&Object.hasOwn(cmvStatusNomes,r.status)).map(r=>[cmvRevChave(r.filial,r.produto),r]));
+  cmvRevEstado="ready";el("cmvAudStatus").disabled=false;cmvRevAviso("Status de revisão sincronizados.");renderCmvAuditoria();
+ }catch{if(valido()){cmvRevEstado="error";el("cmvAudStatus").disabled=true;cmvRevAviso("Status indisponíveis. Atualize o painel após configurar o servidor.");renderCmvAuditoria();}}
+}
+async function salvarCmvRevisao(r,status){
+ const produto=cmvProdutoRevisao(r),filial=Number(r.FILIAL),k=cmvRevChave(filial,produto);
+ if(!produto||cmvRevEstado!=="ready"||!Object.hasOwn(cmvStatusNomes,status)||cmvRevBusy.has(k))return;
+ const seq=cmvRevSeq,cred=senha,loja=lojaAtual;
+ const valido=()=>seq===cmvRevSeq&&souDono&&senha===cred&&lojaAtual===loja;
+ cmvRevBusy.add(k);renderCmvAuditoria();cmvRevAviso("Salvando revisão...");
+ try{
+  const resp=await fetch((API.endsWith("/")?API.slice(0,-1):API)+"/cmv/rede/revisoes",{method:"POST",headers:cabecalhos({"Content-Type":"application/json"}),body:JSON.stringify({filial,produto,status})});
+  const d=await resp.json();if(!valido())return;
+  if(!resp.ok||!d.ok||d.revisao?.status!==status||d.revisao.produto!==produto||Number(d.revisao.filial)!==filial)throw Error("Não foi possível salvar");
+  cmvRevisoes.set(k,d.revisao);cmvRevAviso("Revisão salva: "+cmvStatusNomes[status]+".");
+ }catch{if(valido())cmvRevAviso("Não foi possível salvar a revisão. Tente novamente.");}
+ finally{if(valido()){cmvRevBusy.delete(k);renderCmvAuditoria();}}
+}
+function cmvRevControle(r){
+ const produto=cmvProdutoRevisao(r),box=document.createElement("div");box.className="cmv-revisao";
+ if(!produto||cmvRevEstado!=="ready"){box.textContent=!produto?"Sem código":"—";return box;}
+ const atual=cmvRevAtual(r),select=document.createElement("select");
+ select.setAttribute("aria-label","Status da revisão: "+String(r.PRODUTO??r.CD_PRODUTO??"produto"));
+ select.append(...Object.entries(cmvStatusNomes).map(([v,n])=>new Option(n,v)));
+ select.value=atual.status;select.disabled=cmvRevBusy.has(cmvRevChave(r.FILIAL,produto));
+ select.addEventListener("change",()=>salvarCmvRevisao(r,select.value));
+ box.append(select);
+ if(atual.atualizado_em){const d=new Date(atual.atualizado_em);if(Number.isFinite(d.getTime())){const t=document.createElement("small");t.textContent=d.toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"});box.append(t);}}
+ return box;
 }
 function renderCmvAuditoria(){
  const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("pt-BR");
@@ -10285,14 +10337,14 @@ function renderCmvAuditoria(){
  const porFilial=base.filter(r=>!filial||String(r.FILIAL)===filial);
  const classes=new Map(porFilial.map(r=>[String(r.CD_CLASSE??"null"),r.CLASSE||"Sem classe"]));
  cmvAudOpcoes("cmvAudClasse","Todas as classes disponíveis",[...classes].sort((a,b)=>a[1].localeCompare(b[1],"pt-BR")));
- const classe=el("cmvAudClasse").value;
- const rows=porFilial.filter(r=>(!classe||String(r.CD_CLASSE??"null")===classe)&&(!tipo||r.FAIXA===tipo)&&(!term||norm(String(r.CD_PRODUTO??"")+" "+String(r.PRODUTO??"")).includes(term))).sort((a,b)=>(b.CMV-b.VENDAS)-(a.CMV-a.VENDAS));
+ const classe=el("cmvAudClasse").value,status=cmvRevEstado==="ready"?el("cmvAudStatus").value:"";
+ const rows=porFilial.filter(r=>(!status||cmvRevAtual(r).status===status)&&(!classe||String(r.CD_CLASSE??"null")===classe)&&(!tipo||r.FAIXA===tipo)&&(!term||norm(String(r.CD_PRODUTO??"")+" "+String(r.PRODUTO??"")).includes(term))).sort((a,b)=>(b.CMV-b.VENDAS)-(a.CMV-a.VENDAS));
  el("cmvAudResumo").textContent=rows.length.toLocaleString("pt-BR")+" de "+base.length.toLocaleString("pt-BR")+" grupos de auditoria • "+rows.reduce((n,r)=>n+r.REGISTROS,0).toLocaleString("pt-BR")+" lançamentos. Filtros restritos a esta tabela.";
- comprasTabela("cmvAuditoria",["Produto / código","Filial","Classe","Tipo","Registros","Vendas","Custo registrado"],rows.map(r=>[String(r.PRODUTO??"Sem descrição")+" · "+String(r.CD_PRODUTO??"—"),cmvNome(r.FILIAL),r.CLASSE||"Sem classe",r.FAIXA==="SUSPEITO"?"Custo > 2× venda":r.FAIXA==="INVALIDO"?"Dado inválido":"Custo > venda / receita não positiva",r.REGISTROS,cmvMoeda(r.VENDAS),cmvMoeda(r.CMV)]),{celula:(i,j,value)=>j===3?cmvSelo(value,rows[i].FAIXA==="SUSPEITO"||rows[i].FAIXA==="INVALIDO"?"cmv-vermelho":"cmv-amarelo"):null});
+ comprasTabela("cmvAuditoria",["Produto / código","Filial","Classe","Tipo","Registros","Vendas","Custo registrado","Status"],rows.map(r=>[String(r.PRODUTO??"Sem descrição")+" · "+String(r.CD_PRODUTO??"—"),cmvNome(r.FILIAL),r.CLASSE||"Sem classe",r.FAIXA==="SUSPEITO"?"Custo > 2× venda":r.FAIXA==="INVALIDO"?"Dado inválido":"Custo > venda / receita não positiva",r.REGISTROS,cmvMoeda(r.VENDAS),cmvMoeda(r.CMV),cmvRevEstado==="ready"?cmvStatusNomes[cmvRevAtual(r).status]:"—"]),{celula:(i,j,value)=>j===7?cmvRevControle(rows[i]):j===3?cmvSelo(value,rows[i].FAIXA==="SUSPEITO"||rows[i].FAIXA==="INVALIDO"?"cmv-vermelho":"cmv-amarelo"):null});
 }
 el("cmvBusca").addEventListener("input",renderCmvAuditoria);
-for(const id of ["cmvTipo","cmvAudFilial","cmvAudClasse"])el(id).addEventListener("change",renderCmvAuditoria);
-function limparFiltrosCmvAuditoria(){for(const id of ["cmvBusca","cmvTipo","cmvAudFilial","cmvAudClasse"])el(id).value="";el("comprasBusca").value="";}
+for(const id of ["cmvTipo","cmvAudFilial","cmvAudClasse","cmvAudStatus"])el(id).addEventListener("change",renderCmvAuditoria);
+function limparFiltrosCmvAuditoria(){for(const id of ["cmvBusca","cmvTipo","cmvAudFilial","cmvAudClasse","cmvAudStatus"])el(id).value="";el("comprasBusca").value="";}
 el("cmvAudLimpar").addEventListener("click",()=>{limparFiltrosCmvAuditoria();renderCmvAuditoria();});
 function renderCmvClasses(){
  const filtro=el("cmvClassesFilial"),anterior=filtro.value,classe=el("cmvClasse").value;
@@ -10334,7 +10386,7 @@ async function carregarCmv(force=false){
  el("cmvFilial").value=el("comprasFilial").value;
  const aviso=el("cmvAviso"),key=JSON.stringify([inicio,fim,f||0,exec]);
  if(!inicio||!fim||inicio>fim||(Date.parse(fim)-Date.parse(inicio))/86400000>92){limparCmv();aviso.textContent="Selecione um período válido de até 93 dias.";return;}
- if(!force&&cmvCache?.key===key&&Date.now()-cmvCache.time<3600000){return;}
+ if(!force&&cmvCache?.key===key&&Date.now()-cmvCache.time<3600000){carregarCmvRevisoes();return;}
  if(cmvPendente===key)return;
  cmvPendente=key;cmvCache=null;const seq=++cmvSeq;
  const valido=()=>seq===cmvSeq&&exec===comprasExec&&souDono&&senha===cred&&cmvAtiva();
@@ -10356,7 +10408,7 @@ async function carregarCmv(force=false){
  const select=el("cmvClasse"),anterior=select.value,classes=new Map(rows.map(r=>[String(r.CD_CLASSE??"null"),r.CLASSE||"Sem classe"]));
  select.replaceChildren(new Option("Todas as classes",""),...[...classes].sort((a,b)=>a[1].localeCompare(b[1],"pt-BR")).map(([id,n])=>new Option(n,id)));
  if(classes.has(anterior))select.value=anterior;
- renderCmvIndicadores();cmvCache={key,time:Date.now()};
+ renderCmvIndicadores();cmvCache={key,time:Date.now()};carregarCmvRevisoes();
 
  }catch(e){if(valido())aviso.textContent="CMV indisponível: "+e.message+". Confira o Worker administrativo e tente Atualizar.";}
  finally{if(seq===cmvSeq)cmvPendente=null;}
